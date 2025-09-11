@@ -1,0 +1,828 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../../../theme/app_constants.dart';
+import '../../../theme/theme_extensions.dart';
+import 'package:iconsax/iconsax.dart';
+import '../../../core/snackbars/loaders.dart';
+import 'account_settings_screen.dart';
+import 'change_password_screen.dart';
+import '../../support/presentation/reports_tickets_screen.dart';
+import '../../auth/presentation/login_screen.dart';
+import '../../auth/data/auth_repository.dart';
+
+class ProfileScreen extends StatefulWidget {
+  const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateMixin {
+  late AnimationController _fadeController;
+  late Animation<double> _fadeAnimation;
+  
+  // Track active reports count for badge
+  int _activeReportsCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _fadeController = AnimationController(
+      duration: AppConstants.durationNormal,
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
+    );
+    _fadeController.forward();
+    
+    // Load active reports count
+    _loadActiveReportsCount();
+  }
+
+  void _loadActiveReportsCount() {
+    // Get sample reports data to calculate badge count
+    final sampleReports = _getSampleReports();
+    final activeCount = sampleReports.where((report) => 
+      report.status == ReportStatus.pending || 
+      report.status == ReportStatus.inProgress ||
+      report.status == ReportStatus.resolved
+    ).length;
+    
+    setState(() {
+      _activeReportsCount = activeCount;
+    });
+  }
+
+  List<Report> _getSampleReports() {
+    // This mirrors the data from reports_tickets_screen.dart
+    return [
+      Report(
+        id: 'R001',
+        unitNumber: '204-B',
+        category: 'Maintenance / Repairs',
+        subCategory: 'Plumbing (leaks, clogs, water issues)',
+        description: 'Kitchen sink is clogged and water is backing up',
+        status: ReportStatus.inProgress,
+        submittedAt: DateTime.now().subtract(const Duration(days: 2)),
+        tenantName: 'Caleb Anderson',
+        updates: [],
+      ),
+      Report(
+        id: 'R002',
+        unitNumber: '204-B',
+        category: 'Billing & Payment',
+        subCategory: 'Incorrect billing amount',
+        description: 'Monthly rent charged includes utilities but I handle my own utilities',
+        status: ReportStatus.resolved,
+        submittedAt: DateTime.now().subtract(const Duration(days: 7)),
+        resolvedAt: DateTime.now().subtract(const Duration(days: 3)),
+        tenantName: 'Caleb Anderson',
+        updates: [],
+      ),
+      Report(
+        id: 'R003',
+        unitNumber: '204-B',
+        category: 'Complaints / Concerns',
+        subCategory: 'Noise disturbance',
+        description: 'Upstairs neighbor playing loud music past midnight on weekdays',
+        status: ReportStatus.pending,
+        submittedAt: DateTime.now().subtract(const Duration(hours: 3)),
+        tenantName: 'Caleb Anderson',
+        updates: [],
+      ),
+    ];
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Refresh badge count whenever the screen becomes visible
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadActiveReportsCount();
+    });
+  }
+
+  @override
+  void dispose() {
+    _fadeController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          'Profile',
+          style: context.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.bold,
+            fontFamily: 'Montserrat',
+          ),
+        ),
+        toolbarHeight: AppConstants.appBarHeight,
+        elevation: 0,
+        backgroundColor: context.colorScheme.surface,
+      ),
+      body: FadeTransition(
+        opacity: _fadeAnimation,
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Column(
+            children: [
+              _ProfileHeader(),
+              SizedBox(height: AppConstants.spacingLG),
+              _ProfileSections(
+                activeReportsCount: _activeReportsCount,
+                onRefreshBadge: _loadActiveReportsCount,
+              ),
+              SizedBox(height: AppConstants.spacingXL),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Profile Header Widget
+class _ProfileHeader extends StatelessWidget {
+  const _ProfileHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: EdgeInsets.all(AppConstants.spacingMD),
+      padding: EdgeInsets.all(AppConstants.spacingLG),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            context.colorScheme.primary,
+            context.colorScheme.primary.withValues(alpha: 0.92),
+            context.colorScheme.primaryContainer,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: context.radiusXL,
+        boxShadow: [
+          BoxShadow(
+            color: context.colorScheme.primary.withValues(alpha: 0.18),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Profile Picture
+          Stack(
+            children: [
+              Hero(
+                tag: 'profile_picture',
+                child: Container(
+                  width: 100,
+                  height: 100,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white,
+                      width: 4,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 15,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: ClipOval(
+                    child: Image.asset(
+                      'assets/images/default_profile.png',
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: context.colorScheme.surfaceContainerHighest,
+                          child: Icon(
+                            Iconsax.user,
+                            size: 40,
+                            color: context.colorScheme.onSurface.withValues(alpha: 0.6),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: Container(
+                  padding: EdgeInsets.all(AppConstants.spacingXS),
+                  decoration: BoxDecoration(
+                    color: context.colorScheme.secondary,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                  ),
+                  child: Icon(
+                    Iconsax.camera,
+                    size: 16,
+                    color: context.colorScheme.onSecondary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: AppConstants.spacingMD),
+          
+          // Name and Unit
+          Text(
+            'Caleb Anderson',
+            style: context.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+              fontFamily: 'Montserrat',
+            ),
+          ),
+          SizedBox(height: AppConstants.spacingXS),
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: AppConstants.spacingSM,
+              vertical: AppConstants.spacingXS,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              'Unit 204-B',
+              style: context.textTheme.titleMedium?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          SizedBox(height: AppConstants.spacingMD),
+          
+          // Quick Info
+          _QuickInfoRow(),
+        ],
+      ),
+    );
+  }
+}
+
+// Quick Info Row Widget
+class _QuickInfoRow extends StatelessWidget {
+  const _QuickInfoRow();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Icon(
+              Iconsax.sms,
+              size: 16,
+              color: Colors.white.withValues(alpha: 0.8),
+            ),
+            SizedBox(width: AppConstants.spacingXS),
+            Expanded(
+              child: Text(
+                'caleb.anderson@email.com',
+                style: context.textTheme.bodyMedium?.copyWith(
+                  color: Colors.white.withValues(alpha: 0.9),
+                  fontFamily: 'Montserrat',
+                ),
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: AppConstants.spacingXS),
+        Row(
+          children: [
+            Icon(
+              Iconsax.call,
+              size: 16,
+              color: Colors.white.withValues(alpha: 0.8),
+            ),
+            SizedBox(width: AppConstants.spacingXS),
+            Text(
+              '+63 912 345 6789',
+              style: context.textTheme.bodyMedium?.copyWith(
+                color: Colors.white.withValues(alpha: 0.9),
+                fontFamily: 'Montserrat',
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: AppConstants.spacingXS),
+        Row(
+          children: [
+            Icon(
+              Iconsax.calendar,
+              size: 16,
+              color: Colors.white.withValues(alpha: 0.8),
+            ),
+            SizedBox(width: AppConstants.spacingXS),
+            Text(
+              'Move-in: January 15, 2024',
+              style: context.textTheme.bodyMedium?.copyWith(
+                color: Colors.white.withValues(alpha: 0.9),
+                fontFamily: 'Montserrat',
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+// Profile Sections Widget
+class _ProfileSections extends StatelessWidget {
+  final int activeReportsCount;
+  final VoidCallback onRefreshBadge;
+  
+  const _ProfileSections({
+    required this.activeReportsCount,
+    required this.onRefreshBadge,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: AppConstants.spacingMD),
+      child: Column(
+        children: [
+          _ProfileSection(
+            title: 'Account',
+            items: [
+              _ProfileMenuItem(
+                icon: Iconsax.setting_2,
+                title: 'Account Settings',
+                subtitle: 'Edit profile, manage occupants',
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const AccountSettingsScreen(),
+                    ),
+                  );
+                },
+              ),
+              _ProfileMenuItem(
+                icon: Iconsax.security_safe,
+                title: 'Security',
+                subtitle: 'Change password',
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const ChangePasswordScreen(),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+          SizedBox(height: AppConstants.spacingMD),
+          _ProfileSection(
+            title: 'Contract & Property',
+            items: [
+              _ProfileMenuItem(
+                icon: Iconsax.document_text,
+                title: 'My Contract',
+                subtitle: 'Download, view end date',
+                onTap: () => _showComingSoon(context),
+              ),
+              _ProfileMenuItem(
+                icon: Iconsax.home_2,
+                title: 'Unit Transfer',
+                subtitle: 'Request unit change',
+                onTap: () => _showComingSoon(context),
+              ),
+              _ProfileMenuItem(
+                icon: Iconsax.refresh,
+                title: 'Renew / Move-out',
+                subtitle: 'Contract renewal options',
+                onTap: () => _showComingSoon(context),
+              ),
+            ],
+          ),
+          SizedBox(height: AppConstants.spacingMD),
+          _ProfileSection(
+            title: 'Support',
+            items: [
+              _ProfileMenuItem(
+                icon: Iconsax.message_question,
+                title: 'Reports & Tickets',
+                subtitle: activeReportsCount > 0 
+                    ? 'Submit and track issues • ${activeReportsCount} active'
+                    : 'Submit and track issues',
+                onTap: () async {
+                  HapticFeedback.lightImpact();
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const ReportsTicketsScreen(),
+                    ),
+                  );
+                  // Refresh badge count when returning from Reports screen
+                  onRefreshBadge();
+                },
+                showBadge: activeReportsCount > 0,
+                badgeCount: activeReportsCount,
+              ),
+            ],
+          ),
+          SizedBox(height: AppConstants.spacingMD),
+          _ProfileSection(
+            title: 'Information',
+            items: [
+              _ProfileMenuItem(
+                icon: Iconsax.info_circle,
+                title: 'About App',
+                subtitle: 'Version, privacy policy',
+                onTap: () => _showAboutDialog(context),
+              ),
+            ],
+          ),
+          SizedBox(height: AppConstants.spacingMD),
+          _LogoutButton(),
+        ],
+      ),
+    );
+  }
+
+  void _showComingSoon(BuildContext context) {
+    HapticFeedback.lightImpact();
+    Loaders.customToast(context, message: 'Coming Soon!');
+  }
+
+  void _showAboutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'About Pinesville App',
+          style: TextStyle(
+            fontFamily: 'Montserrat',
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Version: 1.0.0'),
+            SizedBox(height: AppConstants.spacingSM),
+            Text('Developer: Pinesville Management'),
+            SizedBox(height: AppConstants.spacingSM),
+            Text('© 2025 Pinesville. All rights reserved.'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Profile Section Widget
+class _ProfileSection extends StatelessWidget {
+  final String title;
+  final List<Widget> items;
+
+  const _ProfileSection({
+    required this.title,
+    required this.items,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: AppConstants.spacingSM),
+          child: Text(
+            title,
+            style: context.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: context.colorScheme.onSurface.withValues(alpha: 0.8),
+              fontFamily: 'Montserrat',
+            ),
+          ),
+        ),
+        SizedBox(height: AppConstants.spacingSM),
+        Container(
+          decoration: BoxDecoration(
+            color: context.colorScheme.surface,
+            borderRadius: context.radiusXL,
+            boxShadow: [
+              BoxShadow(
+                color: context.colorScheme.outline.withValues(alpha: 0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            children: items,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// Profile Menu Item Widget
+class _ProfileMenuItem extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+  final bool showBadge;
+  final int badgeCount;
+
+  const _ProfileMenuItem({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.showBadge = false,
+    this.badgeCount = 0,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: context.radiusXL,
+        child: Container(
+          padding: EdgeInsets.all(AppConstants.spacingMD),
+          child: Row(
+            children: [
+              // Icon Container
+              Container(
+                padding: EdgeInsets.all(AppConstants.spacingSM),
+                decoration: BoxDecoration(
+                  color: context.colorScheme.primaryContainer.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  icon,
+                  color: context.colorScheme.primary,
+                  size: 24,
+                ),
+              ),
+              SizedBox(width: AppConstants.spacingMD),
+              
+              // Content
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          title,
+                          style: context.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            fontFamily: 'Montserrat',
+                          ),
+                        ),
+                        if (showBadge && badgeCount > 0) ...[
+                          SizedBox(width: AppConstants.spacingXS),
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: AppConstants.spacingXS,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: context.colorScheme.error,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              badgeCount.toString(),
+                              style: context.textTheme.bodySmall?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    SizedBox(height: AppConstants.spacingXS / 2),
+                    Text(
+                      subtitle,
+                      style: context.textTheme.bodySmall?.copyWith(
+                        color: context.colorScheme.onSurface.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Arrow Icon
+              Icon(
+                Iconsax.arrow_right_3,
+                color: context.colorScheme.onSurface.withValues(alpha: 0.4),
+                size: 16,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Logout Button Widget
+class _LogoutButton extends StatelessWidget {
+  const _LogoutButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: EdgeInsets.symmetric(vertical: AppConstants.spacingSM),
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: context.colorScheme.errorContainer,
+          foregroundColor: context.colorScheme.onErrorContainer,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: context.radiusXL,
+          ),
+          padding: EdgeInsets.symmetric(vertical: AppConstants.spacingMD),
+        ),
+        onPressed: () => _showLogoutDialog(context),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Iconsax.logout,
+              size: 20,
+            ),
+            SizedBox(width: AppConstants.spacingSM),
+            Text(
+              'Logout',
+              style: context.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                fontFamily: 'Montserrat',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showLogoutDialog(BuildContext context) {
+    HapticFeedback.mediumImpact();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Logout',
+          style: TextStyle(
+            fontFamily: 'Montserrat',
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to logout?',
+          style: TextStyle(fontFamily: 'Montserrat'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: context.colorScheme.error,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              Navigator.of(context).pop();
+              
+              try {
+                // Show loading indicator using circular progress dialog
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (context) => const AlertDialog(
+                    content: Row(
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(width: 20),
+                        Text('Logging out...'),
+                      ],
+                    ),
+                  ),
+                );
+                
+                // Sign out using AuthRepository
+                await AuthRepository.instance.logout();
+                
+                // Hide loading dialog
+                if (context.mounted) {
+                  Navigator.of(context).pop();
+                }
+                
+                // Navigate to login screen and clear navigation stack
+                if (context.mounted) {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(
+                      builder: (context) => const LoginScreen(),
+                    ),
+                    (route) => false,
+                  );
+                }
+                
+                // Show success message
+                if (context.mounted) {
+                  Loaders.successSnackBar(
+                    context,
+                    title: 'Logged out successfully',
+                  );
+                }
+              } catch (e) {
+                // Hide loading dialog if error occurs
+                if (context.mounted) {
+                  Navigator.of(context).pop();
+                }
+                
+                // Show error message
+                if (context.mounted) {
+                  Loaders.errorSnackBar(
+                    context,
+                    title: 'Logout Failed',
+                    message: 'An error occurred while logging out. Please try again.',
+                  );
+                }
+              }
+            },
+            child: Text('Logout'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Data Models for Reports
+enum ReportStatus { pending, inProgress, resolved, closed }
+
+class Report {
+  final String id;
+  final String unitNumber;
+  final String category;
+  final String subCategory;
+  final String description;
+  final ReportStatus status;
+  final DateTime submittedAt;
+  final DateTime? resolvedAt;
+  final String tenantName;
+  final List<String> attachments;
+  final List<ReportUpdate> updates;
+
+  Report({
+    required this.id,
+    required this.unitNumber,
+    required this.category,
+    required this.subCategory,
+    required this.description,
+    required this.status,
+    required this.submittedAt,
+    this.resolvedAt,
+    required this.tenantName,
+    this.attachments = const [],
+    this.updates = const [],
+  });
+}
+
+class ReportUpdate {
+  final String message;
+  final DateTime timestamp;
+  final bool isAdmin;
+
+  ReportUpdate({
+    required this.message,
+    required this.timestamp,
+    required this.isAdmin,
+  });
+}
