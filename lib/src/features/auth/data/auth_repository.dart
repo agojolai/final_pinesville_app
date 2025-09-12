@@ -30,24 +30,10 @@ class AuthRepository {
     } catch (e) {
       print('AuthRepository: Error accessing Firebase Auth: $e');
     }
-    // Remove FlutterNativeSplash since it's not in your current project
-    // screenRedirect(); // Call this when needed
+    
   }
 
-screenRedirect() async {
-      final user = _auth.currentUser;
 
-      if (user != null) {
-        print("Authenticated user found. User is logged in.");
-        // TODO: Navigate to main app screen
-         //Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) => HomeScreen()), (route) => false);
-      } else {
-        print("No authenticated user found. User needs to login.");
-        deviceStorage.writeIfNull('IsFirstTime', true);
-        // TODO: Navigate to login screen
-        // Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) => LoginScreen()), (route) => false);
-      }
-    }
   /*-----------------------DUMMY APPROVE TENANT------------------------*/
   Future<void> approvePendingUser(String email) async {
     try {
