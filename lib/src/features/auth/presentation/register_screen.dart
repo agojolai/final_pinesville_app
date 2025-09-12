@@ -134,8 +134,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
         _emailController.text.trim(),
         _passwordController.text.trim(),
       );
-      
-      // TODO: After successful registration, store additional user data in Firestore
+
+      // TODO: After successful registration, store additional user data in Firestore - put the full functionality in controller file to separate the ui
       // This should include firstName, lastName, phoneNumber, propertyName, unitNumber, moveInDate
 
       if (mounted) {
