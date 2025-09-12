@@ -40,7 +40,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   bool _obscureConfirmPassword = true;
   
   String? _selectedUnit;
+  String? _selectedProperty;
   DateTime? _selectedMoveInDate;
+  
+  // Sample property options - will be fetched from database later
+  final List<String> _availableProperties = [
+    'Pinesville Pasig',
+  ];
   
   // Sample unit numbers - will be fetched from database later
   final List<String> _availableUnits = [
@@ -86,6 +92,15 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
       return;
     }
 
+    if (_selectedProperty == null) {
+      Loaders.errorSnackBar(
+        context,
+        title: 'Property Required',
+        message: 'Please select a property',
+      );
+      return;
+    }
+
     if (_selectedUnit == null) {
       Loaders.errorSnackBar(
         context,
@@ -121,7 +136,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
       );
       
       // TODO: After successful registration, store additional user data in Firestore
-      // This should include firstName, lastName, phoneNumber, unitNumber, moveInDate
+      // This should include firstName, lastName, phoneNumber, propertyName, unitNumber, moveInDate
 
       if (mounted) {
         // Show success message
@@ -302,6 +317,20 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                 
                 // Unit & Move-in Information Section
                 _SectionTitle(title: 'Unit & Move-in Information'),
+                SizedBox(height: AppConstants.spacingMD),
+                
+                
+                //Property Dropdown
+                _PropertyDropdown(
+                  selectedProperty: _selectedProperty,
+                  availableProperties: _availableProperties,
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedProperty = value;
+                    });
+                  },
+                ),
+                
                 SizedBox(height: AppConstants.spacingMD),
                 
                 // Unit Number Dropdown
@@ -553,6 +582,93 @@ class _CustomTextField extends StatelessWidget {
           vertical: AppConstants.spacingMD,
         ),
       ),
+    );
+  }
+}
+
+// Property Dropdown Widget
+class _PropertyDropdown extends StatelessWidget {
+  final String? selectedProperty;
+  final List<String> availableProperties;
+  final void Function(String?) onChanged;
+
+  const _PropertyDropdown({
+    required this.selectedProperty,
+    required this.availableProperties,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownButtonFormField<String>(
+      value: selectedProperty,
+      onChanged: onChanged,
+      validator: (value) => value == null ? 'Please select a property' : null,
+      style: TextStyle(
+        fontSize: context.textTheme.bodyMedium?.fontSize,
+        fontFamily: 'Montserrat',
+        color: context.colorScheme.onSurface,
+      ),
+      decoration: InputDecoration(
+        labelText: 'Property',
+        hintText: 'Select property',
+        labelStyle: TextStyle(
+          fontSize: context.textTheme.bodyMedium?.fontSize,
+          fontFamily: 'Montserrat',
+        ),
+        hintStyle: TextStyle(
+          fontSize: context.textTheme.bodyMedium?.fontSize,
+          fontFamily: 'Montserrat',
+        ),
+        prefixIcon: Icon(
+          Iconsax.buildings,
+          color: context.colorScheme.onSurface.withOpacity(0.6),
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppConstants.radiusMD),
+          borderSide: BorderSide(
+            color: context.colorScheme.outline.withOpacity(0.5),
+          ),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppConstants.radiusMD),
+          borderSide: BorderSide(
+            color: context.colorScheme.outline.withOpacity(0.5),
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppConstants.radiusMD),
+          borderSide: BorderSide(
+            color: context.colorScheme.primary,
+            width: 2,
+          ),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppConstants.radiusMD),
+          borderSide: BorderSide(
+            color: context.colorScheme.error,
+          ),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppConstants.radiusMD),
+          borderSide: BorderSide(
+            color: context.colorScheme.error,
+            width: 2,
+          ),
+        ),
+        filled: true,
+        fillColor: context.colorScheme.surface,
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: AppConstants.spacingMD,
+          vertical: AppConstants.spacingMD,
+        ),
+      ),
+      items: availableProperties.map((String property) {
+        return DropdownMenuItem<String>(
+          value: property,
+          child: Text(property),
+        );
+      }).toList(),
     );
   }
 }

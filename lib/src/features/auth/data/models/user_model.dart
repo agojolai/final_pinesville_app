@@ -5,7 +5,7 @@ class UserModel {
   final String firstName;
   final String lastName;
   final String email;
- // final String password;
+  final String property;
   final String phoneNo;
   final String unitNo;
   final String moveInDate;
@@ -16,7 +16,7 @@ class UserModel {
     required this.firstName,
     required this.lastName,
     required this.email,
-   // required this.password,
+    required this.property,
     required this.phoneNo,
     required this.unitNo,
     required this.moveInDate,
@@ -33,6 +33,7 @@ class UserModel {
         firstName: "",
         lastName: "",
         email: "",
+        property: "",
         unitNo: "",
         phoneNo: "",
         moveInDate: "",
@@ -47,7 +48,7 @@ class UserModel {
       'FirstName': firstName,
       'LastName': lastName,
       'Email': email,
-      // 'Password': password,
+      'Property': property,
       'Phone': phoneNo,
       'UnitNo': unitNo,
       'MoveInDate': moveInDate,
@@ -65,6 +66,7 @@ class UserModel {
       firstName: data['FirstName'] ?? "",
       lastName: data['LastName'] ?? "",
       email: data['Email'] ?? "",
+      property: data['Property'] ?? "",
       unitNo: data['UnitNo'] ?? "",
       phoneNo: data['Phone'] ?? "",
       profilePic: data['ProfilePic'] ?? "",
