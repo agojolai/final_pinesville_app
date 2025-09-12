@@ -4,8 +4,8 @@ import 'package:iconsax/iconsax.dart';
 import '../../../theme/app_constants.dart';
 import '../../../theme/theme_extensions.dart';
 import '../../../core/snackbars/loaders.dart';
-import '../../../core/exceptions/firebase_auth_exceptions.dart';
 import '../../../core/constants/validators.dart';
+import '../../auth/data/auth_repository.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
   const ChangePasswordScreen({super.key});
@@ -37,8 +37,11 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen>
     );
     _fadeController.forward();
     
-    // Pre-fill with user's email (you can get this from user data)
-    _emailController.text = 'caleb.anderson@email.com';
+    // Pre-fill with current authenticated user's email
+    final currentUser = AuthRepository.instance.authUser;
+    if (currentUser != null && currentUser.email != null) {
+      _emailController.text = currentUser.email!;
+    }
   }
 
   @override
@@ -59,13 +62,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen>
     });
 
     try {
-      // Simulate Firebase password reset email sending
-      await Future.delayed(const Duration(seconds: 2));
-      
-      // TODO: Replace with actual Firebase Auth password reset
-      // await FirebaseAuth.instance.sendPasswordResetEmail(
-      //   email: _emailController.text.trim(),
-      // );
+      // Use AuthRepository to send password reset email
+      await AuthRepository.instance.forgetPassword(_emailController.text.trim());
 
       if (mounted) {
         // Show success message
@@ -82,22 +80,13 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen>
           }
         });
       }
-    } on FirebaseAuthException catch (e) {
-      // Handle Firebase Auth specific errors
-      if (mounted) {
-        Loaders.errorSnackBar(
-          context,
-          title: 'Authentication Error',
-          message: e.message,
-        );
-      }
     } catch (error) {
-      // Handle other errors
+      // Handle all errors from AuthRepository
       if (mounted) {
         Loaders.errorSnackBar(
           context,
-          title: 'Error',
-          message: 'Failed to send password reset email. Please try again.',
+          title: 'Password Reset Failed',
+          message: error.toString(),
         );
       }
     } finally {
