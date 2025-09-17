@@ -153,6 +153,46 @@ class UserRepository {
     }
   }
 
+  // Function to check if user exists and get their status
+  Future<String?> checkUserStatus(String email) async {
+    try {
+      // Check in Users collection first (approved users)
+      final usersQuery = await _db
+          .collection('Users')
+          .where('profile.email', isEqualTo: email)
+          .limit(1)
+          .get();
+      
+      if (usersQuery.docs.isNotEmpty) {
+        final userData = usersQuery.docs.first.data();
+        final account = userData['account'] ?? {};
+        return account['status'] ?? 'active'; // Default to active if no status field
+      }
+      
+      // If not in Users, check pendingTenants collection (legacy support)
+      final pendingQuery = await _db
+          .collection('pendingTenants')
+          .where('Email', isEqualTo: email)
+          .limit(1)
+          .get();
+          
+      if (pendingQuery.docs.isNotEmpty) {
+        return 'pending';
+      }
+      
+      // User not found in either collection
+      return null;
+    } on FirebaseException catch (e) {
+      throw custom_firebase.FirebaseException(e.code).message;
+    } on custom_format.FormatException catch (_) {
+      throw const custom_format.FormatException();
+    } on PlatformException catch (e) {
+      throw custom_platform.PlatformException(e.code).message;
+    } catch (e) {
+      throw Exception('Error checking user status: $e');
+    }
+  }
+
   // Helper method to create UserModel from registration data
   UserModel createUserFromRegistration({
     required String uid,

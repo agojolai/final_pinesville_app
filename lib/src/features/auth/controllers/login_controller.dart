@@ -6,6 +6,7 @@ import '../providers/auth_provider.dart';
 import '../../../common/widgets/main_navigation.dart';
 import '../presentation/register_screen.dart';
 import '../../profile/presentation/change_password_screen.dart';
+import '../../../core/repositories/user_repository.dart';
 
 /// Login Controller State
 class LoginState {
@@ -60,10 +61,25 @@ class LoginController extends StateNotifier<LoginState> {
       final result = await networkService.executeWithNetworkHandling(
         context,
         () async {
+          // Check user status before attempting authentication
+          final userStatus = await UserRepository.instance.checkUserStatus(email.trim());
+          
+          if (userStatus == null) {
+            // User not found in database
+            throw Exception('Invalid email or password');
+          }
+          
+          if (userStatus == 'pending') {
+            // User account is still pending approval
+            throw Exception('Your application is still under review. Please wait for approval before logging in.');
+          }
+          
+          if (userStatus == 'suspended' || userStatus == 'terminated') {
+            // User account has been suspended or terminated
+            throw Exception('Your account has been ${userStatus}. Please contact support for assistance.');
+          }
 
-          //TODO: CHECK IF THE EMAIL IS IN Pending Tenants database 
-          // if it is on pending tenants, then show error message "application under review" and do not login
-          // Use existing auth provider for authentication
+          // User is approved (active status), proceed with authentication
           final authNotifier = ref.read(authStateProvider.notifier);
           await authNotifier.signIn(email.trim(), password.trim());
           return true; // Return success indicator
@@ -75,7 +91,7 @@ class LoginController extends StateNotifier<LoginState> {
 
       // Check if login was successful
       if (result == true && context.mounted) {
-        // Show success messagel
+        // Show success message
         Loaders.successSnackBar(
           context,
           title: 'Welcome Back!',

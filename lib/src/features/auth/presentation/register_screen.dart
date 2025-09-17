@@ -5,7 +5,17 @@ import 'package:iconsax/iconsax.dart';
 import '../../../theme/app_constants.dart';
 import '../../../theme/theme_extensions.dart';
 import '../../../core/constants/validators.dart';
+import '../../../core/repositories/unit_repository.dart';
 import '../controllers/register_controller.dart';
+
+// Providers for properties and units - these cache data automatically
+final availablePropertiesProvider = FutureProvider<List<String>>((ref) async {
+  return await UnitRepository.instance.fetchPropertyNames();
+});
+
+final availableUnitsProvider = FutureProvider<List<String>>((ref) async {
+  return await UnitRepository.instance.fetchVacantUnits();
+});
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -37,19 +47,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   String? _selectedUnit;
   String? _selectedProperty;
   DateTime? _selectedMoveInDate;
-  
-  // Sample property options - will be fetched from database later
-  final List<String> _availableProperties = [
-    'Pinesville Pasig',
-  ];
-  
-  // Sample unit numbers - will be fetched from database later
-  final List<String> _availableUnits = [
-    '101-A', '101-B', '102-A', '102-B', '103-A', '103-B',
-    '201-A', '201-B', '202-A', '202-B', '203-A', '203-B',
-    '301-A', '301-B', '302-A', '302-B', '303-A', '303-B',
-    '401-A', '401-B', '402-A', '402-B', '403-A', '403-B',
-  ];
 
   @override
   void initState() {
@@ -249,26 +246,80 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                 
                 
                 //Property Dropdown
-                _PropertyDropdown(
-                  selectedProperty: _selectedProperty,
-                  availableProperties: _availableProperties,
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedProperty = value;
-                    });
+                Consumer(
+                  builder: (context, ref, child) {
+                    final propertiesAsync = ref.watch(availablePropertiesProvider);
+                    return propertiesAsync.when(
+                      data: (properties) => _PropertyDropdown(
+                        selectedProperty: _selectedProperty,
+                        availableProperties: properties,
+                        isLoading: false,
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedProperty = value;
+                          });
+                        },
+                      ),
+                      loading: () => _PropertyDropdown(
+                        selectedProperty: _selectedProperty,
+                        availableProperties: const [],
+                        isLoading: true,
+                        onChanged: (_) {}, // Empty callback during loading
+                      ),
+                      error: (error, stack) {
+                        debugPrint('Error loading properties: $error');
+                        return _PropertyDropdown(
+                          selectedProperty: _selectedProperty,
+                          availableProperties: const [],
+                          isLoading: false,
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedProperty = value;
+                            });
+                          },
+                        );
+                      },
+                    );
                   },
                 ),
                 
                 SizedBox(height: AppConstants.spacingMD),
                 
                 // Unit Number Dropdown
-                _UnitDropdown(
-                  selectedUnit: _selectedUnit,
-                  availableUnits: _availableUnits,
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedUnit = value;
-                    });
+                Consumer(
+                  builder: (context, ref, child) {
+                    final unitsAsync = ref.watch(availableUnitsProvider);
+                    return unitsAsync.when(
+                      data: (units) => _UnitDropdown(
+                        selectedUnit: _selectedUnit,
+                        availableUnits: units,
+                        isLoading: false,
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedUnit = value;
+                          });
+                        },
+                      ),
+                      loading: () => _UnitDropdown(
+                        selectedUnit: _selectedUnit,
+                        availableUnits: const [],
+                        isLoading: true,
+                        onChanged: (_) {}, // Empty callback during loading
+                      ),
+                      error: (error, stack) {
+                        debugPrint('Error loading units: $error');
+                        return _UnitDropdown(
+                          selectedUnit: _selectedUnit,
+                          availableUnits: const [],
+                          isLoading: false,
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedUnit = value;
+                            });
+                          },
+                        );
+                      },
+                    );
                   },
                 ),
                 
@@ -514,11 +565,13 @@ class _CustomTextField extends StatelessWidget {
 class _PropertyDropdown extends StatelessWidget {
   final String? selectedProperty;
   final List<String> availableProperties;
+  final bool isLoading;
   final void Function(String?) onChanged;
 
   const _PropertyDropdown({
     required this.selectedProperty,
     required this.availableProperties,
+    required this.isLoading,
     required this.onChanged,
   });
 
@@ -526,7 +579,7 @@ class _PropertyDropdown extends StatelessWidget {
   Widget build(BuildContext context) {
     return DropdownButtonFormField<String>(
       value: selectedProperty,
-      onChanged: onChanged,
+      onChanged: isLoading ? null : onChanged,
       validator: (value) => value == null ? 'Please select a property' : null,
       style: TextStyle(
         fontSize: context.textTheme.bodyMedium?.fontSize,
@@ -535,7 +588,7 @@ class _PropertyDropdown extends StatelessWidget {
       ),
       decoration: InputDecoration(
         labelText: 'Property',
-        hintText: 'Select property',
+        hintText: isLoading ? 'Loading properties...' : 'Select property',
         labelStyle: TextStyle(
           fontSize: context.textTheme.bodyMedium?.fontSize,
           fontFamily: 'Montserrat',
@@ -548,6 +601,21 @@ class _PropertyDropdown extends StatelessWidget {
           Iconsax.buildings,
           color: context.colorScheme.onSurface.withValues(alpha:0.6),
         ),
+        suffixIcon: isLoading 
+            ? SizedBox(
+                height: 20,
+                width: 20,
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      context.colorScheme.primary,
+                    ),
+                  ),
+                ),
+              )
+            : null,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppConstants.radiusMD),
           borderSide: BorderSide(
@@ -587,12 +655,14 @@ class _PropertyDropdown extends StatelessWidget {
           vertical: AppConstants.spacingMD,
         ),
       ),
-      items: availableProperties.map((String property) {
-        return DropdownMenuItem<String>(
-          value: property,
-          child: Text(property),
-        );
-      }).toList(),
+      items: isLoading 
+          ? null
+          : availableProperties.map((String property) {
+              return DropdownMenuItem<String>(
+                value: property,
+                child: Text(property),
+              );
+            }).toList(),
     );
   }
 }
@@ -601,11 +671,13 @@ class _PropertyDropdown extends StatelessWidget {
 class _UnitDropdown extends StatelessWidget {
   final String? selectedUnit;
   final List<String> availableUnits;
+  final bool isLoading;
   final void Function(String?) onChanged;
 
   const _UnitDropdown({
     required this.selectedUnit,
     required this.availableUnits,
+    required this.isLoading,
     required this.onChanged,
   });
 
@@ -613,7 +685,7 @@ class _UnitDropdown extends StatelessWidget {
   Widget build(BuildContext context) {
     return DropdownButtonFormField<String>(
       value: selectedUnit,
-      onChanged: onChanged,
+      onChanged: isLoading ? null : onChanged,
       validator: (value) => value == null ? 'Please select a unit' : null,
       style: TextStyle(
         fontSize: context.textTheme.bodyMedium?.fontSize,
@@ -622,7 +694,7 @@ class _UnitDropdown extends StatelessWidget {
       ),
       decoration: InputDecoration(
         labelText: 'Unit Number',
-        hintText: 'Select your unit',
+        hintText: isLoading ? 'Loading units...' : 'Select your unit',
         labelStyle: TextStyle(
           fontSize: context.textTheme.bodyMedium?.fontSize,
           fontFamily: 'Montserrat',
@@ -635,6 +707,21 @@ class _UnitDropdown extends StatelessWidget {
           Iconsax.home_2,
           color: context.colorScheme.onSurface.withValues(alpha:0.6),
         ),
+        suffixIcon: isLoading 
+            ? SizedBox(
+                height: 20,
+                width: 20,
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      context.colorScheme.primary,
+                    ),
+                  ),
+                ),
+              )
+            : null,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppConstants.radiusMD),
           borderSide: BorderSide(
@@ -674,12 +761,14 @@ class _UnitDropdown extends StatelessWidget {
           vertical: AppConstants.spacingMD,
         ),
       ),
-      items: availableUnits.map((String unit) {
-        return DropdownMenuItem<String>(
-          value: unit,
-          child: Text(unit),
-        );
-      }).toList(),
+      items: isLoading 
+          ? null
+          : availableUnits.map((String unit) {
+              return DropdownMenuItem<String>(
+                value: unit,
+                child: Text(unit),
+              );
+            }).toList(),
     );
   }
 }
@@ -834,7 +923,8 @@ class _RegisterButton extends StatelessWidget {
   }
 }
 
-//TODO: IS THIS USED ANYWHERE?
+//TODO: show on the web landing page the terms of service 
+//and privacy policy, together with the link to the app
 // Terms and Conditions Widget
 class _TermsAndConditions extends StatelessWidget {
   const _TermsAndConditions();

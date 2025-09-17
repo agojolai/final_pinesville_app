@@ -33,40 +33,40 @@ class AuthRepository {
     
   }
 
-//TODO: MODIFY THIS METHOD, IT WILL CHANGE THE STATUS OF USER FROM PENDING TO ACTIVE
-  /*-----------------------DUMMY APPROVE TENANT------------------------*/
+  /*-----------------------APPROVE PENDING USER------------------------*/
+  /// Changes a user's account status from pending to active
   Future<void> approvePendingUser(String email) async {
     try {
-      // 1. Find the user in the pendingTenants collection
-      final pendingSnapshot = await firebaseStore
-          .collection('pendingTenants')
-          .where('Email', isEqualTo: email)
+      // 1. Find the user in the Users collection by email
+      final userSnapshot = await firebaseStore
+          .collection('Users')
+          .where('profile.email', isEqualTo: email)
           .limit(1)
           .get();
 
-      if (pendingSnapshot.docs.isEmpty) {
-        print("❌ User not found in pending tenants.");
-        return;
+      if (userSnapshot.docs.isEmpty) {
+        print("❌ User not found with email: $email");
+        throw 'User not found with the provided email address.';
       }
 
-      final pendingDoc = pendingSnapshot.docs.first;
-      final userData = pendingDoc.data();
+      final userDoc = userSnapshot.docs.first;
+      final userData = userDoc.data();
+      final currentStatus = userData['account']?['status'];
 
-      // 2. Extract the UID from the document ID (assuming it's the UID)
-      final uid = pendingDoc.id;
+      // 2. Check current status
+      if (currentStatus != 'pending') {
+        print("❌ User status is not pending. Current status: $currentStatus");
+        throw 'User account is not in pending status. Current status: $currentStatus';
+      }
 
-      // 3. Copy the data to the Users collection using UID as doc ID
-      await firebaseStore.collection('Users').doc(uid).set({
-        ...userData
-       // 'id': uid, // Ensure 'id' field exists in user model
+      // 3. Update the user's account status to active
+      await firebaseStore.collection('Users').doc(userDoc.id).update({
+        'account.status': 'active',
       });
 
-      // 4. Delete from pendingTenants
-      await firebaseStore.collection('pendingTenants').doc(uid).delete();
-
-      // 5. Simulate sending a confirmation email
-      print('✅ User approved and moved to Users collection.');
-      print('📧 Simulated email sent to: $email');
+      print('✅ User account approved successfully.');
+      print('📧 User $email can now log in with active status.');
+      
     } on custom_format.FormatException catch (_) {
       throw const custom_format.FormatException();
     } on custom_platform.PlatformException catch (e) {
@@ -75,19 +75,147 @@ class AuthRepository {
       throw custom_firebase.FirebaseException(e.code.toString()).message;
     } catch (e) {
       print("Error approving user: $e");
+      rethrow;
+    }
+  }
+//TODO: USE A PUSH APP NOTIFIACTION IN REJECTION OR APPROVAL
+//TODO: find a way to use the fromsnapshot method in the user model
+  /*-----------------------GET PENDING USERS------------------------*/
+  /// Retrieves all users with pending status for administrative approval
+  Future<List<Map<String, dynamic>>> getPendingUsers() async {
+    try {
+      final snapshot = await firebaseStore
+          .collection('Users')
+          .where('account.status', isEqualTo: 'pending')
+          .orderBy('account.createdAt', descending: true)
+          .get();
+
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        return {
+          'uid': doc.id,
+          'email': data['profile']?['email'] ?? 'No email',
+          'firstName': data['profile']?['firstName'] ?? 'Unknown',
+          'lastName': data['profile']?['lastName'] ?? 'User',
+          'property': data['property']?['name'] ?? 'Unknown Property',
+          'unit': data['property']?['unit'] ?? 'Unknown Unit',
+          'createdAt': data['account']?['createdAt'] ?? DateTime.now().toIso8601String(),
+          'phoneNumber': data['profile']?['phoneNumber'] ?? 'No phone',
+        };
+      }).toList();
+    } on FirebaseException catch (e) {
+      throw custom_firebase.FirebaseException(e.code.toString()).message;
+    } catch (e) {
+      print("Error fetching pending users: $e");
+      throw 'Failed to fetch pending users. Please try again.';
+    }
+  }
+
+//TODO: NOT YET IMPLEMENTED IN WEB APP
+  /*-----------------------REJECT/SUSPEND USER------------------------*/
+  /// Changes a user's account status to suspended or terminated
+  Future<void> updateUserStatus(String email, String newStatus, {String? reason}) async {
+    try {
+      if (!['suspended', 'terminated', 'active'].contains(newStatus)) {
+        throw 'Invalid status. Must be one of: suspended, terminated, active';
+      }
+
+      // 1. Find the user in the Users collection by email
+      final userSnapshot = await firebaseStore
+          .collection('Users')
+          .where('profile.email', isEqualTo: email)
+          .limit(1)
+          .get();
+
+      if (userSnapshot.docs.isEmpty) {
+        print("❌ User not found with email: $email");
+        throw 'User not found with the provided email address.';
+      }
+
+      final userDoc = userSnapshot.docs.first;
+      final updateData = {
+        'account.status': newStatus,
+        'account.updatedAt': DateTime.now().toIso8601String(),
+      };
+
+      // Add reason if provided
+      if (reason != null && reason.isNotEmpty) {
+        updateData['account.statusReason'] = reason;
+      }
+
+      // Add specific timestamp based on status
+      if (newStatus == 'suspended') {
+        updateData['account.suspendedAt'] = DateTime.now().toIso8601String();
+      } else if (newStatus == 'terminated') {
+        updateData['account.terminatedAt'] = DateTime.now().toIso8601String();
+      } else if (newStatus == 'active') {
+        updateData['account.approvedAt'] = DateTime.now().toIso8601String();
+      }
+
+      // 2. Update the user's account status
+      await firebaseStore.collection('Users').doc(userDoc.id).update(updateData);
+
+      print('✅ User account status updated to $newStatus.');
+      print('📧 User $email status changed to: $newStatus');
+      
+    } on custom_format.FormatException catch (_) {
+      throw const custom_format.FormatException();
+    } on custom_platform.PlatformException catch (e) {
+      throw custom_platform.PlatformException(e.code).message;
+    } on FirebaseException catch (e) {
+      throw custom_firebase.FirebaseException(e.code.toString()).message;
+    } catch (e) {
+      print("Error updating user status: $e");
+      rethrow;
     }
   }
 
 
 /*-----------------------Email and Password Sign In------------------------*/
 
-//Email auth LogIN
+//Email auth LogIN with user status validation
   Future<firebase_auth.UserCredential> logInWithEmailAndPassword(
       String email, String password) async {
     try {
-      return await _auth.signInWithEmailAndPassword(
+      // First authenticate with Firebase Auth
+      final userCredential = await _auth.signInWithEmailAndPassword(
           email: email, password: password);
+      
+      // Check user status in Firestore
+      final userDoc = await firebaseStore
+          .collection('Users')
+          .doc(userCredential.user!.uid)
+          .get();
+      
+      if (!userDoc.exists) {
+        // User doesn't exist in Users collection - sign out and throw error
+        await _auth.signOut();
+        throw 'Invalid email or password. Please check your credentials.';
+      }
+      
+      // Get user data
+      final userData = userDoc.data()!;
+      final userStatus = userData['account']?['status'] ?? 'pending';
+      
+      if (userStatus == 'pending') {
+        // User account is still pending approval - sign out and throw specific error
+        await _auth.signOut();
+        throw 'Your application is still pending approval. Please wait for administrator confirmation.';
+      }
+      
+      if (userStatus == 'suspended' || userStatus == 'terminated') {
+        // User account is suspended or terminated - sign out and throw error
+        await _auth.signOut();
+        throw 'Your account has been ${userStatus}. Please contact support for assistance.';
+      }
+      
+      // User is active - return the credentials
+      return userCredential;
+      
     } on firebase_auth.FirebaseAuthException catch (e) {
+      if (e.code == 'user-not-found' || e.code == 'wrong-password' || e.code == 'invalid-credential') {
+        throw 'Invalid email or password. Please check your credentials.';
+      }
       throw custom_auth.FirebaseAuthException(e.code).message;
     } on custom_format.FormatException catch (_) {
       throw const custom_format.FormatException();
@@ -96,6 +224,12 @@ class AuthRepository {
     } on FirebaseException catch (e) {
       throw custom_firebase.FirebaseException(e.code.toString()).message;
     } catch (e) {
+      if (e.toString().contains('pending approval') || 
+          e.toString().contains('suspended') || 
+          e.toString().contains('terminated') ||
+          e.toString().contains('Invalid email or password')) {
+        rethrow; // Re-throw our custom messages
+      }
       throw 'Something went wrong. Please try again';
     }
   }
@@ -143,11 +277,6 @@ class AuthRepository {
   Future<void> logout() async {
     try {
       await _auth.signOut();
-      // TODO: Navigate to LoginScreen using Navigator instead of Get
-      // Navigator.of(context).pushAndRemoveUntil(
-      //   MaterialPageRoute(builder: (context) => const LoginScreen()),
-      //   (route) => false,
-      // );
     } on firebase_auth.FirebaseAuthException catch (e) {
       throw custom_auth.FirebaseAuthException(e.code).message;
     } on custom_format.FormatException catch (_) {

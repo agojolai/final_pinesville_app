@@ -81,9 +81,14 @@ class AuthStateNotifier extends StateNotifier<AuthState> {
     
     try {
       final userCredential = await _authRepository.registerWithEmailAndPassword(email, password);
+      
+      // Immediately sign out the user after registration
+      // They need to wait for approval before they can access the app
+      await _authRepository.logout();
+      
       state = state.copyWith(
-        status: AuthStatus.authenticated,
-        user: userCredential.user,
+        status: AuthStatus.unauthenticated,
+        user: null,
         errorMessage: null,
       );
       return userCredential;

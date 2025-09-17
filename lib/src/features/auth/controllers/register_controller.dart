@@ -138,10 +138,12 @@ class RegisterController extends StateNotifier<RegisterState> {
               propertyName: propertyName,
               unitNumber: unitNumber,
               moveInDate: moveInDate,
-  
             );
 
             await UserRepository.instance.saveUserRecord(newUser);
+            
+            // User is already signed out by the authNotifier.signUp method
+            // to prevent auto-navigation until account approval
           }
 
           return true; // Return success indicator
@@ -158,7 +160,7 @@ class RegisterController extends StateNotifier<RegisterState> {
         Loaders.successSnackBar(
           context,
           title: 'Account Created!',
-          message: 'Your account has been created successfully',
+          message: 'Please wait for approval before logging in.',
         );
 
         // Navigate back to login
