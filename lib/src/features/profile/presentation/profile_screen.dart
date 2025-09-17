@@ -8,7 +8,7 @@ import 'account_settings_screen.dart';
 import 'change_password_screen.dart';
 import '../../support/presentation/reports_tickets_screen.dart';
 import '../../auth/presentation/login_screen.dart';
-import '../../auth/data/auth_repository.dart';
+import '../../../core/repositories/auth_repository.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});

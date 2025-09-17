@@ -4,9 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax/iconsax.dart';
 import '../../../theme/app_constants.dart';
 import '../../../theme/theme_extensions.dart';
-import '../../../core/snackbars/loaders.dart';
 import '../../../core/constants/validators.dart';
-import '../providers/auth_provider.dart';
+import '../controllers/register_controller.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -34,10 +33,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   final _phoneFocusNode = FocusNode();
   final _passwordFocusNode = FocusNode();
   final _confirmPasswordFocusNode = FocusNode();
-  
-  bool _isLoading = false;
-  bool _obscurePassword = true;
-  bool _obscureConfirmPassword = true;
   
   String? _selectedUnit;
   String? _selectedProperty;
@@ -88,105 +83,39 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   }
 
   Future<void> _handleRegister() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
-    if (_selectedProperty == null) {
-      Loaders.errorSnackBar(
-        context,
-        title: 'Property Required',
-        message: 'Please select a property',
-      );
-      return;
-    }
-
-    if (_selectedUnit == null) {
-      Loaders.errorSnackBar(
-        context,
-        title: 'Unit Required',
-        message: 'Please select a unit number',
-      );
-      return;
-    }
-
-    if (_selectedMoveInDate == null) {
-      Loaders.errorSnackBar(
-        context,
-        title: 'Move-in Date Required',
-        message: 'Please select your move-in date',
-      );
+    final controller = ref.read(registerControllerProvider.notifier);
+    
+    // Validate all form data using controller
+    if (!controller.validateRegistrationData(
+      formKey: _formKey,
+      selectedProperty: _selectedProperty,
+      selectedUnit: _selectedUnit,
+      selectedMoveInDate: _selectedMoveInDate,
+      context: context,
+    )) {
       return;
     }
 
     // Dismiss keyboard
-    FocusScope.of(context).unfocus();
+    controller.dismissKeyboard(context);
 
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      // Use Riverpod auth provider for registration
-      final authNotifier = ref.read(authStateProvider.notifier);
-      
-      await authNotifier.signUp(
-        _emailController.text.trim(),
-        _passwordController.text.trim(),
-      );
-
-      // TODO: After successful registration, store additional user data in Firestore - put the full functionality in controller file to separate the ui
-      // This should include firstName, lastName, phoneNumber, propertyName, unitNumber, moveInDate
-
-      if (mounted) {
-        // Show success message
-        Loaders.successSnackBar(
-          context,
-          title: 'Account Created!',
-          message: 'Your account has been created successfully',
-        );
-
-        // Navigate back to login
-        Navigator.of(context).pop();
-      }
-    } catch (error) {
-      // Handle errors
-      if (mounted) {
-        Loaders.errorSnackBar(
-          context,
-          title: 'Registration Failed',
-          message: error.toString(),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
+    // Perform registration using controller
+    await controller.registerUser(
+      firstName: _firstNameController.text.trim(),
+      lastName: _lastNameController.text.trim(),
+      email: _emailController.text.trim(),
+      phoneNumber: _phoneController.text.trim(),
+      password: _passwordController.text.trim(),
+      propertyName: _selectedProperty!,
+      unitNumber: _selectedUnit!,
+      moveInDate: _selectedMoveInDate!,
+      context: context,
+    );
   }
 
   Future<void> _selectMoveInDate() async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(2020), // Allow dates from 2020 onwards
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: context.colorScheme,
-            textButtonTheme: TextButtonThemeData(
-              style: TextButton.styleFrom(
-                foregroundColor: context.colorScheme.primary,
-              ),
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
+    final controller = ref.read(registerControllerProvider.notifier);
+    final picked = await controller.selectMoveInDate(context, _selectedMoveInDate);
     
     if (picked != null && picked != _selectedMoveInDate) {
       setState(() {
@@ -196,17 +125,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   }
 
   String? _validateConfirmPassword(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Please confirm your password';
-    }
-    if (value != _passwordController.text) {
-      return 'Passwords do not match';
-    }
-    return null;
+    final controller = ref.read(registerControllerProvider.notifier);
+    return controller.validateConfirmPassword(value, _passwordController.text);
   }
 
   @override
   Widget build(BuildContext context) {
+    // Watch controller state
+    final controllerState = ref.watch(registerControllerProvider);
+    final controller = ref.read(registerControllerProvider.notifier);
+    
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -365,19 +293,17 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                   label: 'Password',
                   hint: 'Create a strong password',
                   icon: Iconsax.lock,
-                  obscureText: _obscurePassword,
+                  obscureText: controllerState.obscurePassword,
                   validator: Validators.validatePassword,
                   textInputAction: TextInputAction.next,
                   onFieldSubmitted: (_) => _confirmPasswordFocusNode.requestFocus(),
                   suffixIcon: IconButton(
                     icon: Icon(
-                      _obscurePassword ? Iconsax.eye_slash : Iconsax.eye,
-                      color: context.colorScheme.onSurface.withOpacity(0.6),
+                      controllerState.obscurePassword ? Iconsax.eye_slash : Iconsax.eye,
+                      color: context.colorScheme.onSurface.withValues(alpha:0.6),
                     ),
                     onPressed: () {
-                      setState(() {
-                        _obscurePassword = !_obscurePassword;
-                      });
+                      controller.togglePasswordVisibility();
                     },
                   ),
                 ),
@@ -391,19 +317,17 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                   label: 'Confirm Password',
                   hint: 'Re-enter your password',
                   icon: Iconsax.lock,
-                  obscureText: _obscureConfirmPassword,
+                  obscureText: controllerState.obscureConfirmPassword,
                   validator: _validateConfirmPassword,
                   textInputAction: TextInputAction.done,
                   onFieldSubmitted: (_) => _confirmPasswordFocusNode.unfocus(),
                   suffixIcon: IconButton(
                     icon: Icon(
-                      _obscureConfirmPassword ? Iconsax.eye_slash : Iconsax.eye,
-                      color: context.colorScheme.onSurface.withOpacity(0.6),
+                      controllerState.obscureConfirmPassword ? Iconsax.eye_slash : Iconsax.eye,
+                      color: context.colorScheme.onSurface.withValues(alpha:0.6),
                     ),
                     onPressed: () {
-                      setState(() {
-                        _obscureConfirmPassword = !_obscureConfirmPassword;
-                      });
+                      controller.toggleConfirmPasswordVisibility();
                     },
                   ),
                 ),
@@ -412,7 +336,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                 
                 // Register Button
                 _RegisterButton(
-                  isLoading: _isLoading,
+                  isLoading: controllerState.isLoading,
                   onPressed: _handleRegister,
                 ),
                 
@@ -456,7 +380,7 @@ class _HeaderSection extends StatelessWidget {
         Text(
           'Create your account to get started with your digital home experience',
           style: context.textTheme.bodyLarge?.copyWith(
-            color: context.colorScheme.onSurface.withOpacity(0.7),
+            color: context.colorScheme.onSurface.withValues(alpha:0.7),
             height: 1.5,
           ),
           textAlign: TextAlign.center,
@@ -540,19 +464,19 @@ class _CustomTextField extends StatelessWidget {
         ),
         prefixIcon: Icon(
           icon,
-          color: context.colorScheme.onSurface.withOpacity(0.6),
+          color: context.colorScheme.onSurface.withValues(alpha:0.6),
         ),
         suffixIcon: suffixIcon,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppConstants.radiusMD),
           borderSide: BorderSide(
-            color: context.colorScheme.outline.withOpacity(0.5),
+            color: context.colorScheme.outline.withValues(alpha:0.5),
           ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppConstants.radiusMD),
           borderSide: BorderSide(
-            color: context.colorScheme.outline.withOpacity(0.5),
+            color: context.colorScheme.outline.withValues(alpha:0.5),
           ),
         ),
         focusedBorder: OutlineInputBorder(
@@ -622,18 +546,18 @@ class _PropertyDropdown extends StatelessWidget {
         ),
         prefixIcon: Icon(
           Iconsax.buildings,
-          color: context.colorScheme.onSurface.withOpacity(0.6),
+          color: context.colorScheme.onSurface.withValues(alpha:0.6),
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppConstants.radiusMD),
           borderSide: BorderSide(
-            color: context.colorScheme.outline.withOpacity(0.5),
+            color: context.colorScheme.outline.withValues(alpha:0.5),
           ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppConstants.radiusMD),
           borderSide: BorderSide(
-            color: context.colorScheme.outline.withOpacity(0.5),
+            color: context.colorScheme.outline.withValues(alpha:0.5),
           ),
         ),
         focusedBorder: OutlineInputBorder(
@@ -709,18 +633,18 @@ class _UnitDropdown extends StatelessWidget {
         ),
         prefixIcon: Icon(
           Iconsax.home_2,
-          color: context.colorScheme.onSurface.withOpacity(0.6),
+          color: context.colorScheme.onSurface.withValues(alpha:0.6),
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppConstants.radiusMD),
           borderSide: BorderSide(
-            color: context.colorScheme.outline.withOpacity(0.5),
+            color: context.colorScheme.outline.withValues(alpha:0.5),
           ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppConstants.radiusMD),
           borderSide: BorderSide(
-            color: context.colorScheme.outline.withOpacity(0.5),
+            color: context.colorScheme.outline.withValues(alpha:0.5),
           ),
         ),
         focusedBorder: OutlineInputBorder(
@@ -790,26 +714,26 @@ class _DatePickerField extends StatelessWidget {
         hintStyle: TextStyle(
           fontSize: context.textTheme.bodyMedium?.fontSize,
           fontFamily: 'Montserrat',
-          color: context.colorScheme.onSurface.withOpacity(0.6),
+          color: context.colorScheme.onSurface.withValues(alpha:0.6),
         ),
         prefixIcon: Icon(
           Iconsax.calendar,
-          color: context.colorScheme.onSurface.withOpacity(0.6),
+          color: context.colorScheme.onSurface.withValues(alpha:0.6),
         ),
         suffixIcon: Icon(
           Iconsax.arrow_down_1,
-          color: context.colorScheme.onSurface.withOpacity(0.6),
+          color: context.colorScheme.onSurface.withValues(alpha:0.6),
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppConstants.radiusMD),
           borderSide: BorderSide(
-            color: context.colorScheme.outline.withOpacity(0.5),
+            color: context.colorScheme.outline.withValues(alpha:0.5),
           ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppConstants.radiusMD),
           borderSide: BorderSide(
-            color: context.colorScheme.outline.withOpacity(0.5),
+            color: context.colorScheme.outline.withValues(alpha:0.5),
           ),
         ),
         focusedBorder: OutlineInputBorder(
@@ -867,8 +791,8 @@ class _RegisterButton extends StatelessWidget {
         style: ElevatedButton.styleFrom(
           backgroundColor: context.colorScheme.primary,
           foregroundColor: context.colorScheme.onPrimary,
-          disabledBackgroundColor: context.colorScheme.onSurface.withOpacity(0.12),
-          disabledForegroundColor: context.colorScheme.onSurface.withOpacity(0.38),
+          disabledBackgroundColor: context.colorScheme.onSurface.withValues(alpha:0.12),
+          disabledForegroundColor: context.colorScheme.onSurface.withValues(alpha:0.38),
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppConstants.radiusMD),
@@ -910,6 +834,7 @@ class _RegisterButton extends StatelessWidget {
   }
 }
 
+//TODO: IS THIS USED ANYWHERE?
 // Terms and Conditions Widget
 class _TermsAndConditions extends StatelessWidget {
   const _TermsAndConditions();
@@ -921,7 +846,7 @@ class _TermsAndConditions extends StatelessWidget {
       child: Text(
         'By creating an account, you agree to our Terms of Service and Privacy Policy. Your information will be used to manage your tenancy and improve your experience.',
         style: context.textTheme.bodySmall?.copyWith(
-          color: context.colorScheme.onSurface.withOpacity(0.6),
+          color: context.colorScheme.onSurface.withValues(alpha:0.6),
           height: 1.4,
         ),
         textAlign: TextAlign.center,

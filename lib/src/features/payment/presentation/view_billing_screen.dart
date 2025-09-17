@@ -120,7 +120,7 @@ class _BillHeaderCard extends StatelessWidget {
         gradient: LinearGradient(
           colors: [
             context.colorScheme.primary,
-            context.colorScheme.primary.withOpacity(0.8),
+            context.colorScheme.primary.withValues(alpha:0.8),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -128,7 +128,7 @@ class _BillHeaderCard extends StatelessWidget {
         borderRadius: context.radiusXL,
         boxShadow: [
           BoxShadow(
-            color: context.colorScheme.primary.withOpacity(0.3),
+            color: context.colorScheme.primary.withValues(alpha:0.3),
             blurRadius: 16,
             offset: const Offset(0, 8),
           ),
@@ -155,7 +155,7 @@ class _BillHeaderCard extends StatelessWidget {
           Text(
             'Bill #: ${billingData.billNumber}',
             style: context.textTheme.bodyLarge?.copyWith(
-              color: Colors.white.withOpacity(0.9),
+              color: Colors.white.withValues(alpha:0.9),
               fontFamily: 'Montserrat',
             ),
           ),
@@ -164,14 +164,14 @@ class _BillHeaderCard extends StatelessWidget {
             children: [
               Icon(
                 Iconsax.calendar,
-                color: Colors.white.withOpacity(0.9),
+                color: Colors.white.withValues(alpha:0.9),
                 size: 16,
               ),
               SizedBox(width: AppConstants.spacingXS),
               Text(
                 'Due Date: ${billingData.dueDate}',
                 style: context.textTheme.bodyMedium?.copyWith(
-                  color: Colors.white.withOpacity(0.9),
+                  color: Colors.white.withValues(alpha:0.9),
                   fontFamily: 'Montserrat',
                 ),
               ),
@@ -263,12 +263,12 @@ class _BillBreakdownCard extends StatelessWidget {
         color: context.colorScheme.surface,
         borderRadius: context.radiusXL,
         border: Border.all(
-          color: context.colorScheme.outline.withOpacity(0.2),
+          color: context.colorScheme.outline.withValues(alpha:0.2),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: context.colorScheme.shadow.withOpacity(0.08),
+            color: context.colorScheme.shadow.withValues(alpha:0.08),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -343,7 +343,7 @@ class _BillLineItem extends StatelessWidget {
           Container(
             padding: EdgeInsets.all(AppConstants.spacingXS),
             decoration: BoxDecoration(
-              color: context.colorScheme.primary.withOpacity(0.1),
+              color: context.colorScheme.primary.withValues(alpha:0.1),
               borderRadius: context.radiusSM,
             ),
             child: Icon(
@@ -399,7 +399,7 @@ class _WaterBillItem extends StatelessWidget {
               Container(
                 padding: EdgeInsets.all(AppConstants.spacingXS),
                 decoration: BoxDecoration(
-                  color: context.colorScheme.primary.withOpacity(0.1),
+                  color: context.colorScheme.primary.withValues(alpha:0.1),
                   borderRadius: context.radiusSM,
                 ),
                 child: Icon(
@@ -430,7 +430,7 @@ class _WaterBillItem extends StatelessWidget {
           Container(
             padding: EdgeInsets.all(AppConstants.spacingSM),
             decoration: BoxDecoration(
-              color: context.colorScheme.surface.withOpacity(0.8),
+              color: context.colorScheme.surface.withValues(alpha:0.8),
               borderRadius: context.radiusSM,
             ),
             child: Column(
@@ -485,7 +485,7 @@ class _ElectricityBillItem extends StatelessWidget {
               Container(
                 padding: EdgeInsets.all(AppConstants.spacingXS),
                 decoration: BoxDecoration(
-                  color: context.colorScheme.primary.withOpacity(0.1),
+                  color: context.colorScheme.primary.withValues(alpha:0.1),
                   borderRadius: context.radiusSM,
                 ),
                 child: Icon(
@@ -516,7 +516,7 @@ class _ElectricityBillItem extends StatelessWidget {
           Container(
             padding: EdgeInsets.all(AppConstants.spacingSM),
             decoration: BoxDecoration(
-              color: context.colorScheme.surface.withOpacity(0.8),
+              color: context.colorScheme.surface.withValues(alpha:0.8),
               borderRadius: context.radiusSM,
             ),
             child: Column(
@@ -566,7 +566,7 @@ class _ReadingRow extends StatelessWidget {
           Text(
             label,
             style: context.textTheme.bodySmall?.copyWith(
-              color: context.colorScheme.onSurface.withOpacity(0.7),
+              color: context.colorScheme.onSurface.withValues(alpha:0.7),
               fontFamily: 'Montserrat',
             ),
           ),
@@ -599,14 +599,14 @@ class _BillSummaryCard extends StatelessWidget {
         gradient: LinearGradient(
           colors: [
             context.colorScheme.primaryContainer,
-            context.colorScheme.primaryContainer.withOpacity(0.8),
+            context.colorScheme.primaryContainer.withValues(alpha:0.8),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: context.radiusXL,
         border: Border.all(
-          color: context.colorScheme.primary.withOpacity(0.3),
+          color: context.colorScheme.primary.withValues(alpha:0.3),
           width: 2,
         ),
       ),

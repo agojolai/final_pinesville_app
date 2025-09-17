@@ -182,12 +182,12 @@ class _ReportsTicketsScreenState extends State<ReportsTicketsScreen> with Ticker
         color: context.colorScheme.surface,
         borderRadius: context.radiusXL,
         border: Border.all(
-          color: context.colorScheme.outline.withOpacity(0.2),
+          color: context.colorScheme.outline.withValues(alpha:0.2),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: context.colorScheme.shadow.withOpacity(0.08),
+            color: context.colorScheme.shadow.withValues(alpha:0.08),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -248,10 +248,10 @@ class _ReportsTicketsScreenState extends State<ReportsTicketsScreen> with Ticker
     return Container(
       padding: EdgeInsets.all(AppConstants.spacingSM),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha:0.1),
         borderRadius: context.radiusMD,
         border: Border.all(
-          color: color.withOpacity(0.3),
+          color: color.withValues(alpha:0.3),
           width: 1,
         ),
       ),
@@ -294,14 +294,14 @@ class _ReportsTicketsScreenState extends State<ReportsTicketsScreen> with Ticker
             Icon(
               Iconsax.document_text,
               size: 80,
-              color: context.colorScheme.onSurface.withOpacity(0.3),
+              color: context.colorScheme.onSurface.withValues(alpha:0.3),
             ),
             SizedBox(height: AppConstants.spacingLG),
             Text(
               'No Reports Yet',
               style: context.textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
-                color: context.colorScheme.onSurface.withOpacity(0.6),
+                color: context.colorScheme.onSurface.withValues(alpha:0.6),
                 fontFamily: 'Montserrat',
               ),
             ),
@@ -309,7 +309,7 @@ class _ReportsTicketsScreenState extends State<ReportsTicketsScreen> with Ticker
             Text(
               'Submit your first report or ticket using the button below.',
               style: context.textTheme.bodyMedium?.copyWith(
-                color: context.colorScheme.onSurface.withOpacity(0.5),
+                color: context.colorScheme.onSurface.withValues(alpha:0.5),
                 fontFamily: 'Montserrat',
               ),
               textAlign: TextAlign.center,
@@ -459,12 +459,12 @@ class _ReportCard extends StatelessWidget {
             color: context.colorScheme.surface,
             borderRadius: context.radiusXL,
             border: Border.all(
-              color: context.colorScheme.outline.withOpacity(0.2),
+              color: context.colorScheme.outline.withValues(alpha:0.2),
               width: 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: context.colorScheme.shadow.withOpacity(0.05),
+                color: context.colorScheme.shadow.withValues(alpha:0.05),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
@@ -484,7 +484,7 @@ class _ReportCard extends StatelessWidget {
                           vertical: AppConstants.spacingXS,
                         ),
                         decoration: BoxDecoration(
-                          color: _getStatusColor(report.status).withOpacity(0.1),
+                          color: _getStatusColor(report.status).withValues(alpha:0.1),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
@@ -500,7 +500,7 @@ class _ReportCard extends StatelessWidget {
                       Text(
                         '#${report.id}',
                         style: context.textTheme.bodySmall?.copyWith(
-                          color: context.colorScheme.onSurface.withOpacity(0.6),
+                          color: context.colorScheme.onSurface.withValues(alpha:0.6),
                           fontFamily: 'Montserrat',
                         ),
                       ),
@@ -508,7 +508,7 @@ class _ReportCard extends StatelessWidget {
                   ),
                   Icon(
                     Iconsax.arrow_right_3,
-                    color: context.colorScheme.onSurface.withOpacity(0.4),
+                    color: context.colorScheme.onSurface.withValues(alpha:0.4),
                     size: 16,
                   ),
                 ],
@@ -535,7 +535,7 @@ class _ReportCard extends StatelessWidget {
               Text(
                 report.description,
                 style: context.textTheme.bodyMedium?.copyWith(
-                  color: context.colorScheme.onSurface.withOpacity(0.7),
+                  color: context.colorScheme.onSurface.withValues(alpha:0.7),
                   fontFamily: 'Montserrat',
                 ),
                 maxLines: 2,
@@ -547,13 +547,13 @@ class _ReportCard extends StatelessWidget {
                   Icon(
                     Iconsax.calendar,
                     size: 14,
-                    color: context.colorScheme.onSurface.withOpacity(0.5),
+                    color: context.colorScheme.onSurface.withValues(alpha:0.5),
                   ),
                   SizedBox(width: AppConstants.spacingXS / 2),
                   Text(
                     _formatDate(report.submittedAt),
                     style: context.textTheme.bodySmall?.copyWith(
-                      color: context.colorScheme.onSurface.withOpacity(0.5),
+                      color: context.colorScheme.onSurface.withValues(alpha:0.5),
                       fontFamily: 'Montserrat',
                     ),
                   ),
@@ -561,13 +561,13 @@ class _ReportCard extends StatelessWidget {
                   Icon(
                     Iconsax.home_2,
                     size: 14,
-                    color: context.colorScheme.onSurface.withOpacity(0.5),
+                    color: context.colorScheme.onSurface.withValues(alpha:0.5),
                   ),
                   SizedBox(width: AppConstants.spacingXS / 2),
                   Text(
                     'Unit ${report.unitNumber}',
                     style: context.textTheme.bodySmall?.copyWith(
-                      color: context.colorScheme.onSurface.withOpacity(0.5),
+                      color: context.colorScheme.onSurface.withValues(alpha:0.5),
                       fontFamily: 'Montserrat',
                     ),
                   ),

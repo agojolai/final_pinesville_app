@@ -1,10 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:get_storage/get_storage.dart';
-import '../../../core/exceptions/firebase_auth_exceptions.dart' as custom_auth;
-import '../../../core/exceptions/firebase_exceptions.dart' as custom_firebase;
-import '../../../core/exceptions/format_exceptions.dart' as custom_format;
-import '../../../core/exceptions/platform_exceptions.dart' as custom_platform;
+import '../exceptions/firebase_auth_exceptions.dart' as custom_auth;
+import '../exceptions/firebase_exceptions.dart' as custom_firebase;
+import '../exceptions/format_exceptions.dart' as custom_format;
+import '../exceptions/platform_exceptions.dart' as custom_platform;
 
 class AuthRepository {
   static AuthRepository? _instance;
@@ -33,7 +33,7 @@ class AuthRepository {
     
   }
 
-
+//TODO: MODIFY THIS METHOD, IT WILL CHANGE THE STATUS OF USER FROM PENDING TO ACTIVE
   /*-----------------------DUMMY APPROVE TENANT------------------------*/
   Future<void> approvePendingUser(String email) async {
     try {
@@ -100,7 +100,7 @@ class AuthRepository {
     }
   }
 
-//Email auth SignUp
+//put email in firebase auth
   Future<firebase_auth.UserCredential> registerWithEmailAndPassword(
       String email, String password) async {
     try {

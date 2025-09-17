@@ -24,10 +24,11 @@ class Exceptions implements Exception {
             'This user account has been disabled. Please contact support for assistance.');
       case 'user-not-found':
         return const Exceptions('Invalid login details. User not found.');
-      case 'wrong-password':
-        return const Exceptions(
-            'Incorrect password. Please check your password and try again.');
-      case 'INVALID_LOGIN_CREDENTIALS':
+     // TODO: dont say wrong password, say invalid login details
+     //: case 'wrong-password':
+      //  return const Exceptions(
+      //      'Incorrect password. Please check your password and try again.');
+      case 'INVALID_LOGIN_CREDENTIALS' && 'wrong-password':
         return const Exceptions(
             'Invalid login credentials. Please double-check your information.');
       case 'too-many-requests':

@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
-import '../data/auth_repository.dart';
+import '../../../core/repositories/auth_repository.dart';
 
 // Auth Repository Provider
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
@@ -76,7 +76,7 @@ class AuthStateNotifier extends StateNotifier<AuthState> {
   }
 
   // Register method
-  Future<void> signUp(String email, String password) async {
+  Future<firebase_auth.UserCredential?> signUp(String email, String password) async {
     state = state.copyWith(status: AuthStatus.loading);
     
     try {
@@ -86,6 +86,7 @@ class AuthStateNotifier extends StateNotifier<AuthState> {
         user: userCredential.user,
         errorMessage: null,
       );
+      return userCredential;
     } catch (e) {
       state = state.copyWith(
         status: AuthStatus.error,

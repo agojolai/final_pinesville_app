@@ -2,14 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax/iconsax.dart';
-import '../../../common/widgets/main_navigation.dart';
 import '../../../theme/app_constants.dart';
 import '../../../theme/theme_extensions.dart';
-import '../../../core/snackbars/loaders.dart';
 import '../../../core/constants/validators.dart';
-import '../../profile/presentation/change_password_screen.dart';
+import '../controllers/login_controller.dart';
 import '../providers/auth_provider.dart';
-import 'register_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -30,8 +27,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   final _passwordController = TextEditingController();
   final _emailFocusNode = FocusNode();
   final _passwordFocusNode = FocusNode();
-  
-  bool _obscurePassword = true;
 
   @override
   void initState() {
@@ -72,71 +67,40 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     super.dispose();
   }
 
+  // UI-only method - delegates to controller
   Future<void> _handleLogin() async {
-    if (!_formKey.currentState!.validate()) {
+    final controller = ref.read(loginControllerProvider.notifier);
+    
+    if (!controller.validateForm(_formKey)) {
       return;
     }
 
-    // Dismiss keyboard
-    FocusScope.of(context).unfocus();
-
-    try {
-      // Use Riverpod auth provider for authentication
-      final authNotifier = ref.read(authStateProvider.notifier);
-      
-      await authNotifier.signIn(
-        _emailController.text.trim(),
-        _passwordController.text.trim(),
-      );
-
-      // If we reach this point, authentication was successful
-      if (mounted) {
-        // Show success message
-        Loaders.successSnackBar(
-          context,
-          title: 'Welcome Back!',
-          message: 'Successfully logged into your account',
-        );
-
-        // Navigate to main navigation with bottom nav bar
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const MainNavigation()),
-        );
-      }
-    } catch (error) {
-      // Handle authentication errors
-      if (mounted) {
-        Loaders.errorSnackBar(
-          context,
-          title: 'Login Failed',
-          message: error.toString(),
-        );
-      }
-    }
+    controller.dismissKeyboard(context);
+    
+    await controller.login(
+      email: _emailController.text,
+      password: _passwordController.text,
+      context: context,
+    );
   }
 
+  // UI-only navigation methods - delegate to controller
   void _navigateToRegister() {
     HapticFeedback.lightImpact();
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => const RegisterScreen(),
-      ),
-    );
+    final controller = ref.read(loginControllerProvider.notifier);
+    controller.navigateToRegister(context);
   }
 
   void _navigateToForgotPassword() {
     HapticFeedback.lightImpact();
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => const ChangePasswordScreen(),
-      ),
-    );
+    final controller = ref.read(loginControllerProvider.notifier);
+    controller.navigateToForgotPassword(context);
   }
 
   @override
   Widget build(BuildContext context) {
-    // Watch auth state for loading status
+    // Watch controller state and auth state
+    final loginState = ref.watch(loginControllerProvider);
     final authState = ref.watch(authStateProvider);
     final isLoading = authState.status == AuthStatus.loading;
 
@@ -158,12 +122,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                     SizedBox(height: AppConstants.spacingXL),
                     
                     // Logo Section
-                    _LogoSection(),
+                    const _LogoSection(),
                     
                     SizedBox(height: AppConstants.spacingXL),
                     
                     // Welcome Section
-                    _WelcomeSection(),
+                    const _WelcomeSection(),
                     
                     SizedBox(height: AppConstants.spacingXL),
                     
@@ -173,11 +137,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                       passwordController: _passwordController,
                       emailFocusNode: _emailFocusNode,
                       passwordFocusNode: _passwordFocusNode,
-                      obscurePassword: _obscurePassword,
+                      obscurePassword: loginState.obscurePassword,
                       onTogglePassword: () {
-                        setState(() {
-                          _obscurePassword = !_obscurePassword;
-                        });
+                        final controller = ref.read(loginControllerProvider.notifier);
+                        controller.togglePasswordVisibility();
                       },
                     ),
                     
@@ -224,10 +187,10 @@ class _LogoSection extends StatelessWidget {
           width: 120,
           height: 120,
           decoration: BoxDecoration(
-            color: context.colorScheme.primary.withOpacity(0.1),
+            color: context.colorScheme.primary.withValues(alpha:0.1),
             borderRadius: BorderRadius.circular(30),
             border: Border.all(
-              color: context.colorScheme.primary.withOpacity(0.2),
+              color: context.colorScheme.primary.withValues(alpha:0.2),
               width: 1,
             ),
           ),
@@ -277,7 +240,7 @@ class _LogoSection extends StatelessWidget {
         Text(
           'Your Digital Home',
           style: context.textTheme.bodyLarge?.copyWith(
-            color: context.colorScheme.onSurface.withOpacity(0.6),
+            color: context.colorScheme.onSurface.withValues(alpha:0.6),
             fontFamily: 'Montserrat',
           ),
         ),
@@ -307,7 +270,7 @@ class _WelcomeSection extends StatelessWidget {
         Text(
           'Sign in to access your account and manage your unit',
           style: context.textTheme.bodyLarge?.copyWith(
-            color: context.colorScheme.onSurface.withOpacity(0.7),
+            color: context.colorScheme.onSurface.withValues(alpha:0.7),
             height: 1.5,
           ),
           textAlign: TextAlign.center,
@@ -359,18 +322,18 @@ class _LoginForm extends StatelessWidget {
             ),
             prefixIcon: Icon(
               Iconsax.sms,
-              color: context.colorScheme.onSurface.withOpacity(0.6),
+              color: context.colorScheme.onSurface.withValues(alpha:0.6),
             ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppConstants.radiusMD),
               borderSide: BorderSide(
-                color: context.colorScheme.outline.withOpacity(0.5),
+                color: context.colorScheme.outline.withValues(alpha:0.5),
               ),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppConstants.radiusMD),
               borderSide: BorderSide(
-                color: context.colorScheme.outline.withOpacity(0.5),
+                color: context.colorScheme.outline.withValues(alpha:0.5),
               ),
             ),
             focusedBorder: OutlineInputBorder(
@@ -425,25 +388,25 @@ class _LoginForm extends StatelessWidget {
             ),
             prefixIcon: Icon(
               Iconsax.lock,
-              color: context.colorScheme.onSurface.withOpacity(0.6),
+              color: context.colorScheme.onSurface.withValues(alpha:0.6),
             ),
             suffixIcon: IconButton(
               icon: Icon(
                 obscurePassword ? Iconsax.eye_slash : Iconsax.eye,
-                color: context.colorScheme.onSurface.withOpacity(0.6),
+                color: context.colorScheme.onSurface.withValues(alpha:0.6),
               ),
               onPressed: onTogglePassword,
             ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppConstants.radiusMD),
               borderSide: BorderSide(
-                color: context.colorScheme.outline.withOpacity(0.5),
+                color: context.colorScheme.outline.withValues(alpha:0.5),
               ),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppConstants.radiusMD),
               borderSide: BorderSide(
-                color: context.colorScheme.outline.withOpacity(0.5),
+                color: context.colorScheme.outline.withValues(alpha:0.5),
               ),
             ),
             focusedBorder: OutlineInputBorder(
@@ -530,8 +493,8 @@ class _LoginButton extends StatelessWidget {
         style: ElevatedButton.styleFrom(
           backgroundColor: context.colorScheme.primary,
           foregroundColor: context.colorScheme.onPrimary,
-          disabledBackgroundColor: context.colorScheme.onSurface.withOpacity(0.12),
-          disabledForegroundColor: context.colorScheme.onSurface.withOpacity(0.38),
+          disabledBackgroundColor: context.colorScheme.onSurface.withValues(alpha:0.12),
+          disabledForegroundColor: context.colorScheme.onSurface.withValues(alpha:0.38),
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppConstants.radiusMD),
@@ -584,10 +547,10 @@ class _CreateAccountSection extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(AppConstants.spacingSM),
       decoration: BoxDecoration(
-        color: context.colorScheme.primaryContainer.withOpacity(0.1),
+        color: context.colorScheme.primaryContainer.withValues(alpha:0.1),
         borderRadius: BorderRadius.circular(AppConstants.radiusMD),
         border: Border.all(
-          color: context.colorScheme.primary.withOpacity(0.2),
+          color: context.colorScheme.primary.withValues(alpha:0.2),
         ),
       ),
       child: Row(
@@ -596,7 +559,7 @@ class _CreateAccountSection extends StatelessWidget {
           Text(
             'Don\'t have an account? ',
             style: context.textTheme.bodySmall?.copyWith(
-              color: context.colorScheme.onSurface.withOpacity(0.7),
+              color: context.colorScheme.onSurface.withValues(alpha:0.7),
             ),
           ),
           TextButton(

@@ -5,7 +5,7 @@ import '../../../theme/app_constants.dart';
 import '../../../theme/theme_extensions.dart';
 import '../../../core/snackbars/loaders.dart';
 import '../../../core/constants/validators.dart';
-import '../../auth/data/auth_repository.dart';
+import '../../../core/repositories/auth_repository.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
   const ChangePasswordScreen({super.key});
@@ -178,7 +178,7 @@ class _HeaderSection extends StatelessWidget {
         Container(
           padding: EdgeInsets.all(AppConstants.spacingMD),
           decoration: BoxDecoration(
-            color: context.colorScheme.primaryContainer.withOpacity(0.3),
+            color: context.colorScheme.primaryContainer.withValues(alpha:0.3),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Icon(
@@ -205,7 +205,7 @@ class _HeaderSection extends StatelessWidget {
         Text(
           'Enter your email address and we\'ll send you instructions to reset your password.',
           style: context.textTheme.bodyLarge?.copyWith(
-            color: context.colorScheme.onSurface.withOpacity(0.7),
+            color: context.colorScheme.onSurface.withValues(alpha:0.7),
             height: 1.5,
           ),
         ),
@@ -257,18 +257,18 @@ class _EmailInputSection extends StatelessWidget {
             ),
             prefixIcon: Icon(
               Iconsax.sms,
-              color: context.colorScheme.onSurface.withOpacity(0.6),
+              color: context.colorScheme.onSurface.withValues(alpha:0.6),
             ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppConstants.radiusMD),
               borderSide: BorderSide(
-                color: context.colorScheme.outline.withOpacity(0.5),
+                color: context.colorScheme.outline.withValues(alpha:0.5),
               ),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppConstants.radiusMD),
               borderSide: BorderSide(
-                color: context.colorScheme.outline.withOpacity(0.5),
+                color: context.colorScheme.outline.withValues(alpha:0.5),
               ),
             ),
             focusedBorder: OutlineInputBorder(
@@ -324,8 +324,8 @@ class _ActionButton extends StatelessWidget {
         style: ElevatedButton.styleFrom(
           backgroundColor: context.colorScheme.primary,
           foregroundColor: context.colorScheme.onPrimary,
-          disabledBackgroundColor: context.colorScheme.onSurface.withOpacity(0.12),
-          disabledForegroundColor: context.colorScheme.onSurface.withOpacity(0.38),
+          disabledBackgroundColor: context.colorScheme.onSurface.withValues(alpha:0.12),
+          disabledForegroundColor: context.colorScheme.onSurface.withValues(alpha:0.38),
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppConstants.radiusMD),
@@ -376,10 +376,10 @@ class _InfoSection extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(AppConstants.spacingMD),
       decoration: BoxDecoration(
-        color: context.colorScheme.primaryContainer.withOpacity(0.1),
+        color: context.colorScheme.primaryContainer.withValues(alpha:0.1),
         borderRadius: BorderRadius.circular(AppConstants.radiusMD),
         border: Border.all(
-          color: context.colorScheme.primary.withOpacity(0.2),
+          color: context.colorScheme.primary.withValues(alpha:0.2),
         ),
       ),
       child: Column(
@@ -412,7 +412,7 @@ class _InfoSection extends StatelessWidget {
             '• If you don\'t receive the email, try again\n'
             '• Contact support if you continue having issues',
             style: context.textTheme.bodySmall?.copyWith(
-              color: context.colorScheme.onSurface.withOpacity(0.8),
+              color: context.colorScheme.onSurface.withValues(alpha:0.8),
               height: 1.4,
             ),
           ),

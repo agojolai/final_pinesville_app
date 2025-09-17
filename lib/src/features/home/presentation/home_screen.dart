@@ -415,7 +415,7 @@ class _AnnouncementSection extends StatelessWidget {
               Text(
                 '${currentPage + 1} of ${announcements.length}',
                 style: context.textTheme.bodySmall?.copyWith(
-                  color: context.colorScheme.onSurface.withOpacity(0.6),
+                  color: context.colorScheme.onSurface.withValues(alpha:0.6),
                   fontFamily: 'Montserrat',
                 ),
               ),
@@ -497,7 +497,7 @@ class _AnnouncementSection extends StatelessWidget {
                       vertical: AppConstants.spacingXS,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.1),
+                      color: Colors.black.withValues(alpha:0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
@@ -557,7 +557,7 @@ class _TransactionSection extends StatelessWidget {
             borderRadius: context.radiusXL,
             boxShadow: [
               BoxShadow(
-                color: context.colorScheme.outline.withOpacity(0.1),
+                color: context.colorScheme.outline.withValues(alpha:0.1),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
@@ -572,7 +572,7 @@ class _TransactionSection extends StatelessWidget {
                     child: Text(
                       'No transactions yet',
                       style: context.textTheme.bodyLarge?.copyWith(
-                        color: context.colorScheme.onSurface.withOpacity(0.6),
+                        color: context.colorScheme.onSurface.withValues(alpha:0.6),
                       ),
                     ),
                   ),
@@ -662,7 +662,7 @@ class _TransactionItem extends StatelessWidget {
                 Text(
                   transaction.reference,
                   style: context.textTheme.bodySmall?.copyWith(
-                    color: context.colorScheme.onSurface.withOpacity(0.7),
+                    color: context.colorScheme.onSurface.withValues(alpha:0.7),
                   ),
                 ),
               ],
