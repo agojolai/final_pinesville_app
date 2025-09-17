@@ -7,6 +7,8 @@ import '../../../core/snackbars/loaders.dart';
 import '../../../common/widgets/feedback/feedback.dart';
 import 'submit_report_screen.dart';
 import 'report_detail_screen.dart';
+import '../data/models/report_model.dart';
+import '../data/services/report_service.dart';
 
 class ReportsTicketsScreen extends StatefulWidget {
   const ReportsTicketsScreen({super.key});
@@ -19,65 +21,9 @@ class _ReportsTicketsScreenState extends State<ReportsTicketsScreen> with Ticker
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
 
-  // Sample reports data
-  List<Report> _reports = [
-    Report(
-      id: 'R001',
-      unitNumber: '204-B',
-      category: 'Maintenance / Repairs',
-      subCategory: 'Plumbing (leaks, clogs, water issues)',
-      description: 'Kitchen sink is clogged and water is backing up',
-      status: ReportStatus.inProgress,
-      submittedAt: DateTime.now().subtract(const Duration(days: 2)),
-      tenantName: 'Caleb Anderson',
-      updates: [
-        ReportUpdate(
-          message: 'Report received. Maintenance team has been notified.',
-          timestamp: DateTime.now().subtract(const Duration(days: 2)),
-          isAdmin: true,
-        ),
-        ReportUpdate(
-          message: 'Plumber scheduled for tomorrow morning.',
-          timestamp: DateTime.now().subtract(const Duration(days: 1)),
-          isAdmin: true,
-        ),
-      ],
-    ),
-    Report(
-      id: 'R002',
-      unitNumber: '204-B',
-      category: 'Billing & Payment',
-      subCategory: 'Incorrect billing amount',
-      description: 'Monthly rent charged includes utilities but I handle my own utilities',
-      status: ReportStatus.resolved,
-      submittedAt: DateTime.now().subtract(const Duration(days: 7)),
-      resolvedAt: DateTime.now().subtract(const Duration(days: 3)),
-      tenantName: 'Caleb Anderson',
-      updates: [
-        ReportUpdate(
-          message: 'Report received. Checking billing records.',
-          timestamp: DateTime.now().subtract(const Duration(days: 7)),
-          isAdmin: true,
-        ),
-        ReportUpdate(
-          message: 'Billing has been corrected. Refund of ₱500 will be applied to next month.',
-          timestamp: DateTime.now().subtract(const Duration(days: 3)),
-          isAdmin: true,
-        ),
-      ],
-    ),
-    Report(
-      id: 'R003',
-      unitNumber: '204-B',
-      category: 'Complaints / Concerns',
-      subCategory: 'Noise disturbance',
-      description: 'Upstairs neighbor playing loud music past midnight on weekdays',
-      status: ReportStatus.pending,
-      submittedAt: DateTime.now().subtract(const Duration(hours: 3)),
-      tenantName: 'Caleb Anderson',
-      updates: [],
-    ),
-  ];
+  List<ReportModel> _reports = [];
+  bool _isLoading = true;
+  String? _error;
 
   @override
   void initState() {
@@ -90,6 +36,28 @@ class _ReportsTicketsScreenState extends State<ReportsTicketsScreen> with Ticker
       CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
     );
     _fadeController.forward();
+    _loadReports();
+  }
+
+  Future<void> _loadReports() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+
+      final reports = await ReportService.instance.getUserReports();
+      
+      setState(() {
+        _reports = reports;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -129,27 +97,7 @@ class _ReportsTicketsScreenState extends State<ReportsTicketsScreen> with Ticker
           children: [
             _StatsHeader(),
             Expanded(
-              child: _reports.isEmpty
-                  ? _EmptyState()
-                  : ListView.builder(
-                      physics: const BouncingScrollPhysics(),
-                      padding: EdgeInsets.all(AppConstants.spacingMD),
-                      itemCount: _reports.length,
-                      itemBuilder: (context, index) {
-                        return Padding(
-                          padding: EdgeInsets.only(
-                            bottom: AppConstants.spacingMD,
-                          ),
-                          child: _ReportCard(
-                            report: _reports[index],
-                            onTap: () => _showReportDetail(_reports[index]),
-                            onConfirmResolved: _reports[index].status == ReportStatus.resolved
-                                ? () => _handleResolvedTicketConfirmation(_reports[index])
-                                : null,
-                          ),
-                        );
-                      },
-                    ),
+              child: _buildContent(),
             ),
           ],
         ),
@@ -167,6 +115,100 @@ class _ReportsTicketsScreenState extends State<ReportsTicketsScreen> with Ticker
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildContent() {
+    if (_isLoading) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(
+                context.colorScheme.primary,
+              ),
+            ),
+            SizedBox(height: AppConstants.spacingMD),
+            Text(
+              'Loading your reports...',
+              style: context.textTheme.bodyMedium?.copyWith(
+                color: context.colorScheme.onSurface.withValues(alpha: 0.6),
+                fontFamily: 'Montserrat',
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Iconsax.warning_2,
+              size: 64,
+              color: context.colorScheme.error,
+            ),
+            SizedBox(height: AppConstants.spacingMD),
+            Text(
+              'Failed to load reports',
+              style: context.textTheme.titleMedium?.copyWith(
+                color: context.colorScheme.error,
+                fontFamily: 'Montserrat',
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            SizedBox(height: AppConstants.spacingSM),
+            Text(
+              _error!,
+              style: context.textTheme.bodySmall?.copyWith(
+                color: context.colorScheme.onSurface.withValues(alpha: 0.6),
+                fontFamily: 'Montserrat',
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: AppConstants.spacingMD),
+            ElevatedButton(
+              onPressed: _loadReports,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: context.colorScheme.primary,
+                foregroundColor: context.colorScheme.onPrimary,
+              ),
+              child: Text(
+                'Retry',
+                style: TextStyle(fontFamily: 'Montserrat'),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_reports.isEmpty) {
+      return _EmptyState();
+    }
+
+    return ListView.builder(
+      physics: const BouncingScrollPhysics(),
+      padding: EdgeInsets.all(AppConstants.spacingMD),
+      itemCount: _reports.length,
+      itemBuilder: (context, index) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: AppConstants.spacingMD,
+          ),
+          child: _ReportCard(
+            report: _reports[index],
+            onTap: () => _showReportDetail(_reports[index]),
+            onConfirmResolved: _reports[index].status == ReportStatus.resolved
+                ? () => _handleResolvedTicketConfirmation(_reports[index])
+                : null,
+          ),
+        );
+      },
     );
   }
 
@@ -326,15 +368,9 @@ class _ReportsTicketsScreenState extends State<ReportsTicketsScreen> with Ticker
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => SubmitReportScreen(
-          onReportSubmitted: (report) {
-            setState(() {
-              _reports.insert(0, report);
-            });
-            Loaders.successSnackBar(
-              context,
-              title: 'Report Submitted',
-              message: 'Your report has been submitted successfully.',
-            );
+          onReportSubmitted: () {
+            // Refresh the reports list after submission
+            _loadReports();
           },
         ),
       ),
@@ -436,7 +472,7 @@ class _ReportsTicketsScreenState extends State<ReportsTicketsScreen> with Ticker
 
 // Report Card Widget
 class _ReportCard extends StatelessWidget {
-  final Report report;
+  final ReportModel report;
   final VoidCallback onTap;
   final VoidCallback? onConfirmResolved;
 
@@ -654,47 +690,4 @@ class _ReportCard extends StatelessWidget {
       return '${date.day}/${date.month}/${date.year}';
     }
   }
-}
-
-// Data Models
-enum ReportStatus { pending, inProgress, resolved, closed }
-
-class Report {
-  final String id;
-  final String unitNumber;
-  final String category;
-  final String subCategory;
-  final String description;
-  final ReportStatus status;
-  final DateTime submittedAt;
-  final DateTime? resolvedAt;
-  final String tenantName;
-  final List<String> attachments;
-  final List<ReportUpdate> updates;
-
-  Report({
-    required this.id,
-    required this.unitNumber,
-    required this.category,
-    required this.subCategory,
-    required this.description,
-    required this.status,
-    required this.submittedAt,
-    this.resolvedAt,
-    required this.tenantName,
-    this.attachments = const [],
-    this.updates = const [],
-  });
-}
-
-class ReportUpdate {
-  final String message;
-  final DateTime timestamp;
-  final bool isAdmin;
-
-  ReportUpdate({
-    required this.message,
-    required this.timestamp,
-    required this.isAdmin,
-  });
 }

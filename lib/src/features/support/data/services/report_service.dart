@@ -191,7 +191,7 @@ class ReportService {
 
   /// Helper method to update report attachments
   Future<void> _updateReportAttachments(String reportId, List<String> attachmentUrls) async {
-    await _reportRepository._reportsCollection.doc(reportId).update({
+    await _reportRepository.updateReportField(reportId, {
       'attachments': attachmentUrls,
     });
   }

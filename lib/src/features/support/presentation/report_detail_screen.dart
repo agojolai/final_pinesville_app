@@ -3,10 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:iconsax/iconsax.dart';
 import '../../../theme/app_constants.dart';
 import '../../../theme/theme_extensions.dart';
-import 'reports_tickets_screen.dart';
+import '../data/models/report_model.dart';
 
 class ReportDetailScreen extends StatefulWidget {
-  final Report report;
+  final ReportModel report;
 
   const ReportDetailScreen({
     super.key,
@@ -238,7 +238,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> with TickerProv
           _DetailRow(
             icon: Iconsax.user,
             label: 'Submitted by',
-            value: widget.report.tenantName,
+            value: widget.report.tenant.name,
           ),
           
           _DetailRow(

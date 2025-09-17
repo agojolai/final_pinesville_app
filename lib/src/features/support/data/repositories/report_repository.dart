@@ -272,4 +272,19 @@ class ReportRepository {
       throw Exception('Error fetching all reports: $e');
     }
   }
+
+  // Helper method to update specific fields in a report
+  Future<void> updateReportField(String reportId, Map<String, dynamic> fields) async {
+    try {
+      await _reportsCollection.doc(reportId).update(fields);
+    } on FirebaseException catch (e) {
+      throw custom_firebase.FirebaseException(e.code).message;
+    } on custom_format.FormatException catch (_) {
+      throw const custom_format.FormatException();
+    } on PlatformException catch (e) {
+      throw custom_platform.PlatformException(e.code).message;
+    } catch (e) {
+      throw Exception('Error updating report field: $e');
+    }
+  }
 }
