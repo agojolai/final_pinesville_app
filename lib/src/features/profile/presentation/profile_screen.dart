@@ -7,6 +7,7 @@ import '../../../core/snackbars/loaders.dart';
 import 'account_settings_screen.dart';
 import 'change_password_screen.dart';
 import '../../support/presentation/reports_tickets_screen.dart';
+import '../../support/presentation/admin_test_screen.dart';
 import '../../auth/presentation/login_screen.dart';
 import '../../onboarding/presentation/onboarding_test_screen.dart';
 import '../../../core/repositories/auth_repository.dart';
@@ -459,6 +460,19 @@ class _ProfileSections extends StatelessWidget {
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (context) => const OnboardingTestScreen(),
+                    ),
+                  );
+                },
+              ),
+              _ProfileMenuItem(
+                icon: Iconsax.setting_2,
+                title: 'Admin Test Utilities',
+                subtitle: 'Simulate admin actions for testing',
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const AdminTestScreen(),
                     ),
                   );
                 },

@@ -449,23 +449,36 @@ class _ReportsTicketsScreenState extends State<ReportsTicketsScreen> with Ticker
     );
   }
 
-  void _archiveReport(Report report, int? rating, String? comment) {
-    setState(() {
-      _reports.removeWhere((r) => r.id == report.id);
-    });
+  Future<void> _archiveReport(ReportModel report, int? rating, String? comment) async {
+    try {
+      // Submit feedback if provided
+      if (rating != null && comment != null) {
+        await ReportService.instance.submitFeedback(
+          report.id!,
+          rating,
+          comment,
+        );
+      }
 
-    // Show success message
-    Loaders.successSnackBar(
-      context,
-      title: 'Report Archived',
-      message: rating != null 
-          ? 'Thank you for your feedback! The report has been archived.'
-          : 'The report has been archived successfully.',
-    );
+      // Remove from local list
+      setState(() {
+        _reports.removeWhere((r) => r.id == report.id);
+      });
 
-    // Here you would typically save the feedback to your backend
-    if (rating != null && comment != null) {
-      print('Feedback saved: Rating $rating, Comment: "$comment"');
+      // Show success message
+      Loaders.successSnackBar(
+        context,
+        title: 'Report Archived',
+        message: rating != null 
+            ? 'Thank you for your feedback! The report has been archived.'
+            : 'The report has been archived successfully.',
+      );
+    } catch (e) {
+      Loaders.errorSnackBar(
+        context,
+        title: 'Error',
+        message: 'Failed to archive report: $e',
+      );
     }
   }
 }
