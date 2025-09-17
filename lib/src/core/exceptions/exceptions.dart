@@ -25,9 +25,9 @@ class Exceptions implements Exception {
       case 'user-not-found':
         return const Exceptions('Invalid login details. User not found.');
      // TODO: dont say wrong password, say invalid login details
-     //: case 'wrong-password':
-      //  return const Exceptions(
-      //      'Incorrect password. Please check your password and try again.');
+      case 'wrong-password':
+        return const Exceptions(
+            'Incorrect password. Please check your password and try again.');
       case 'INVALID_LOGIN_CREDENTIALS' && 'wrong-password':
         return const Exceptions(
             'Invalid login credentials. Please double-check your information.');
