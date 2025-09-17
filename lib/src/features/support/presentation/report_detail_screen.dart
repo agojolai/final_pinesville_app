@@ -121,10 +121,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> with TickerProv
       width: double.infinity,
       padding: EdgeInsets.all(AppConstants.spacingLG),
       decoration: BoxDecoration(
-        color: _getStatusColor(widget.report.status).withOpacity(0.1),
+        color: _getStatusColor(widget.report.status).withValues(alpha:0.1),
         borderRadius: context.radiusXL,
         border: Border.all(
-          color: _getStatusColor(widget.report.status).withOpacity(0.3),
+          color: _getStatusColor(widget.report.status).withValues(alpha:0.3),
           width: 1,
         ),
       ),
@@ -133,7 +133,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> with TickerProv
           Container(
             padding: EdgeInsets.all(AppConstants.spacingMD),
             decoration: BoxDecoration(
-              color: _getStatusColor(widget.report.status).withOpacity(0.2),
+              color: _getStatusColor(widget.report.status).withValues(alpha:0.2),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -155,7 +155,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> with TickerProv
           Text(
             _getStatusDescription(widget.report.status),
             style: context.textTheme.bodyMedium?.copyWith(
-              color: context.colorScheme.onSurface.withOpacity(0.7),
+              color: context.colorScheme.onSurface.withValues(alpha:0.7),
               fontFamily: 'Montserrat',
             ),
             textAlign: TextAlign.center,
@@ -168,7 +168,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> with TickerProv
                 vertical: AppConstants.spacingXS,
               ),
               decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.1),
+                color: Colors.green.withValues(alpha:0.1),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
@@ -193,12 +193,12 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> with TickerProv
         color: context.colorScheme.surface,
         borderRadius: context.radiusXL,
         border: Border.all(
-          color: context.colorScheme.outline.withOpacity(0.2),
+          color: context.colorScheme.outline.withValues(alpha:0.2),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: context.colorScheme.shadow.withOpacity(0.08),
+            color: context.colorScheme.shadow.withValues(alpha:0.08),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -272,13 +272,13 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> with TickerProv
             width: double.infinity,
             padding: EdgeInsets.all(AppConstants.spacingMD),
             decoration: BoxDecoration(
-              color: context.colorScheme.surfaceContainer.withOpacity(0.5),
+              color: context.colorScheme.surfaceContainer.withValues(alpha:0.5),
               borderRadius: context.radiusMD,
             ),
             child: Text(
               widget.report.description,
               style: context.textTheme.bodyMedium?.copyWith(
-                color: context.colorScheme.onSurface.withOpacity(0.8),
+                color: context.colorScheme.onSurface.withValues(alpha:0.8),
                 fontFamily: 'Montserrat',
                 height: 1.5,
               ),
@@ -313,7 +313,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> with TickerProv
             child: Text(
               label,
               style: context.textTheme.bodyMedium?.copyWith(
-                color: context.colorScheme.onSurface.withOpacity(0.7),
+                color: context.colorScheme.onSurface.withValues(alpha:0.7),
                 fontFamily: 'Montserrat',
               ),
             ),
@@ -340,12 +340,12 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> with TickerProv
         color: context.colorScheme.surface,
         borderRadius: context.radiusXL,
         border: Border.all(
-          color: context.colorScheme.outline.withOpacity(0.2),
+          color: context.colorScheme.outline.withValues(alpha:0.2),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: context.colorScheme.shadow.withOpacity(0.08),
+            color: context.colorScheme.shadow.withValues(alpha:0.08),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -382,7 +382,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> with TickerProv
               ),
               padding: EdgeInsets.all(AppConstants.spacingMD),
               decoration: BoxDecoration(
-                color: context.colorScheme.primaryContainer.withOpacity(0.2),
+                color: context.colorScheme.primaryContainer.withValues(alpha:0.2),
                 borderRadius: context.radiusMD,
               ),
               child: Row(
@@ -425,12 +425,12 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> with TickerProv
         color: context.colorScheme.surface,
         borderRadius: context.radiusXL,
         border: Border.all(
-          color: context.colorScheme.outline.withOpacity(0.2),
+          color: context.colorScheme.outline.withValues(alpha:0.2),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: context.colorScheme.shadow.withOpacity(0.08),
+            color: context.colorScheme.shadow.withValues(alpha:0.08),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -463,7 +463,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> with TickerProv
               width: double.infinity,
               padding: EdgeInsets.all(AppConstants.spacingLG),
               decoration: BoxDecoration(
-                color: context.colorScheme.surfaceContainer.withOpacity(0.3),
+                color: context.colorScheme.surfaceContainer.withValues(alpha:0.3),
                 borderRadius: context.radiusMD,
               ),
               child: Column(
@@ -471,13 +471,13 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> with TickerProv
                   Icon(
                     Iconsax.message,
                     size: 40,
-                    color: context.colorScheme.onSurface.withOpacity(0.4),
+                    color: context.colorScheme.onSurface.withValues(alpha:0.4),
                   ),
                   SizedBox(height: AppConstants.spacingSM),
                   Text(
                     'No updates yet',
                     style: context.textTheme.titleMedium?.copyWith(
-                      color: context.colorScheme.onSurface.withOpacity(0.6),
+                      color: context.colorScheme.onSurface.withValues(alpha:0.6),
                       fontFamily: 'Montserrat',
                     ),
                   ),
@@ -485,7 +485,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> with TickerProv
                   Text(
                     'You will receive updates from the admin team here.',
                     style: context.textTheme.bodySmall?.copyWith(
-                      color: context.colorScheme.onSurface.withOpacity(0.5),
+                      color: context.colorScheme.onSurface.withValues(alpha:0.5),
                       fontFamily: 'Montserrat',
                     ),
                     textAlign: TextAlign.center,
@@ -630,13 +630,13 @@ class _UpdateCard extends StatelessWidget {
       padding: EdgeInsets.all(AppConstants.spacingMD),
       decoration: BoxDecoration(
         color: update.isAdmin 
-            ? context.colorScheme.primaryContainer.withOpacity(0.3)
-            : context.colorScheme.surfaceContainer.withOpacity(0.5),
+            ? context.colorScheme.primaryContainer.withValues(alpha:0.3)
+            : context.colorScheme.surfaceContainer.withValues(alpha:0.5),
         borderRadius: context.radiusMD,
         border: Border.all(
           color: update.isAdmin 
-              ? context.colorScheme.primary.withOpacity(0.3)
-              : context.colorScheme.outline.withOpacity(0.2),
+              ? context.colorScheme.primary.withValues(alpha:0.3)
+              : context.colorScheme.outline.withValues(alpha:0.2),
           width: 1,
         ),
       ),
@@ -649,7 +649,7 @@ class _UpdateCard extends StatelessWidget {
                 padding: EdgeInsets.all(AppConstants.spacingXS),
                 decoration: BoxDecoration(
                   color: update.isAdmin 
-                      ? context.colorScheme.primary.withOpacity(0.2)
+                      ? context.colorScheme.primary.withValues(alpha:0.2)
                       : context.colorScheme.surfaceContainer,
                   shape: BoxShape.circle,
                 ),
@@ -658,7 +658,7 @@ class _UpdateCard extends StatelessWidget {
                   size: 16,
                   color: update.isAdmin 
                       ? context.colorScheme.primary
-                      : context.colorScheme.onSurface.withOpacity(0.6),
+                      : context.colorScheme.onSurface.withValues(alpha:0.6),
                 ),
               ),
               SizedBox(width: AppConstants.spacingSM),
@@ -679,7 +679,7 @@ class _UpdateCard extends StatelessWidget {
                     Text(
                       _formatUpdateTime(update.timestamp),
                       style: context.textTheme.bodySmall?.copyWith(
-                        color: context.colorScheme.onSurface.withOpacity(0.5),
+                        color: context.colorScheme.onSurface.withValues(alpha:0.5),
                         fontFamily: 'Montserrat',
                       ),
                     ),
@@ -692,7 +692,7 @@ class _UpdateCard extends StatelessWidget {
           Text(
             update.message,
             style: context.textTheme.bodyMedium?.copyWith(
-              color: context.colorScheme.onSurface.withOpacity(0.8),
+              color: context.colorScheme.onSurface.withValues(alpha:0.8),
               fontFamily: 'Montserrat',
               height: 1.4,
             ),

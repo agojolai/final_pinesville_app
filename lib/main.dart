@@ -6,7 +6,7 @@ import 'app.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'firebase_options.dart';
-import 'src/features/auth/data/auth_repository.dart';
+import 'src/core/repositories/auth_repository.dart';
 
 //Entry point of the app
 

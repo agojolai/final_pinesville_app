@@ -52,7 +52,7 @@ class AuthTestScreen extends ConsumerWidget {
                   color: context.colorScheme.primaryContainer,
                   borderRadius: BorderRadius.circular(AppConstants.radiusMD),
                   border: Border.all(
-                    color: context.colorScheme.outline.withOpacity(0.2),
+                    color: context.colorScheme.outline.withValues(alpha:0.2),
                   ),
                 ),
                 child: Column(
@@ -91,7 +91,7 @@ class AuthTestScreen extends ConsumerWidget {
                       Container(
                         padding: EdgeInsets.all(AppConstants.spacingSM),
                         decoration: BoxDecoration(
-                          color: Colors.red.withOpacity(0.1),
+                          color: Colors.red.withValues(alpha:0.1),
                           borderRadius: BorderRadius.circular(AppConstants.radiusSM),
                         ),
                         child: Text(
@@ -135,7 +135,7 @@ class AuthTestScreen extends ConsumerWidget {
                       color: context.colorScheme.secondaryContainer,
                       borderRadius: BorderRadius.circular(AppConstants.radiusMD),
                       border: Border.all(
-                        color: context.colorScheme.outline.withOpacity(0.2),
+                        color: context.colorScheme.outline.withValues(alpha:0.2),
                       ),
                     ),
                     child: Column(
@@ -271,7 +271,7 @@ class _InfoRow extends StatelessWidget {
             child: Text(
               '$label:',
               style: context.textTheme.bodySmall?.copyWith(
-                color: context.colorScheme.onSecondaryContainer.withOpacity(0.7),
+                color: context.colorScheme.onSecondaryContainer.withValues(alpha:0.7),
                 fontWeight: FontWeight.w500,
               ),
             ),

@@ -26,10 +26,10 @@ class Loaders {
           margin: EdgeInsets.symmetric(horizontal: AppConstants.spacingXL),
           decoration: BoxDecoration(
             borderRadius: context.radiusXL,
-            color: context.colorScheme.surface.withOpacity(0.9),
+            color: context.colorScheme.surface.withValues(alpha:0.9),
             boxShadow: [
               BoxShadow(
-                color: context.colorScheme.shadow.withOpacity(0.1),
+                color: context.colorScheme.shadow.withValues(alpha:0.1),
                 blurRadius: 8,
                 offset: Offset(0, 2),
               ),
@@ -84,7 +84,7 @@ class Loaders {
                     Text(
                       message,
                       style: context.textTheme.bodySmall?.copyWith(
-                        color: Colors.white.withOpacity(0.9), // White text on success background
+                        color: Colors.white.withValues(alpha:0.9), // White text on success background
                         fontFamily: 'Montserrat',
                       ),
                     ),
@@ -139,7 +139,7 @@ class Loaders {
                     Text(
                       message,
                       style: context.textTheme.bodySmall?.copyWith(
-                        color: Colors.black.withOpacity(0.8), // Black text on warning (amber) background
+                        color: Colors.black.withValues(alpha:0.8), // Black text on warning (amber) background
                         fontFamily: 'Montserrat',
                       ),
                     ),
@@ -194,7 +194,7 @@ class Loaders {
                     Text(
                       message,
                       style: context.textTheme.bodySmall?.copyWith(
-                        color: context.colorScheme.onError.withOpacity(0.9), // Using theme color
+                        color: context.colorScheme.onError.withValues(alpha:0.9), // Using theme color
                         fontFamily: 'Montserrat',
                       ),
                     ),
@@ -249,7 +249,7 @@ class Loaders {
                     Text(
                       message,
                       style: context.textTheme.bodySmall?.copyWith(
-                        color: Colors.white.withOpacity(0.9), // White text on info (blue) background
+                        color: Colors.white.withValues(alpha:0.9), // White text on info (blue) background
                         fontFamily: 'Montserrat',
                       ),
                     ),

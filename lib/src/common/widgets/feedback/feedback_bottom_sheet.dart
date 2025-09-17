@@ -80,7 +80,7 @@ class _FeedbackBottomSheetState extends State<FeedbackBottomSheet> {
       case 5:
         return Colors.green;
       default:
-        return context.colorScheme.onSurface.withOpacity(0.6);
+        return context.colorScheme.onSurface.withValues(alpha:0.6);
     }
   }
 
@@ -122,7 +122,7 @@ class _FeedbackBottomSheetState extends State<FeedbackBottomSheet> {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: context.colorScheme.onSurface.withOpacity(0.3),
+              color: context.colorScheme.onSurface.withValues(alpha:0.3),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -149,7 +149,7 @@ class _FeedbackBottomSheetState extends State<FeedbackBottomSheet> {
               IconButton(
                 icon: Icon(
                   Iconsax.close_circle,
-                  color: context.colorScheme.onSurface.withOpacity(0.6),
+                  color: context.colorScheme.onSurface.withValues(alpha:0.6),
                 ),
                 onPressed: () {
                   widget.onCancel?.call();
@@ -165,7 +165,7 @@ class _FeedbackBottomSheetState extends State<FeedbackBottomSheet> {
           Text(
             widget.subtitle,
             style: context.textTheme.bodyMedium?.copyWith(
-              color: context.colorScheme.onSurface.withOpacity(0.7),
+              color: context.colorScheme.onSurface.withValues(alpha:0.7),
             ),
             textAlign: TextAlign.center,
           ),
@@ -222,7 +222,7 @@ class _FeedbackBottomSheetState extends State<FeedbackBottomSheet> {
               ),
               prefixIcon: Icon(
                 Iconsax.message_text,
-                color: context.colorScheme.onSurface.withOpacity(0.6),
+                color: context.colorScheme.onSurface.withValues(alpha:0.6),
               ),
             ),
           ),

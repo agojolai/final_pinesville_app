@@ -298,7 +298,7 @@ class _PaymentMethodCard extends StatelessWidget {
               border: Border.all(
                 color: isSelected 
                     ? context.colorScheme.primary 
-                    : context.colorScheme.outline.withOpacity(0.3),
+                    : context.colorScheme.outline.withValues(alpha:0.3),
                 width: isSelected ? 2 : 1,
               ),
               borderRadius: context.radiusLG,
@@ -324,7 +324,7 @@ class _PaymentMethodCard extends StatelessWidget {
                           size: 32,
                           color: isSelected 
                               ? context.colorScheme.primary 
-                              : context.colorScheme.onSurface.withOpacity(0.7),
+                              : context.colorScheme.onSurface.withValues(alpha:0.7),
                         );
                       },
                     ),
@@ -335,7 +335,7 @@ class _PaymentMethodCard extends StatelessWidget {
                     size: 32,
                     color: isSelected 
                         ? context.colorScheme.primary 
-                        : context.colorScheme.onSurface.withOpacity(0.7),
+                        : context.colorScheme.onSurface.withValues(alpha:0.7),
                   ),
                 SizedBox(height: AppConstants.spacingXS),
                 Text(
@@ -377,7 +377,7 @@ class _QRCodeDisplay extends StatelessWidget {
         borderRadius: context.radiusXL,
         boxShadow: [
           BoxShadow(
-            color: context.colorScheme.outline.withOpacity(0.1),
+            color: context.colorScheme.outline.withValues(alpha:0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -499,7 +499,7 @@ class _QRCodeDisplay extends StatelessWidget {
         color: Colors.white,
         borderRadius: context.radiusLG,
         border: Border.all(
-          color: context.colorScheme.outline.withOpacity(0.2),
+          color: context.colorScheme.outline.withValues(alpha:0.2),
           width: 1,
         ),
       ),
@@ -525,7 +525,7 @@ class _QRCodeDisplay extends StatelessWidget {
         Icon(
           Iconsax.scan_barcode,
           size: 80,
-          color: context.colorScheme.outline.withOpacity(0.5),
+          color: context.colorScheme.outline.withValues(alpha:0.5),
         ),
         SizedBox(height: AppConstants.spacingSM),
         Text(
@@ -539,7 +539,7 @@ class _QRCodeDisplay extends StatelessWidget {
         Text(
           'QR Code',
           style: context.textTheme.bodySmall?.copyWith(
-            color: context.colorScheme.onSurface.withOpacity(0.7),
+            color: context.colorScheme.onSurface.withValues(alpha:0.7),
             fontFamily: 'Montserrat',
           ),
         ),
@@ -609,7 +609,7 @@ class _ProofOfPaymentSection extends StatelessWidget {
                 border: Border.all(
                   color: proofImage != null 
                       ? context.colorScheme.primary 
-                      : context.colorScheme.outline.withOpacity(0.3),
+                      : context.colorScheme.outline.withValues(alpha:0.3),
                   width: 2,
                 ),
                 borderRadius: context.radiusLG,
@@ -634,7 +634,7 @@ class _ProofOfPaymentSection extends StatelessWidget {
                           right: 8,
                           child: Container(
                             decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.6),
+                              color: Colors.black.withValues(alpha:0.6),
                               shape: BoxShape.circle,
                             ),
                             child: IconButton(
@@ -655,7 +655,7 @@ class _ProofOfPaymentSection extends StatelessWidget {
                         Icon(
                           Iconsax.camera,
                           size: 48,
-                          color: context.colorScheme.outline.withOpacity(0.5),
+                          color: context.colorScheme.outline.withValues(alpha:0.5),
                         ),
                         SizedBox(height: AppConstants.spacingSM),
                         Text(
@@ -663,7 +663,7 @@ class _ProofOfPaymentSection extends StatelessWidget {
                               ? 'Tap to upload photo of you\nhanding over the payment'
                               : 'Tap to upload screenshot\nor photo of your payment',
                           style: context.textTheme.bodyMedium?.copyWith(
-                            color: context.colorScheme.onSurface.withOpacity(0.7),
+                            color: context.colorScheme.onSurface.withValues(alpha:0.7),
                             fontFamily: 'Montserrat',
                           ),
                           textAlign: TextAlign.center,
@@ -767,7 +767,7 @@ class _ImageSourceButton extends StatelessWidget {
           padding: EdgeInsets.all(AppConstants.spacingLG),
           decoration: BoxDecoration(
             border: Border.all(
-              color: context.colorScheme.outline.withOpacity(0.3),
+              color: context.colorScheme.outline.withValues(alpha:0.3),
             ),
             borderRadius: context.radiusLG,
           ),
@@ -810,7 +810,7 @@ class _SubmitButton extends StatelessWidget {
       style: ElevatedButton.styleFrom(
         backgroundColor: hasProof 
             ? context.colorScheme.primary 
-            : context.colorScheme.outline.withOpacity(0.3),
+            : context.colorScheme.outline.withValues(alpha:0.3),
         foregroundColor: Colors.white,
         elevation: hasProof ? 2 : 0,
         shape: RoundedRectangleBorder(

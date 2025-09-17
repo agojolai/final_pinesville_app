@@ -134,12 +134,12 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Tick
         color: context.colorScheme.surface,
         borderRadius: context.radiusXL,
         border: Border.all(
-          color: context.colorScheme.outline.withOpacity(0.2),
+          color: context.colorScheme.outline.withValues(alpha:0.2),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: context.colorScheme.shadow.withOpacity(0.08),
+            color: context.colorScheme.shadow.withValues(alpha:0.08),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -207,12 +207,12 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Tick
         color: context.colorScheme.surface,
         borderRadius: context.radiusXL,
         border: Border.all(
-          color: context.colorScheme.outline.withOpacity(0.2),
+          color: context.colorScheme.outline.withValues(alpha:0.2),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: context.colorScheme.shadow.withOpacity(0.08),
+            color: context.colorScheme.shadow.withValues(alpha:0.08),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -247,7 +247,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Tick
           Text(
             'Add details of anyone living with you',
             style: context.textTheme.bodySmall?.copyWith(
-              color: context.colorScheme.onSurface.withOpacity(0.7),
+              color: context.colorScheme.onSurface.withValues(alpha:0.7),
               fontFamily: 'Montserrat',
             ),
           ),
@@ -292,7 +292,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Tick
         color: context.colorScheme.surfaceContainer,
         borderRadius: context.radiusMD,
         border: Border.all(
-          color: context.colorScheme.primary.withOpacity(0.2),
+          color: context.colorScheme.primary.withValues(alpha:0.2),
           width: 1,
         ),
       ),
@@ -317,7 +317,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Tick
                     Text(
                       occupant.phoneNumber,
                       style: context.textTheme.bodyMedium?.copyWith(
-                        color: context.colorScheme.onSurface.withOpacity(0.7),
+                        color: context.colorScheme.onSurface.withValues(alpha:0.7),
                         fontFamily: 'Montserrat',
                       ),
                     ),
@@ -356,7 +356,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Tick
                 ],
                 child: Icon(
                   Iconsax.more,
-                  color: context.colorScheme.onSurface.withOpacity(0.6),
+                  color: context.colorScheme.onSurface.withValues(alpha:0.6),
                 ),
               ),
             ],
@@ -475,10 +475,10 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Tick
       width: double.infinity,
       padding: EdgeInsets.all(AppConstants.spacingMD),
       decoration: BoxDecoration(
-        color: context.colorScheme.errorContainer.withOpacity(0.3),
+        color: context.colorScheme.errorContainer.withValues(alpha:0.3),
         borderRadius: context.radiusSM,
         border: Border.all(
-          color: context.colorScheme.error.withOpacity(0.3),
+          color: context.colorScheme.error.withValues(alpha:0.3),
           width: 1,
         ),
       ),
@@ -496,7 +496,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Tick
           Text(
             'For testing purposes only',
             style: context.textTheme.bodySmall?.copyWith(
-              color: context.colorScheme.onSurface.withOpacity(0.6),
+              color: context.colorScheme.onSurface.withValues(alpha:0.6),
               fontFamily: 'Montserrat',
             ),
           ),
@@ -546,10 +546,10 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Tick
     return Container(
       padding: EdgeInsets.all(AppConstants.spacingXL),
       decoration: BoxDecoration(
-        color: context.colorScheme.surfaceContainer.withOpacity(0.5),
+        color: context.colorScheme.surfaceContainer.withValues(alpha:0.5),
         borderRadius: context.radiusMD,
         border: Border.all(
-          color: context.colorScheme.outline.withOpacity(0.2),
+          color: context.colorScheme.outline.withValues(alpha:0.2),
           width: 1,
         ),
       ),
@@ -558,13 +558,13 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Tick
           Icon(
             Iconsax.user_add,
             size: 48,
-            color: context.colorScheme.onSurface.withOpacity(0.4),
+            color: context.colorScheme.onSurface.withValues(alpha:0.4),
           ),
           SizedBox(height: AppConstants.spacingSM),
           Text(
             'No occupant added',
             style: context.textTheme.titleMedium?.copyWith(
-              color: context.colorScheme.onSurface.withOpacity(0.6),
+              color: context.colorScheme.onSurface.withValues(alpha:0.6),
               fontFamily: 'Montserrat',
             ),
           ),
@@ -572,7 +572,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Tick
           Text(
             'Tap the Add button to include someone living with you',
             style: context.textTheme.bodySmall?.copyWith(
-              color: context.colorScheme.onSurface.withOpacity(0.5),
+              color: context.colorScheme.onSurface.withValues(alpha:0.5),
               fontFamily: 'Montserrat',
             ),
             textAlign: TextAlign.center,
@@ -758,10 +758,10 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Tick
             Container(
               padding: EdgeInsets.all(AppConstants.spacingMD),
               decoration: BoxDecoration(
-                color: context.colorScheme.errorContainer.withOpacity(0.3),
+                color: context.colorScheme.errorContainer.withValues(alpha:0.3),
                 borderRadius: context.radiusSM,
                 border: Border.all(
-                  color: context.colorScheme.error.withOpacity(0.3),
+                  color: context.colorScheme.error.withValues(alpha:0.3),
                   width: 1,
                 ),
               ),
@@ -793,7 +793,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Tick
               'We recommend speaking with the admins first before proceeding with this request.',
               style: TextStyle(
                 fontFamily: 'Montserrat',
-                color: context.colorScheme.onSurface.withOpacity(0.8),
+                color: context.colorScheme.onSurface.withValues(alpha:0.8),
               ),
             ),
             SizedBox(height: AppConstants.spacingSM),
