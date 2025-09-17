@@ -8,7 +8,9 @@ import 'account_settings_screen.dart';
 import 'change_password_screen.dart';
 import '../../support/presentation/reports_tickets_screen.dart';
 import '../../auth/presentation/login_screen.dart';
+import '../../onboarding/presentation/onboarding_test_screen.dart';
 import '../../../core/repositories/auth_repository.dart';
+
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -447,6 +449,19 @@ class _ProfileSections extends StatelessWidget {
                 title: 'About App',
                 subtitle: 'Version, privacy policy',
                 onTap: () => _showAboutDialog(context),
+              ),
+              _ProfileMenuItem(
+                icon: Iconsax.command_square,
+                title: 'Onboarding Test',
+                subtitle: 'Test onboarding walkthrough',
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const OnboardingTestScreen(),
+                    ),
+                  );
+                },
               ),
             ],
           ),
