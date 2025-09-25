@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../theme/app_constants.dart';
 import '../../../theme/theme_extensions.dart';
 import 'package:iconsax/iconsax.dart';
@@ -8,16 +9,20 @@ import 'account_settings_screen.dart';
 import 'change_password_screen.dart';
 import '../../support/presentation/reports_tickets_screen.dart';
 import '../../auth/presentation/login_screen.dart';
-import '../../auth/data/auth_repository.dart';
+import '../../onboarding/presentation/onboarding_test_screen.dart';
+import '../../../core/repositories/auth_repository.dart';
+import '../providers/profile_provider.dart';
+import '../../auth/data/models/user_model.dart';
 
-class ProfileScreen extends StatefulWidget {
+
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateMixin {
+class _ProfileScreenState extends ConsumerState<ProfileScreen> with TickerProviderStateMixin {
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
   
@@ -130,7 +135,18 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
           physics: const BouncingScrollPhysics(),
           child: Column(
             children: [
-              _ProfileHeader(),
+              // Watch the user profile provider
+              Consumer(
+                builder: (context, ref, child) {
+                  final userProfileAsync = ref.watch(userProfileProvider);
+                  
+                  return userProfileAsync.when(
+                    data: (userModel) => _ProfileHeader(userModel: userModel),
+                    loading: () => _ProfileHeaderLoading(),
+                    error: (error, stack) => _ProfileHeaderError(error: error.toString()),
+                  );
+                },
+              ),
               SizedBox(height: AppConstants.spacingLG),
               _ProfileSections(
                 activeReportsCount: _activeReportsCount,
@@ -147,7 +163,9 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
 
 // Profile Header Widget
 class _ProfileHeader extends StatelessWidget {
-  const _ProfileHeader();
+  final UserModel userModel;
+  
+  const _ProfileHeader({required this.userModel});
 
   @override
   Widget build(BuildContext context) {
@@ -199,20 +217,31 @@ class _ProfileHeader extends StatelessWidget {
                     ],
                   ),
                   child: ClipOval(
-                    child: Image.asset(
-                      'assets/images/default_profile.png',
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          color: context.colorScheme.surfaceContainerHighest,
-                          child: Icon(
-                            Iconsax.user,
-                            size: 40,
-                            color: context.colorScheme.onSurface.withValues(alpha: 0.6),
+                    child: userModel.profilePicture.isNotEmpty
+                        ? Image.network(
+                            userModel.profilePicture,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Image.asset(
+                                'assets/images/default_profile.png',
+                                fit: BoxFit.cover,
+                              );
+                            },
+                          )
+                        : Image.asset(
+                            'assets/images/default_profile.png',
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                color: context.colorScheme.surfaceContainerHighest,
+                                child: Icon(
+                                  Iconsax.user,
+                                  size: 40,
+                                  color: context.colorScheme.onSurface.withValues(alpha: 0.6),
+                                ),
+                              );
+                            },
                           ),
-                        );
-                      },
-                    ),
                   ),
                 ),
               ),
@@ -239,7 +268,7 @@ class _ProfileHeader extends StatelessWidget {
           
           // Name and Unit
           Text(
-            'Caleb Anderson',
+            userModel.fullName,
             style: context.textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.bold,
               color: Colors.white,
@@ -257,7 +286,7 @@ class _ProfileHeader extends StatelessWidget {
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
-              'Unit 204-B',
+              userModel.unitId.isNotEmpty ? 'Unit ${userModel.unitId}' : 'No Unit Assigned',
               style: context.textTheme.titleMedium?.copyWith(
                 color: Colors.white,
                 fontWeight: FontWeight.w600,
@@ -267,7 +296,7 @@ class _ProfileHeader extends StatelessWidget {
           SizedBox(height: AppConstants.spacingMD),
           
           // Quick Info
-          _QuickInfoRow(),
+          _QuickInfoRow(userModel: userModel),
         ],
       ),
     );
@@ -276,7 +305,18 @@ class _ProfileHeader extends StatelessWidget {
 
 // Quick Info Row Widget
 class _QuickInfoRow extends StatelessWidget {
-  const _QuickInfoRow();
+  final UserModel userModel;
+  
+  const _QuickInfoRow({required this.userModel});
+
+  String _formatMoveInDate(DateTime? moveInDate) {
+    if (moveInDate == null) return 'Move-in date not available';
+    final months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    return 'Move-in: ${months[moveInDate.month - 1]} ${moveInDate.day}, ${moveInDate.year}';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -292,7 +332,7 @@ class _QuickInfoRow extends StatelessWidget {
             SizedBox(width: AppConstants.spacingXS),
             Expanded(
               child: Text(
-                'caleb.anderson@email.com',
+                userModel.email.isNotEmpty ? userModel.email : 'No email available',
                 style: context.textTheme.bodyMedium?.copyWith(
                   color: Colors.white.withValues(alpha: 0.9),
                   fontFamily: 'Montserrat',
@@ -311,7 +351,7 @@ class _QuickInfoRow extends StatelessWidget {
             ),
             SizedBox(width: AppConstants.spacingXS),
             Text(
-              '+63 912 345 6789',
+              userModel.phoneNumber.isNotEmpty ? userModel.phoneNumber : 'No phone number',
               style: context.textTheme.bodyMedium?.copyWith(
                 color: Colors.white.withValues(alpha: 0.9),
                 fontFamily: 'Montserrat',
@@ -329,7 +369,7 @@ class _QuickInfoRow extends StatelessWidget {
             ),
             SizedBox(width: AppConstants.spacingXS),
             Text(
-              'Move-in: January 15, 2024',
+              _formatMoveInDate(userModel.moveInDate),
               style: context.textTheme.bodyMedium?.copyWith(
                 color: Colors.white.withValues(alpha: 0.9),
                 fontFamily: 'Montserrat',
@@ -447,6 +487,19 @@ class _ProfileSections extends StatelessWidget {
                 title: 'About App',
                 subtitle: 'Version, privacy policy',
                 onTap: () => _showAboutDialog(context),
+              ),
+              _ProfileMenuItem(
+                icon: Iconsax.command_square,
+                title: 'Onboarding Test',
+                subtitle: 'Test onboarding walkthrough',
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const OnboardingTestScreen(),
+                    ),
+                  );
+                },
               ),
             ],
           ),
@@ -777,6 +830,157 @@ class _LogoutButton extends StatelessWidget {
               }
             },
             child: Text('Logout'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Profile Header Loading Widget
+class _ProfileHeaderLoading extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: EdgeInsets.all(AppConstants.spacingMD),
+      padding: EdgeInsets.all(AppConstants.spacingLG),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            context.colorScheme.primary.withValues(alpha: 0.3),
+            context.colorScheme.primaryContainer.withValues(alpha: 0.3),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: context.radiusXL,
+      ),
+      child: Column(
+        children: [
+          // Profile Picture Skeleton
+          Container(
+            width: 100,
+            height: 100,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white.withValues(alpha: 0.3),
+            ),
+            child: Icon(
+              Iconsax.user,
+              size: 40,
+              color: Colors.white.withValues(alpha: 0.5),
+            ),
+          ),
+          SizedBox(height: AppConstants.spacingMD),
+          
+          // Loading text
+          Container(
+            height: 24,
+            width: 200,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          SizedBox(height: AppConstants.spacingXS),
+          Container(
+            height: 20,
+            width: 100,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(20),
+            ),
+          ),
+          SizedBox(height: AppConstants.spacingMD),
+          
+          // Loading info rows
+          for (int i = 0; i < 3; i++) ...[
+            Row(
+              children: [
+                Container(
+                  width: 16,
+                  height: 16,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                SizedBox(width: AppConstants.spacingXS),
+                Container(
+                  height: 16,
+                  width: 150,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ],
+            ),
+            if (i < 2) SizedBox(height: AppConstants.spacingXS),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// Profile Header Error Widget
+class _ProfileHeaderError extends StatelessWidget {
+  final String error;
+  
+  const _ProfileHeaderError({required this.error});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: EdgeInsets.all(AppConstants.spacingMD),
+      padding: EdgeInsets.all(AppConstants.spacingLG),
+      decoration: BoxDecoration(
+        color: context.colorScheme.errorContainer,
+        borderRadius: context.radiusXL,
+        border: Border.all(
+          color: context.colorScheme.error.withValues(alpha: 0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Iconsax.warning_2,
+            size: 50,
+            color: context.colorScheme.error,
+          ),
+          SizedBox(height: AppConstants.spacingMD),
+          Text(
+            'Error Loading Profile',
+            style: context.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: context.colorScheme.error,
+              fontFamily: 'Montserrat',
+            ),
+          ),
+          SizedBox(height: AppConstants.spacingXS),
+          Text(
+            error.length > 100 ? '${error.substring(0, 100)}...' : error,
+            textAlign: TextAlign.center,
+            style: context.textTheme.bodySmall?.copyWith(
+              color: context.colorScheme.onErrorContainer,
+              fontFamily: 'Montserrat',
+            ),
+          ),
+          SizedBox(height: AppConstants.spacingMD),
+          ElevatedButton.icon(
+            onPressed: () {
+              // Refresh could be implemented by invalidating the provider
+            },
+            icon: Icon(Iconsax.refresh),
+            label: Text('Retry'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: context.colorScheme.error,
+              foregroundColor: Colors.white,
+            ),
           ),
         ],
       ),

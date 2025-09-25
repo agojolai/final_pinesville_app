@@ -5,6 +5,8 @@ import 'src/theme/app_theme.dart';
 import 'src/features/auth/presentation/login_screen.dart';
 import 'src/common/widgets/main_navigation.dart';
 import 'src/features/auth/providers/auth_provider.dart';
+import 'src/features/onboarding/presentation/onboarding_screen.dart';
+import 'src/features/onboarding/data/onboarding_repository.dart';
 
 class App extends ConsumerWidget {
   const App({super.key});
@@ -42,10 +44,11 @@ class App extends ConsumerWidget {
             );
           }
           
-          // Check authentication status
+          // Check onboarding and authentication status
           return Consumer(
             builder: (context, ref, child) {
               final currentUser = ref.watch(currentUserProvider);
+              final onboardingRepository = OnboardingRepository();
               
               return currentUser.when(
                 data: (user) {
@@ -53,7 +56,13 @@ class App extends ConsumerWidget {
                   if (user != null) {
                     return const MainNavigation();
                   }
-                  // If not logged in, show login screen
+                  
+                  // If not logged in, check onboarding status
+                  if (!onboardingRepository.isOnboardingCompleted) {
+                    return const OnboardingScreen();
+                  }
+                  
+                  // Show login screen if onboarding is completed but user not logged in
                   return const LoginScreen();
                 },
                 loading: () => const Scaffold(
@@ -61,7 +70,13 @@ class App extends ConsumerWidget {
                     child: CircularProgressIndicator(),
                   ),
                 ),
-                error: (error, stack) => const LoginScreen(),
+                error: (error, stack) {
+                  // On error, check onboarding status
+                  if (!onboardingRepository.isOnboardingCompleted) {
+                    return const OnboardingScreen();
+                  }
+                  return const LoginScreen();
+                },
               );
             },
           );

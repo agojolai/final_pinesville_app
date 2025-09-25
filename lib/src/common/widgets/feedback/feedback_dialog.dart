@@ -80,7 +80,7 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
       case 5:
         return Colors.green;
       default:
-        return context.colorScheme.onSurface.withOpacity(0.6);
+        return context.colorScheme.onSurface.withValues(alpha:0.6);
     }
   }
 
@@ -142,7 +142,7 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
             Text(
               widget.subtitle,
               style: context.textTheme.bodyMedium?.copyWith(
-                color: context.colorScheme.onSurface.withOpacity(0.7),
+                color: context.colorScheme.onSurface.withValues(alpha:0.7),
               ),
               textAlign: TextAlign.center,
             ),

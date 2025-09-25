@@ -76,7 +76,7 @@ class _StarRatingWidgetState extends State<StarRatingWidget>
   Widget build(BuildContext context) {
     final activeColor = widget.activeColor ?? Colors.amber;
     final inactiveColor = widget.inactiveColor ?? 
-        context.colorScheme.onSurface.withOpacity(0.3);
+        context.colorScheme.onSurface.withValues(alpha:0.3);
 
     return Row(
       mainAxisSize: MainAxisSize.min,

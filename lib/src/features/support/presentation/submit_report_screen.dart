@@ -138,10 +138,10 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> with TickerProv
     return Container(
       padding: EdgeInsets.all(AppConstants.spacingMD),
       decoration: BoxDecoration(
-        color: context.colorScheme.primaryContainer.withOpacity(0.3),
+        color: context.colorScheme.primaryContainer.withValues(alpha:0.3),
         borderRadius: context.radiusXL,
         border: Border.all(
-          color: context.colorScheme.primary.withOpacity(0.3),
+          color: context.colorScheme.primary.withValues(alpha:0.3),
           width: 1,
         ),
       ),
@@ -169,7 +169,7 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> with TickerProv
                 Text(
                   'Your report will be automatically tagged with your name, unit number, and submission date.',
                   style: context.textTheme.bodySmall?.copyWith(
-                    color: context.colorScheme.onSurface.withOpacity(0.7),
+                    color: context.colorScheme.onSurface.withValues(alpha:0.7),
                     fontFamily: 'Montserrat',
                   ),
                 ),
@@ -188,12 +188,12 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> with TickerProv
         color: context.colorScheme.surface,
         borderRadius: context.radiusXL,
         border: Border.all(
-          color: context.colorScheme.outline.withOpacity(0.2),
+          color: context.colorScheme.outline.withValues(alpha:0.2),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: context.colorScheme.shadow.withOpacity(0.08),
+            color: context.colorScheme.shadow.withValues(alpha:0.08),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -289,18 +289,18 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> with TickerProv
           isExpanded: true,
           decoration: InputDecoration(
             filled: true,
-            fillColor: context.colorScheme.surfaceContainerHighest.withOpacity(0.3), // Background color
+            fillColor: context.colorScheme.surfaceContainerHighest.withValues(alpha:0.3), // Background color
             border: OutlineInputBorder(
               borderRadius: context.radiusMD,
               borderSide: BorderSide(
-                color: context.colorScheme.outline.withOpacity(0.5), // Default border color
+                color: context.colorScheme.outline.withValues(alpha:0.5), // Default border color
                 width: 1,
               ),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: context.radiusMD,
               borderSide: BorderSide(
-                color: context.colorScheme.outline.withOpacity(0.5), // Border when not focused
+                color: context.colorScheme.outline.withValues(alpha:0.5), // Border when not focused
                 width: 1,
               ),
             ),
@@ -411,22 +411,22 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> with TickerProv
           decoration: InputDecoration(
             hintText: 'Please provide detailed information about the issue...',
             hintStyle: TextStyle(
-              color: context.colorScheme.onSurface.withOpacity(0.5),
+              color: context.colorScheme.onSurface.withValues(alpha:0.5),
               fontFamily: 'Montserrat',
             ),
             filled: true,
-            fillColor: context.colorScheme.surfaceContainerHighest.withOpacity(0.3), // Background color
+            fillColor: context.colorScheme.surfaceContainerHighest.withValues(alpha:0.3), // Background color
             border: OutlineInputBorder(
               borderRadius: context.radiusMD,
               borderSide: BorderSide(
-                color: context.colorScheme.outline.withOpacity(0.5), // Default border color
+                color: context.colorScheme.outline.withValues(alpha:0.5), // Default border color
                 width: 1,
               ),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: context.radiusMD,
               borderSide: BorderSide(
-                color: context.colorScheme.outline.withOpacity(0.5), // Border when not focused
+                color: context.colorScheme.outline.withValues(alpha:0.5), // Border when not focused
                 width: 1,
               ),
             ),
@@ -484,10 +484,10 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> with TickerProv
           width: double.infinity,
           padding: EdgeInsets.all(AppConstants.spacingMD),
           decoration: BoxDecoration(
-            color: context.colorScheme.surfaceContainer.withOpacity(0.5),
+            color: context.colorScheme.surfaceContainer.withValues(alpha:0.5),
             borderRadius: context.radiusMD,
             border: Border.all(
-              color: context.colorScheme.outline.withOpacity(0.3),
+              color: context.colorScheme.outline.withValues(alpha:0.3),
               width: 1,
               style: BorderStyle.solid,
             ),
@@ -497,14 +497,14 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> with TickerProv
               Icon(
                 Iconsax.gallery_add,
                 size: 40,
-                color: context.colorScheme.onSurface.withOpacity(0.4),
+                color: context.colorScheme.onSurface.withValues(alpha:0.4),
               ),
               SizedBox(height: AppConstants.spacingSM),
               Text(
                 'Add Photos or Videos',
                 style: context.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w600,
-                  color: context.colorScheme.onSurface.withOpacity(0.6),
+                  color: context.colorScheme.onSurface.withValues(alpha:0.6),
                   fontFamily: 'Montserrat',
                 ),
               ),
@@ -512,7 +512,7 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> with TickerProv
               Text(
                 'Upload photos of damage, screenshots, or any relevant files to help us understand the issue better. (${_attachments.length}/$maxAttachments attachments)',
                 style: context.textTheme.bodySmall?.copyWith(
-                  color: context.colorScheme.onSurface.withOpacity(0.5),
+                  color: context.colorScheme.onSurface.withValues(alpha:0.5),
                   fontFamily: 'Montserrat',
                 ),
                 textAlign: TextAlign.center,
@@ -573,7 +573,7 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> with TickerProv
           margin: EdgeInsets.only(bottom: AppConstants.spacingXS),
           padding: EdgeInsets.all(AppConstants.spacingSM),
           decoration: BoxDecoration(
-            color: context.colorScheme.primaryContainer.withOpacity(0.3),
+            color: context.colorScheme.primaryContainer.withValues(alpha:0.3),
             borderRadius: context.radiusSM,
           ),
           child: Row(
@@ -838,7 +838,7 @@ class _AttachmentButton extends StatelessWidget {
               size: 24,
               color: isEnabled 
                   ? context.colorScheme.primary 
-                  : context.colorScheme.onSurface.withOpacity(0.3),
+                  : context.colorScheme.onSurface.withValues(alpha:0.3),
             ),
             SizedBox(height: AppConstants.spacingXS / 2),
             Text(
@@ -846,7 +846,7 @@ class _AttachmentButton extends StatelessWidget {
               style: context.textTheme.bodySmall?.copyWith(
                 color: isEnabled 
                     ? context.colorScheme.primary 
-                    : context.colorScheme.onSurface.withOpacity(0.3),
+                    : context.colorScheme.onSurface.withValues(alpha:0.3),
                 fontFamily: 'Montserrat',
               ),
             ),
