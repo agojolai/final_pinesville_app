@@ -4,6 +4,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../features/auth/data/models/user_model.dart';
+import '../../features/auth/data/models/occupant_model.dart';
 import '../exceptions/firebase_exceptions.dart' as custom_firebase;
 import '../exceptions/format_exceptions.dart' as custom_format;
 import '../exceptions/platform_exceptions.dart' as custom_platform;
@@ -222,6 +223,181 @@ class UserRepository {
       status: "pending", // Initial status for a new user
       createdAt: DateTime.now(),
     );
+  }
+
+  // Update specific user profile fields (not overwrite everything)
+  Future<void> updateUserProfileField(Map<String, dynamic> fields) async {
+    try {
+      final userId = AuthRepository.instance.authUser?.uid;
+      if (userId == null) {
+        throw Exception('User not authenticated');
+      }
+
+      // Construct the nested field updates for the profile structure
+      Map<String, dynamic> updateData = {};
+      
+      fields.forEach((key, value) {
+        switch (key) {
+          case 'firstName':
+            updateData['profile.firstName'] = value;
+            break;
+          case 'lastName':
+            updateData['profile.lastName'] = value;
+            break;
+          case 'phoneNumber':
+            updateData['profile.phoneNumber'] = value;
+            break;
+          case 'profilePicture':
+            updateData['profile.profilePicture'] = value;
+            break;
+          case 'email':
+            updateData['profile.email'] = value;
+            break;
+          default:
+            // For any other fields, assume they're direct profile fields
+            updateData['profile.$key'] = value;
+        }
+      });
+
+      await _db
+          .collection('Users')
+          .doc(userId)
+          .update(updateData);
+    } on FirebaseException catch (e) {
+      throw custom_firebase.FirebaseException(e.code).message;
+    } on custom_format.FormatException catch (_) {
+      throw const custom_format.FormatException();
+    } on PlatformException catch (e) {
+      throw custom_platform.PlatformException(e.code).message;
+    } catch (e) {
+      throw Exception('Error updating user profile field: $e');
+    }
+  }
+
+  // Update profile picture specifically
+  Future<void> updateProfilePicture(String imageUrl) async {
+    await updateUserProfileField({'profilePicture': imageUrl});
+  }
+
+  // OCCUPANTS SUBCOLLECTION METHODS
+
+  // Add a new occupant to the user's subcollection
+  Future<void> addOccupant(OccupantModel occupant) async {
+    try {
+      final userId = AuthRepository.instance.authUser?.uid;
+      if (userId == null) {
+        throw Exception('User not authenticated');
+      }
+
+      await _db
+          .collection('Users')
+          .doc(userId)
+          .collection('occupants')
+          .add(occupant.toJson());
+    } on FirebaseException catch (e) {
+      throw custom_firebase.FirebaseException(e.code).message;
+    } on custom_format.FormatException catch (_) {
+      throw const custom_format.FormatException();
+    } on PlatformException catch (e) {
+      throw custom_platform.PlatformException(e.code).message;
+    } catch (e) {
+      throw Exception('Error adding occupant: $e');
+    }
+  }
+
+  // Update an existing occupant
+  Future<void> updateOccupant(String occupantId, OccupantModel occupant) async {
+    try {
+      final userId = AuthRepository.instance.authUser?.uid;
+      if (userId == null) {
+        throw Exception('User not authenticated');
+      }
+
+      await _db
+          .collection('Users')
+          .doc(userId)
+          .collection('occupants')
+          .doc(occupantId)
+          .update(occupant.toJson());
+    } on FirebaseException catch (e) {
+      throw custom_firebase.FirebaseException(e.code).message;
+    } on custom_format.FormatException catch (_) {
+      throw const custom_format.FormatException();
+    } on PlatformException catch (e) {
+      throw custom_platform.PlatformException(e.code).message;
+    } catch (e) {
+      throw Exception('Error updating occupant: $e');
+    }
+  }
+
+  // Delete an occupant
+  Future<void> deleteOccupant(String occupantId) async {
+    try {
+      final userId = AuthRepository.instance.authUser?.uid;
+      if (userId == null) {
+        throw Exception('User not authenticated');
+      }
+
+      await _db
+          .collection('Users')
+          .doc(userId)
+          .collection('occupants')
+          .doc(occupantId)
+          .delete();
+    } on FirebaseException catch (e) {
+      throw custom_firebase.FirebaseException(e.code).message;
+    } on custom_format.FormatException catch (_) {
+      throw const custom_format.FormatException();
+    } on PlatformException catch (e) {
+      throw custom_platform.PlatformException(e.code).message;
+    } catch (e) {
+      throw Exception('Error deleting occupant: $e');
+    }
+  }
+
+  // Fetch all occupants for the current user
+  Future<List<OccupantModel>> fetchOccupants() async {
+    try {
+      final userId = AuthRepository.instance.authUser?.uid;
+      if (userId == null) {
+        throw Exception('User not authenticated');
+      }
+
+      final querySnapshot = await _db
+          .collection('Users')
+          .doc(userId)
+          .collection('occupants')
+          .get();
+
+      return querySnapshot.docs
+          .map((doc) => OccupantModel.fromMap(doc.data(), doc.id))
+          .toList();
+    } on FirebaseException catch (e) {
+      throw custom_firebase.FirebaseException(e.code).message;
+    } on custom_format.FormatException catch (_) {
+      throw const custom_format.FormatException();
+    } on PlatformException catch (e) {
+      throw custom_platform.PlatformException(e.code).message;
+    } catch (e) {
+      throw Exception('Error fetching occupants: $e');
+    }
+  }
+
+  // Stream occupants for real-time updates
+  Stream<List<OccupantModel>> streamOccupants() {
+    final userId = AuthRepository.instance.authUser?.uid;
+    if (userId == null) {
+      return Stream.error(Exception('User not authenticated'));
+    }
+
+    return _db
+        .collection('Users')
+        .doc(userId)
+        .collection('occupants')
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => OccupantModel.fromMap(doc.data(), doc.id))
+            .toList());
   }
 }
 

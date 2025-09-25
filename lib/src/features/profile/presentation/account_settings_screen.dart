@@ -1,19 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax/iconsax.dart';
 import '../../../theme/app_constants.dart';
 import '../../../theme/theme_extensions.dart';
 import '../../../core/constants/validators.dart';
 import '../../../core/snackbars/loaders.dart';
+import '../providers/profile_provider.dart';
+import '../../auth/data/models/user_model.dart';
+import '../../auth/data/models/occupant_model.dart';
 
-class AccountSettingsScreen extends StatefulWidget {
+class AccountSettingsScreen extends ConsumerStatefulWidget {
   const AccountSettingsScreen({super.key});
 
   @override
-  State<AccountSettingsScreen> createState() => _AccountSettingsScreenState();
+  ConsumerState<AccountSettingsScreen> createState() => _AccountSettingsScreenState();
 }
 
-class _AccountSettingsScreenState extends State<AccountSettingsScreen> with TickerProviderStateMixin {
+class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> with TickerProviderStateMixin {
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
 
@@ -34,13 +38,8 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Tick
   bool _isEditingPhone = false;
   bool _isWaitingForAdminApproval = false;
   bool _hasApprovedRequest = false; // Track if admin has approved adding another occupant
-  List<Occupant> _occupants = [];
-  Occupant? _editingOccupant;
+  OccupantModel? _editingOccupant;
   int? _editingOccupantIndex;
-
-  // Sample current data
-  String _currentEmail = 'caleb.anderson@email.com';
-  String _currentPhone = '+63 912 345 6789';
 
   @override
   void initState() {
@@ -53,18 +52,6 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Tick
       CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
     );
     _fadeController.forward();
-
-    // Initialize controllers with current data
-    _emailController.text = _currentEmail;
-    _phoneController.text = _currentPhone;
-
-    // Sample occupant data
-    _occupants = [
-      Occupant(
-        name: 'Sarah Johnson',
-        phoneNumber: '09171234567',
-      ),
-    ];
   }
 
   @override
@@ -128,6 +115,28 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Tick
   }
 
   Widget _ContactInformationSection() {
+    return Consumer(
+      builder: (context, ref, child) {
+        final userProfileAsync = ref.watch(userProfileProvider);
+        
+        return userProfileAsync.when(
+          data: (userModel) => _ContactInformationContent(userModel: userModel),
+          loading: () => _ContactInformationLoading(),
+          error: (error, stack) => _ContactInformationError(error: error.toString()),
+        );
+      },
+    );
+  }
+
+  Widget _ContactInformationContent({required UserModel userModel}) {
+    // Initialize controllers with current data when user model is available
+    if (_emailController.text.isEmpty && userModel.email.isNotEmpty) {
+      _emailController.text = userModel.email;
+    }
+    if (_phoneController.text.isEmpty && userModel.phoneNumber.isNotEmpty) {
+      _phoneController.text = userModel.phoneNumber;
+    }
+
     return Container(
       padding: EdgeInsets.all(AppConstants.spacingLG),
       decoration: BoxDecoration(
@@ -161,16 +170,16 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Tick
           _ContactField(
             icon: Iconsax.sms,
             label: 'Email Address',
-            value: _currentEmail,
+            value: userModel.email,
             controller: _emailController,
             isEditing: _isEditingEmail,
             validator: Validators.validateEmail,
             onEdit: () => setState(() => _isEditingEmail = true),
-            onSave: _saveEmail,
+            onSave: () => _saveEmail(userModel),
             onCancel: () {
               setState(() {
                 _isEditingEmail = false;
-                _emailController.text = _currentEmail;
+                _emailController.text = userModel.email;
               });
             },
           ),
@@ -181,17 +190,17 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Tick
           _ContactField(
             icon: Iconsax.call,
             label: 'Phone Number',
-            value: _currentPhone,
+            value: userModel.phoneNumber,
             controller: _phoneController,
             isEditing: _isEditingPhone,
             validator: Validators.validatePhoneNumber,
             keyboardType: TextInputType.phone,
             onEdit: () => setState(() => _isEditingPhone = true),
-            onSave: _savePhone,
+            onSave: () => _savePhone(userModel),
             onCancel: () {
               setState(() {
                 _isEditingPhone = false;
-                _phoneController.text = _currentPhone;
+                _phoneController.text = userModel.phoneNumber;
               });
             },
           ),
@@ -201,6 +210,20 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Tick
   }
 
   Widget _OccupantSection() {
+    return Consumer(
+      builder: (context, ref, child) {
+        final occupantsAsync = ref.watch(occupantsProvider);
+        
+        return occupantsAsync.when(
+          data: (occupants) => _OccupantContent(occupants: occupants),
+          loading: () => _OccupantLoading(),
+          error: (error, stack) => _OccupantError(error: error.toString()),
+        );
+      },
+    );
+  }
+
+  Widget _OccupantContent({required List<OccupantModel> occupants}) {
     return Container(
       padding: EdgeInsets.all(AppConstants.spacingLG),
       decoration: BoxDecoration(
@@ -239,7 +262,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Tick
                     color: context.colorScheme.primary,
                     size: 24,
                   ),
-                  tooltip: _occupants.isEmpty ? 'Add Occupant' : 'Add Another Occupant',
+                  tooltip: occupants.isEmpty ? 'Add Occupant' : 'Add Another Occupant',
                 ),
             ],
           ),
@@ -253,19 +276,19 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Tick
           ),
           SizedBox(height: AppConstants.spacingLG),
           
-          if (_occupants.isNotEmpty)
+          if (occupants.isNotEmpty)
             Column(
-              children: _occupants.asMap().entries.map((entry) {
+              children: occupants.asMap().entries.map((entry) {
                 int index = entry.key;
-                Occupant occupant = entry.value;
+                OccupantModel occupant = entry.value;
                 return Padding(
                   padding: EdgeInsets.only(
-                    bottom: index < _occupants.length - 1 ? AppConstants.spacingMD : 0,
+                    bottom: index < occupants.length - 1 ? AppConstants.spacingMD : 0,
                   ),
                   child: _OccupantCard(
                     occupant: occupant,
-                    onEdit: () => _editOccupant(index),
-                    onRemove: () => _removeOccupant(index),
+                    onEdit: () => _editOccupant(index, occupant),
+                    onRemove: () => _removeOccupant(occupant),
                   ),
                 );
               }).toList(),
@@ -282,7 +305,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Tick
   }
 
   Widget _OccupantCard({
-    required Occupant occupant,
+    required OccupantModel occupant,
     required VoidCallback onEdit,
     required VoidCallback onRemove,
   }) {
@@ -307,7 +330,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Tick
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      occupant.name,
+                      occupant.occupantName,
                       style: context.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                         fontFamily: 'Montserrat',
@@ -315,7 +338,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Tick
                     ),
                     SizedBox(height: AppConstants.spacingXS / 2),
                     Text(
-                      occupant.phoneNumber,
+                      occupant.occupantPhone,
                       style: context.textTheme.bodyMedium?.copyWith(
                         color: context.colorScheme.onSurface.withValues(alpha:0.7),
                         fontFamily: 'Montserrat',
@@ -583,7 +606,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Tick
   }
 
   // Action methods
-  void _saveEmail() {
+  Future<void> _saveEmail(UserModel userModel) async {
     if (!_formKey.currentState!.validate()) {
       Loaders.errorSnackBar(
         context,
@@ -594,19 +617,33 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Tick
     }
 
     HapticFeedback.lightImpact();
-    setState(() {
-      _currentEmail = _emailController.text;
-      _isEditingEmail = false;
-    });
+    
+    try {
+      final profileNotifier = ref.read(userProfileNotifierProvider.notifier);
+      await profileNotifier.updateProfileField({'email': _emailController.text});
+      
+      setState(() {
+        _isEditingEmail = false;
+      });
 
-    Loaders.successSnackBar(
-      context,
-      title: 'Email Updated',
-      message: 'Your email address has been successfully updated',
-    );
+      Loaders.successSnackBar(
+        context,
+        title: 'Email Updated',
+        message: 'Your email address has been successfully updated',
+      );
+    } catch (e) {
+      Loaders.errorSnackBar(
+        context,
+        title: 'Update Failed',
+        message: 'Failed to update email: ${e.toString()}',
+      );
+      
+      // Reset the controller to the original value
+      _emailController.text = userModel.email;
+    }
   }
 
-  void _savePhone() {
+  Future<void> _savePhone(UserModel userModel) async {
     if (!_formKey.currentState!.validate()) {
       Loaders.errorSnackBar(
         context,
@@ -617,59 +654,82 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Tick
     }
 
     HapticFeedback.lightImpact();
-    setState(() {
-      _currentPhone = _phoneController.text;
-      _isEditingPhone = false;
-    });
+    
+    try {
+      final profileNotifier = ref.read(userProfileNotifierProvider.notifier);
+      await profileNotifier.updateProfileField({'phoneNumber': _phoneController.text});
+      
+      setState(() {
+        _isEditingPhone = false;
+      });
 
-    Loaders.successSnackBar(
-      context,
-      title: 'Phone Updated',
-      message: 'Your phone number has been successfully updated',
-    );
+      Loaders.successSnackBar(
+        context,
+        title: 'Phone Updated',
+        message: 'Your phone number has been successfully updated',
+      );
+    } catch (e) {
+      Loaders.errorSnackBar(
+        context,
+        title: 'Update Failed',
+        message: 'Failed to update phone: ${e.toString()}',
+      );
+      
+      // Reset the controller to the original value
+      _phoneController.text = userModel.phoneNumber;
+    }
   }
 
-  void _saveOccupant() {
+  Future<void> _saveOccupant() async {
     HapticFeedback.lightImpact();
-    setState(() {
-      final newOccupant = Occupant(
-        name: _occupantNameController.text,
-        phoneNumber: _occupantPhoneController.text,
+    
+    try {
+      final occupantsNotifier = ref.read(occupantsNotifierProvider.notifier);
+      final newOccupant = OccupantModel(
+        occupantName: _occupantNameController.text,
+        occupantPhone: _occupantPhoneController.text,
       );
-      if (_editingOccupantIndex != null) {
-        // If editing, insert at the original index
-        _occupants.insert(_editingOccupantIndex!, newOccupant);
+      
+      if (_editingOccupant != null) {
+        // If editing, update existing occupant
+        await occupantsNotifier.updateOccupant(_editingOccupant!.id!, newOccupant);
         _editingOccupant = null;
         _editingOccupantIndex = null;
       } else {
-        _occupants.add(newOccupant);
+        // Add new occupant
+        await occupantsNotifier.addOccupant(newOccupant);
         // Reset approval flag when occupant is successfully added
         _hasApprovedRequest = false;
       }
+      
       _occupantNameController.clear();
       _occupantPhoneController.clear();
-    });
 
-    Loaders.successSnackBar(
-      context,
-      title: 'Occupant Added',
-      message: 'Occupant information has been successfully saved',
-    );
+      Loaders.successSnackBar(
+        context,
+        title: _editingOccupant != null ? 'Occupant Updated' : 'Occupant Added',
+        message: 'Occupant information has been successfully saved',
+      );
+    } catch (e) {
+      Loaders.errorSnackBar(
+        context,
+        title: 'Save Failed',
+        message: 'Failed to save occupant: ${e.toString()}',
+      );
+    }
   }
 
-  void _editOccupant(int index) {
+  void _editOccupant(int index, OccupantModel occupant) {
     setState(() {
-      _occupantNameController.text = _occupants[index].name;
-      _occupantPhoneController.text = _occupants[index].phoneNumber;
-      _editingOccupant = _occupants[index];
+      _occupantNameController.text = occupant.occupantName;
+      _occupantPhoneController.text = occupant.occupantPhone;
+      _editingOccupant = occupant;
       _editingOccupantIndex = index;
-      // Remove the occupant being edited so it gets replaced when saved, otherwise it duplicates
-      _occupants.removeAt(index);
     });
     _showAddOccupantDialog();
   }
 
-  void _removeOccupant(int index) {
+  Future<void> _removeOccupant(OccupantModel occupant) async {
     HapticFeedback.mediumImpact();
     showDialog(
       context: context,
@@ -682,7 +742,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Tick
           ),
         ),
         content: Text(
-          'Are you sure you want to remove ${_occupants[index].name}?',
+          'Are you sure you want to remove ${occupant.occupantName}?',
           style: TextStyle(fontFamily: 'Montserrat'),
         ),
         actions: [
@@ -695,14 +755,25 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Tick
               backgroundColor: context.colorScheme.error,
               foregroundColor: Colors.white,
             ),
-            onPressed: () {
+            onPressed: () async {
               Navigator.of(context).pop();
-              setState(() => _occupants.removeAt(index));
-              Loaders.successSnackBar(
-                context,
-                title: 'Occupant Removed',
-                message: 'Occupant information has been removed',
-              );
+              
+              try {
+                final occupantsNotifier = ref.read(occupantsNotifierProvider.notifier);
+                await occupantsNotifier.deleteOccupant(occupant.id!);
+                
+                Loaders.successSnackBar(
+                  context,
+                  title: 'Occupant Removed',
+                  message: 'Occupant information has been removed',
+                );
+              } catch (e) {
+                Loaders.errorSnackBar(
+                  context,
+                  title: 'Remove Failed',
+                  message: 'Failed to remove occupant: ${e.toString()}',
+                );
+              }
             },
             child: Text('Remove'),
           ),
@@ -713,12 +784,8 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Tick
 
   void _cancelAddOccupant() {
     setState(() {
-      if (_editingOccupant != null && _editingOccupantIndex != null) {
-        // Restore the occupant if editing was cancelled
-        _occupants.insert(_editingOccupantIndex!, _editingOccupant!);
-        _editingOccupant = null;
-        _editingOccupantIndex = null;
-      }
+      _editingOccupant = null;
+      _editingOccupantIndex = null;
       _occupantNameController.clear();
       _occupantPhoneController.clear();
     });
@@ -1035,13 +1102,192 @@ class _ContactField extends StatelessWidget {
   }
 }
 
-// Data Models
-class Occupant {
-  final String name;
-  final String phoneNumber;
+// Loading and Error State Widgets
+class _ContactInformationLoading extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(AppConstants.spacingLG),
+      decoration: BoxDecoration(
+        color: context.colorScheme.surface,
+        borderRadius: context.radiusXL,
+        border: Border.all(
+          color: context.colorScheme.outline.withValues(alpha:0.2),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Contact Information',
+            style: context.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              fontFamily: 'Montserrat',
+            ),
+          ),
+          SizedBox(height: AppConstants.spacingLG),
+          
+          // Loading fields
+          for (int i = 0; i < 2; i++) ...[
+            Container(
+              height: 60,
+              decoration: BoxDecoration(
+                color: context.colorScheme.surfaceContainerHighest.withValues(alpha:0.3),
+                borderRadius: context.radiusMD,
+              ),
+            ),
+            if (i < 1) SizedBox(height: AppConstants.spacingLG),
+          ],
+        ],
+      ),
+    );
+  }
+}
 
-  const Occupant({
-    required this.name,
-    required this.phoneNumber,
-  });
+class _ContactInformationError extends StatelessWidget {
+  final String error;
+  
+  const _ContactInformationError({required this.error});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(AppConstants.spacingLG),
+      decoration: BoxDecoration(
+        color: context.colorScheme.errorContainer,
+        borderRadius: context.radiusXL,
+        border: Border.all(
+          color: context.colorScheme.error.withValues(alpha:0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Iconsax.warning_2,
+            color: context.colorScheme.error,
+            size: 30,
+          ),
+          SizedBox(height: AppConstants.spacingSM),
+          Text(
+            'Failed to load contact information',
+            style: context.textTheme.titleMedium?.copyWith(
+              color: context.colorScheme.error,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          SizedBox(height: AppConstants.spacingXS),
+          Text(
+            error.length > 50 ? '${error.substring(0, 50)}...' : error,
+            textAlign: TextAlign.center,
+            style: context.textTheme.bodySmall?.copyWith(
+              color: context.colorScheme.onErrorContainer,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OccupantLoading extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(AppConstants.spacingLG),
+      decoration: BoxDecoration(
+        color: context.colorScheme.surface,
+        borderRadius: context.radiusXL,
+        border: Border.all(
+          color: context.colorScheme.outline.withValues(alpha:0.2),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Occupant Information',
+                style: context.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Montserrat',
+                ),
+              ),
+              Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: context.colorScheme.surfaceContainerHighest.withValues(alpha:0.3),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: AppConstants.spacingLG),
+          
+          // Loading occupant cards
+          for (int i = 0; i < 2; i++) ...[
+            Container(
+              height: 80,
+              decoration: BoxDecoration(
+                color: context.colorScheme.surfaceContainerHighest.withValues(alpha:0.3),
+                borderRadius: context.radiusMD,
+              ),
+            ),
+            if (i < 1) SizedBox(height: AppConstants.spacingMD),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _OccupantError extends StatelessWidget {
+  final String error;
+  
+  const _OccupantError({required this.error});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(AppConstants.spacingLG),
+      decoration: BoxDecoration(
+        color: context.colorScheme.errorContainer,
+        borderRadius: context.radiusXL,
+        border: Border.all(
+          color: context.colorScheme.error.withValues(alpha:0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Iconsax.warning_2,
+            color: context.colorScheme.error,
+            size: 30,
+          ),
+          SizedBox(height: AppConstants.spacingSM),
+          Text(
+            'Failed to load occupants',
+            style: context.textTheme.titleMedium?.copyWith(
+              color: context.colorScheme.error,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          SizedBox(height: AppConstants.spacingXS),
+          Text(
+            error.length > 50 ? '${error.substring(0, 50)}...' : error,
+            textAlign: TextAlign.center,
+            style: context.textTheme.bodySmall?.copyWith(
+              color: context.colorScheme.onErrorContainer,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
