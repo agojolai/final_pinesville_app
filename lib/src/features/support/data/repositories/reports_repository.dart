@@ -17,8 +17,12 @@ class ReportsRepository {
   String get _currentUserId => AuthRepository.instance.authUser?.uid ?? '';
 
   /// Collection reference for reports
-  CollectionReference<Map<String, dynamic>> get _reportsCollection =>
-      _db.collection('Users').doc(_currentUserId).collection('Reports');
+  CollectionReference<Map<String, dynamic>> get _reportsCollection {
+    if (_currentUserId.isEmpty) {
+      throw Exception('User not authenticated. Please log in to access reports.');
+    }
+    return _db.collection('Users').doc(_currentUserId).collection('Reports');
+  }
 
   /// Submit a new report to Firestore
   Future<void> submitReport(Report report) async {
