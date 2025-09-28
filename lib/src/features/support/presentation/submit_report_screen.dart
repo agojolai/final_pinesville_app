@@ -2,25 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../theme/app_constants.dart';
 import '../../../theme/theme_extensions.dart';
 import '../../../core/constants/validators.dart';
 import '../../../core/snackbars/loaders.dart';
 import '../data/models/report_model.dart';
+import '../providers/reports_provider.dart';
 
-class SubmitReportScreen extends StatefulWidget {
-  final Function(Report) onReportSubmitted;
-
-  const SubmitReportScreen({
-    super.key,
-    required this.onReportSubmitted,
-  });
+class SubmitReportScreen extends ConsumerStatefulWidget {
+  const SubmitReportScreen({super.key});
 
   @override
-  State<SubmitReportScreen> createState() => _SubmitReportScreenState();
+  ConsumerState<SubmitReportScreen> createState() => _SubmitReportScreenState();
 }
 
-class _SubmitReportScreenState extends State<SubmitReportScreen> with TickerProviderStateMixin {
+class _SubmitReportScreenState extends ConsumerState<SubmitReportScreen> with TickerProviderStateMixin {
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
 
@@ -770,7 +767,7 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> with TickerProv
     }
   }
 
-  void _submitReport() {
+  Future<void> _submitReport() async {
     if (!_formKey.currentState!.validate()) {
       Loaders.errorSnackBar(
         context,
@@ -783,7 +780,7 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> with TickerProv
     HapticFeedback.mediumImpact();
 
     // Generate report ID
-    final reportId = 'R${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
+    final reportId = ref.read(reportsActionProvider.notifier).generateReportId();
 
     // Create report object
     final report = Report(
@@ -799,11 +796,29 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> with TickerProv
       updates: [],
     );
 
-    // Call the callback
-    widget.onReportSubmitted(report);
-
-    // Navigate back
-    Navigator.of(context).pop();
+    try {
+      // Submit to Firestore
+      await ref.read(reportsActionProvider.notifier).addReport(report);
+      
+      if (mounted) {
+        Loaders.successSnackBar(
+          context,
+          title: 'Report Submitted',
+          message: 'Your report has been submitted successfully.',
+        );
+        
+        // Navigate back
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        Loaders.errorSnackBar(
+          context,
+          title: 'Submission Failed',
+          message: 'Failed to submit report: ${e.toString()}',
+        );
+      }
+    }
   }
 }
 
