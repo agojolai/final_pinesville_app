@@ -22,6 +22,7 @@ class UserModel {
   // Nested account
   final String status; // pending, active, suspended, terminated
   final DateTime? createdAt;
+  final bool onboardingCompleted;
 
   const UserModel({
     this.id,
@@ -39,6 +40,7 @@ class UserModel {
     required this.rentAmount,
     required this.status,
     required this.createdAt,
+    required this.onboardingCompleted,
   });
 
   String get fullName => '$firstName $lastName';
@@ -62,6 +64,7 @@ class UserModel {
         rentAmount: 0.0,
         status: "pending",
         createdAt: null,
+        onboardingCompleted: false,
       );
 
  // Convert model to JSON (Firestore format)
@@ -86,6 +89,7 @@ class UserModel {
       "account": {
         "status": status,
         "createdAt": createdAt?.toIso8601String(),
+        "onboardingCompleted": onboardingCompleted,
       }
     };
   }
@@ -128,7 +132,95 @@ class UserModel {
       rentAmount: (property['rentAmount'] ?? 0).toDouble(),
       status: account['status'] ?? "pending",
       createdAt: _parseDate(account['createdAt']),
+      onboardingCompleted: account['onboardingCompleted'] ?? false,
     );
   }
 
+  // copyWith method for creating modified copies
+  UserModel copyWith({
+    String? id,
+    String? firstName,
+    String? lastName,
+    String? email,
+    String? phoneNumber,
+    String? profilePicture,
+    String? propertyName,
+    String? propertyId,
+    String? unitId,
+    String? unitType,
+    DateTime? moveInDate,
+    DateTime? leaseEndDate,
+    double? rentAmount,
+    String? status,
+    DateTime? createdAt,
+    bool? onboardingCompleted,
+  }) {
+    return UserModel(
+      id: id ?? this.id,
+      firstName: firstName ?? this.firstName,
+      lastName: lastName ?? this.lastName,
+      email: email ?? this.email,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
+      profilePicture: profilePicture ?? this.profilePicture,
+      propertyName: propertyName ?? this.propertyName,
+      propertyId: propertyId ?? this.propertyId,
+      unitId: unitId ?? this.unitId,
+      unitType: unitType ?? this.unitType,
+      moveInDate: moveInDate ?? this.moveInDate,
+      leaseEndDate: leaseEndDate ?? this.leaseEndDate,
+      rentAmount: rentAmount ?? this.rentAmount,
+      status: status ?? this.status,
+      createdAt: createdAt ?? this.createdAt,
+      onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
+    );
   }
+
+  @override
+  String toString() {
+    return 'UserModel{id: $id, firstName: $firstName, lastName: $lastName, email: $email, onboardingCompleted: $onboardingCompleted}';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is UserModel &&
+        other.id == id &&
+        other.firstName == firstName &&
+        other.lastName == lastName &&
+        other.email == email &&
+        other.phoneNumber == phoneNumber &&
+        other.profilePicture == profilePicture &&
+        other.propertyName == propertyName &&
+        other.propertyId == propertyId &&
+        other.unitId == unitId &&
+        other.unitType == unitType &&
+        other.moveInDate == moveInDate &&
+        other.leaseEndDate == leaseEndDate &&
+        other.rentAmount == rentAmount &&
+        other.status == status &&
+        other.createdAt == createdAt &&
+        other.onboardingCompleted == onboardingCompleted;
+  }
+
+  @override
+  int get hashCode {
+    return Object.hash(
+      id,
+      firstName,
+      lastName,
+      email,
+      phoneNumber,
+      profilePicture,
+      propertyName,
+      propertyId,
+      unitId,
+      unitType,
+      moveInDate,
+      leaseEndDate,
+      rentAmount,
+      status,
+      createdAt,
+      onboardingCompleted,
+    );
+  }
+}

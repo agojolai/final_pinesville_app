@@ -6,6 +6,7 @@ import '../../../theme/theme_extensions.dart';
 import '../../../core/snackbars/loaders.dart';
 import '../data/onboarding_repository.dart';
 import 'onboarding_screen.dart';
+import 'admin_onboarding_screen.dart';
 
 class OnboardingTestScreen extends StatefulWidget {
   const OnboardingTestScreen({super.key});
@@ -17,6 +18,8 @@ class OnboardingTestScreen extends StatefulWidget {
 class _OnboardingTestScreenState extends State<OnboardingTestScreen> {
   final OnboardingRepository _repository = OnboardingRepository();
   bool _isCompleted = false;
+  bool _isLoadingStatus = false;
+  bool _isSyncing = false;
 
   @override
   void initState() {
@@ -24,37 +27,107 @@ class _OnboardingTestScreenState extends State<OnboardingTestScreen> {
     _checkStatus();
   }
 
-  void _checkStatus() {
+  Future<void> _checkStatus() async {
     setState(() {
-      _isCompleted = _repository.isOnboardingCompleted;
+      _isLoadingStatus = true;
     });
-  }
 
-  void _resetOnboarding() async {
-    HapticFeedback.mediumImpact();
-    await _repository.resetOnboarding();
-    _checkStatus();
-    
-    if (mounted) {
-      Loaders.successSnackBar(
-        context,
-        title: 'Reset Complete',
-        message: 'Onboarding has been reset. App will show onboarding on next launch.',
-      );
+    try {
+      // Use the new async method for more accurate status
+      final status = await _repository.getOnboardingStatus();
+      setState(() {
+        _isCompleted = status;
+      });
+    } catch (e) {
+      // Fallback to sync method
+      setState(() {
+        _isCompleted = _repository.isOnboardingCompleted;
+      });
+    } finally {
+      setState(() {
+        _isLoadingStatus = false;
+      });
     }
   }
 
-  void _markCompleted() async {
-    HapticFeedback.lightImpact();
-    await _repository.markOnboardingCompleted();
-    _checkStatus();
+  Future<void> _resetOnboarding() async {
+    HapticFeedback.mediumImpact();
     
-    if (mounted) {
-      Loaders.successSnackBar(
-        context,
-        title: 'Marked Complete',
-        message: 'Onboarding is now marked as completed.',
-      );
+    try {
+      await _repository.resetOnboarding();
+      await _checkStatus();
+      
+      if (mounted) {
+        Loaders.successSnackBar(
+          context,
+          title: 'Reset Complete',
+          message: 'Onboarding has been reset in both local storage and Firestore.',
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Loaders.errorSnackBar(
+          context,
+          title: 'Reset Failed',
+          message: 'Failed to reset onboarding: $e',
+        );
+      }
+    }
+  }
+
+  Future<void> _markCompleted() async {
+    HapticFeedback.lightImpact();
+    
+    try {
+      await _repository.markOnboardingCompleted();
+      await _checkStatus();
+      
+      if (mounted) {
+        Loaders.successSnackBar(
+          context,
+          title: 'Marked Complete',
+          message: 'Onboarding is now marked as completed in both local storage and Firestore.',
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Loaders.errorSnackBar(
+          context,
+          title: 'Update Failed',
+          message: 'Failed to mark onboarding as completed: $e',
+        );
+      }
+    }
+  }
+
+  Future<void> _syncFromFirestore() async {
+    setState(() {
+      _isSyncing = true;
+    });
+
+    try {
+      await _repository.syncFromFirestore();
+      await _checkStatus();
+      
+      if (mounted) {
+        Loaders.successSnackBar(
+          context,
+          title: 'Sync Complete',
+          message: 'Onboarding status has been synced from Firestore.',
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Loaders.errorSnackBar(
+          context,
+          title: 'Sync Failed',
+          message: 'Failed to sync from Firestore: $e',
+        );
+      }
+    } finally {
+      setState(() {
+        _isSyncing = false;
+      });
     }
   }
 
@@ -67,6 +140,15 @@ class _OnboardingTestScreenState extends State<OnboardingTestScreen> {
     );
   }
 
+  void _openAdminScreen() {
+    HapticFeedback.lightImpact();
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const AdminOnboardingScreen(),
+      ),
+    );
+  }
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -75,13 +157,19 @@ class _OnboardingTestScreenState extends State<OnboardingTestScreen> {
         backgroundColor: context.colorScheme.surface,
         elevation: 0,
         title: Text(
-          'Onboarding Test',
+          'Onboarding Test & Admin',
           style: context.textTheme.headlineSmall?.copyWith(
             color: context.colorScheme.onSurface,
             fontWeight: FontWeight.bold,
             fontFamily: 'Montserrat',
           ),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Iconsax.refresh),
+            onPressed: _checkStatus,
+          ),
+        ],
       ),
       body: SafeArea(
         child: Padding(
@@ -109,13 +197,20 @@ class _OnboardingTestScreenState extends State<OnboardingTestScreen> {
                   children: [
                     Row(
                       children: [
-                        Icon(
-                          _isCompleted ? Iconsax.tick_circle : Iconsax.close_circle,
-                          color: _isCompleted
-                              ? context.colorScheme.primary
-                              : context.colorScheme.error,
-                          size: 24,
-                        ),
+                        if (_isLoadingStatus)
+                          const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        else
+                          Icon(
+                            _isCompleted ? Iconsax.tick_circle : Iconsax.close_circle,
+                            color: _isCompleted
+                                ? context.colorScheme.primary
+                                : context.colorScheme.error,
+                            size: 24,
+                          ),
                         SizedBox(width: AppConstants.spacingSM),
                         Text(
                           'Onboarding Status',
@@ -128,20 +223,26 @@ class _OnboardingTestScreenState extends State<OnboardingTestScreen> {
                     ),
                     SizedBox(height: AppConstants.spacingSM),
                     Text(
-                      _isCompleted ? 'Completed' : 'Not Completed',
+                      _isLoadingStatus 
+                          ? 'Checking...' 
+                          : (_isCompleted ? 'Completed' : 'Not Completed'),
                       style: context.textTheme.bodyLarge?.copyWith(
-                        color: _isCompleted
-                            ? context.colorScheme.primary
-                            : context.colorScheme.error,
+                        color: _isLoadingStatus
+                            ? context.colorScheme.onSurface.withOpacity(0.6)
+                            : (_isCompleted
+                                ? context.colorScheme.primary
+                                : context.colorScheme.error),
                         fontWeight: FontWeight.w600,
                         fontFamily: 'Montserrat',
                       ),
                     ),
                     SizedBox(width: AppConstants.spacingSM),
                     Text(
-                      _isCompleted
-                          ? 'User has completed the onboarding walkthrough.'
-                          : 'User will see onboarding screen on app launch.',
+                      _isLoadingStatus
+                          ? 'Syncing status from Firestore...'
+                          : (_isCompleted
+                              ? 'User has completed the onboarding walkthrough.'
+                              : 'User will see onboarding screen on app launch.'),
                       style: context.textTheme.bodyMedium?.copyWith(
                         color: context.colorScheme.onSurface.withOpacity(0.7),
                         fontFamily: 'Montserrat',
@@ -176,6 +277,18 @@ class _OnboardingTestScreenState extends State<OnboardingTestScreen> {
               
               SizedBox(height: AppConstants.spacingSM),
               
+              // Sync Button
+              _ActionButton(
+                icon: _isSyncing ? Iconsax.loading_2 : Iconsax.refresh_2,
+                title: 'Sync from Firestore',
+                description: 'Update status from cloud database',
+                onTap: _isSyncing ? () {} : _syncFromFirestore,
+                color: Colors.blue,
+                isLoading: _isSyncing,
+              ),
+              
+              SizedBox(height: AppConstants.spacingSM),
+              
               // Reset Button
               _ActionButton(
                 icon: Iconsax.refresh,
@@ -195,6 +308,29 @@ class _OnboardingTestScreenState extends State<OnboardingTestScreen> {
                 onTap: _markCompleted,
                 color: Colors.green,
               ),
+              
+              SizedBox(height: AppConstants.spacingXL),
+              
+              // Admin Section
+              Text(
+                'Admin Tools',
+                style: context.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Montserrat',
+                  color: context.colorScheme.onSurface,
+                ),
+              ),
+              
+              SizedBox(height: AppConstants.spacingMD),
+              
+              // Admin Screen Button
+              _ActionButton(
+                icon: Iconsax.setting_2,
+                title: 'Admin Onboarding Manager',
+                description: 'Manage onboarding for all users',
+                onTap: _openAdminScreen,
+                color: Colors.purple,
+              ),
             ],
           ),
         ),
@@ -209,6 +345,7 @@ class _ActionButton extends StatelessWidget {
   final String description;
   final VoidCallback onTap;
   final Color color;
+  final bool isLoading;
 
   const _ActionButton({
     required this.icon,
@@ -216,6 +353,7 @@ class _ActionButton extends StatelessWidget {
     required this.description,
     required this.onTap,
     required this.color,
+    this.isLoading = false,
   });
 
   @override
@@ -230,7 +368,7 @@ class _ActionButton extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: onTap,
+          onTap: isLoading ? null : onTap,
           borderRadius: context.radiusLG,
           child: Padding(
             padding: EdgeInsets.all(AppConstants.spacingMD),
@@ -242,11 +380,20 @@ class _ActionButton extends StatelessWidget {
                     color: color.withOpacity(0.1),
                     borderRadius: context.radiusSM,
                   ),
-                  child: Icon(
-                    icon,
-                    color: color,
-                    size: 20,
-                  ),
+                  child: isLoading
+                      ? SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(color),
+                          ),
+                        )
+                      : Icon(
+                          icon,
+                          color: color,
+                          size: 20,
+                        ),
                 ),
                 SizedBox(width: AppConstants.spacingMD),
                 Expanded(
@@ -258,6 +405,9 @@ class _ActionButton extends StatelessWidget {
                         style: context.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w600,
                           fontFamily: 'Montserrat',
+                          color: isLoading 
+                              ? context.colorScheme.onSurface.withOpacity(0.6)
+                              : context.colorScheme.onSurface,
                         ),
                       ),
                       SizedBox(height: AppConstants.spacingXS),
@@ -271,11 +421,12 @@ class _ActionButton extends StatelessWidget {
                     ],
                   ),
                 ),
-                Icon(
-                  Iconsax.arrow_right_3,
-                  color: context.colorScheme.onSurface.withOpacity(0.4),
-                  size: 16,
-                ),
+                if (!isLoading)
+                  Icon(
+                    Iconsax.arrow_right_3,
+                    color: context.colorScheme.onSurface.withOpacity(0.4),
+                    size: 16,
+                  ),
               ],
             ),
           ),

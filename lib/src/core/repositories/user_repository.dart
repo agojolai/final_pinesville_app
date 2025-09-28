@@ -222,6 +222,7 @@ class UserRepository {
       rentAmount: 0.0, // Default value, to be set by admin
       status: "pending", // Initial status for a new user
       createdAt: DateTime.now(),
+      onboardingCompleted: false, // New users haven't completed onboarding yet
     );
   }
 
@@ -277,6 +278,31 @@ class UserRepository {
   // Update profile picture specifically
   Future<void> updateProfilePicture(String imageUrl) async {
     await updateUserProfileField({'profilePicture': imageUrl});
+  }
+
+  // Update onboarding completion status specifically
+  Future<void> updateOnboardingStatus(bool completed) async {
+    try {
+      final userId = AuthRepository.instance.authUser?.uid;
+      if (userId == null) {
+        throw Exception('User not authenticated');
+      }
+
+      await _db
+          .collection('Users')
+          .doc(userId)
+          .update({
+        'account.onboardingCompleted': completed,
+      });
+    } on FirebaseException catch (e) {
+      throw custom_firebase.FirebaseException(e.code).message;
+    } on custom_format.FormatException catch (_) {
+      throw const custom_format.FormatException();
+    } on PlatformException catch (e) {
+      throw custom_platform.PlatformException(e.code).message;
+    } catch (e) {
+      throw Exception('Error updating onboarding status: $e');
+    }
   }
 
   // OCCUPANTS SUBCOLLECTION METHODS

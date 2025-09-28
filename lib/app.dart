@@ -57,13 +57,35 @@ class App extends ConsumerWidget {
                     return const MainNavigation();
                   }
                   
-                  // If not logged in, check onboarding status
-                  if (!onboardingRepository.isOnboardingCompleted) {
-                    return const OnboardingScreen();
-                  }
-                  
-                  // Show login screen if onboarding is completed but user not logged in
-                  return const LoginScreen();
+                  // If not logged in, check onboarding status asynchronously
+                  return FutureBuilder<bool>(
+                    future: onboardingRepository.getOnboardingStatus(),
+                    builder: (context, onboardingSnapshot) {
+                      if (onboardingSnapshot.connectionState == ConnectionState.waiting) {
+                        return const Scaffold(
+                          body: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                CircularProgressIndicator(),
+                                SizedBox(height: 16),
+                                Text('Checking onboarding status...'),
+                              ],
+                            ),
+                          ),
+                        );
+                      }
+                      
+                      final isOnboardingCompleted = onboardingSnapshot.data ?? false;
+                      
+                      if (!isOnboardingCompleted) {
+                        return const OnboardingScreen();
+                      }
+                      
+                      // Show login screen if onboarding is completed but user not logged in
+                      return const LoginScreen();
+                    },
+                  );
                 },
                 loading: () => const Scaffold(
                   body: Center(
@@ -71,11 +93,27 @@ class App extends ConsumerWidget {
                   ),
                 ),
                 error: (error, stack) {
-                  // On error, check onboarding status
-                  if (!onboardingRepository.isOnboardingCompleted) {
-                    return const OnboardingScreen();
-                  }
-                  return const LoginScreen();
+                  // On error, use fallback async check
+                  return FutureBuilder<bool>(
+                    future: onboardingRepository.getOnboardingStatus(),
+                    builder: (context, onboardingSnapshot) {
+                      if (onboardingSnapshot.connectionState == ConnectionState.waiting) {
+                        return const Scaffold(
+                          body: Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                        );
+                      }
+                      
+                      final isOnboardingCompleted = onboardingSnapshot.data ?? false;
+                      
+                      if (!isOnboardingCompleted) {
+                        return const OnboardingScreen();
+                      }
+                      
+                      return const LoginScreen();
+                    },
+                  );
                 },
               );
             },
