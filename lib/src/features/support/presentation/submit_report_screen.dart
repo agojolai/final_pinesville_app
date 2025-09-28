@@ -6,7 +6,7 @@ import '../../../theme/app_constants.dart';
 import '../../../theme/theme_extensions.dart';
 import '../../../core/constants/validators.dart';
 import '../../../core/snackbars/loaders.dart';
-import 'reports_tickets_screen.dart';
+import '../data/models/report_model.dart';
 
 class SubmitReportScreen extends StatefulWidget {
   final Function(Report) onReportSubmitted;

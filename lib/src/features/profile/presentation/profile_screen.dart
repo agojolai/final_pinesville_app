@@ -8,6 +8,7 @@ import '../../../core/snackbars/loaders.dart';
 import 'account_settings_screen.dart';
 import 'change_password_screen.dart';
 import '../../support/presentation/reports_tickets_screen.dart';
+import '../../support/data/models/report_model.dart';
 import '../../auth/presentation/login_screen.dart';
 import '../../onboarding/presentation/onboarding_test_screen.dart';
 import '../../../core/repositories/auth_repository.dart';
@@ -986,47 +987,4 @@ class _ProfileHeaderError extends StatelessWidget {
       ),
     );
   }
-}
-
-// Data Models for Reports
-enum ReportStatus { pending, inProgress, resolved, closed }
-
-class Report {
-  final String id;
-  final String unitNumber;
-  final String category;
-  final String subCategory;
-  final String description;
-  final ReportStatus status;
-  final DateTime submittedAt;
-  final DateTime? resolvedAt;
-  final String tenantName;
-  final List<String> attachments;
-  final List<ReportUpdate> updates;
-
-  Report({
-    required this.id,
-    required this.unitNumber,
-    required this.category,
-    required this.subCategory,
-    required this.description,
-    required this.status,
-    required this.submittedAt,
-    this.resolvedAt,
-    required this.tenantName,
-    this.attachments = const [],
-    this.updates = const [],
-  });
-}
-
-class ReportUpdate {
-  final String message;
-  final DateTime timestamp;
-  final bool isAdmin;
-
-  ReportUpdate({
-    required this.message,
-    required this.timestamp,
-    required this.isAdmin,
-  });
 }

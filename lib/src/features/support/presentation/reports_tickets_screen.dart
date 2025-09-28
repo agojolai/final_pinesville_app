@@ -1,83 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:iconsax/iconsax.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../theme/app_constants.dart';
 import '../../../theme/theme_extensions.dart';
 import '../../../core/snackbars/loaders.dart';
 import '../../../common/widgets/feedback/feedback.dart';
+import '../data/models/report_model.dart';
+import '../providers/reports_provider.dart';
 import 'submit_report_screen.dart';
 import 'report_detail_screen.dart';
 
-class ReportsTicketsScreen extends StatefulWidget {
+class ReportsTicketsScreen extends ConsumerStatefulWidget {
   const ReportsTicketsScreen({super.key});
 
   @override
-  State<ReportsTicketsScreen> createState() => _ReportsTicketsScreenState();
+  ConsumerState<ReportsTicketsScreen> createState() => _ReportsTicketsScreenState();
 }
 
-class _ReportsTicketsScreenState extends State<ReportsTicketsScreen> with TickerProviderStateMixin {
+class _ReportsTicketsScreenState extends ConsumerState<ReportsTicketsScreen> with TickerProviderStateMixin {
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
-
-  // Sample reports data
-  List<Report> _reports = [
-    Report(
-      id: 'R001',
-      unitNumber: '204-B',
-      category: 'Maintenance / Repairs',
-      subCategory: 'Plumbing (leaks, clogs, water issues)',
-      description: 'Kitchen sink is clogged and water is backing up',
-      status: ReportStatus.inProgress,
-      submittedAt: DateTime.now().subtract(const Duration(days: 2)),
-      tenantName: 'Caleb Anderson',
-      updates: [
-        ReportUpdate(
-          message: 'Report received. Maintenance team has been notified.',
-          timestamp: DateTime.now().subtract(const Duration(days: 2)),
-          isAdmin: true,
-        ),
-        ReportUpdate(
-          message: 'Plumber scheduled for tomorrow morning.',
-          timestamp: DateTime.now().subtract(const Duration(days: 1)),
-          isAdmin: true,
-        ),
-      ],
-    ),
-    Report(
-      id: 'R002',
-      unitNumber: '204-B',
-      category: 'Billing & Payment',
-      subCategory: 'Incorrect billing amount',
-      description: 'Monthly rent charged includes utilities but I handle my own utilities',
-      status: ReportStatus.resolved,
-      submittedAt: DateTime.now().subtract(const Duration(days: 7)),
-      resolvedAt: DateTime.now().subtract(const Duration(days: 3)),
-      tenantName: 'Caleb Anderson',
-      updates: [
-        ReportUpdate(
-          message: 'Report received. Checking billing records.',
-          timestamp: DateTime.now().subtract(const Duration(days: 7)),
-          isAdmin: true,
-        ),
-        ReportUpdate(
-          message: 'Billing has been corrected. Refund of ₱500 will be applied to next month.',
-          timestamp: DateTime.now().subtract(const Duration(days: 3)),
-          isAdmin: true,
-        ),
-      ],
-    ),
-    Report(
-      id: 'R003',
-      unitNumber: '204-B',
-      category: 'Complaints / Concerns',
-      subCategory: 'Noise disturbance',
-      description: 'Upstairs neighbor playing loud music past midnight on weekdays',
-      status: ReportStatus.pending,
-      submittedAt: DateTime.now().subtract(const Duration(hours: 3)),
-      tenantName: 'Caleb Anderson',
-      updates: [],
-    ),
-  ];
 
   @override
   void initState() {
@@ -100,6 +43,9 @@ class _ReportsTicketsScreenState extends State<ReportsTicketsScreen> with Ticker
 
   @override
   Widget build(BuildContext context) {
+    final reports = ref.watch(reportsProvider);
+    final stats = ref.watch(reportsStatsProvider);
+    
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -127,24 +73,24 @@ class _ReportsTicketsScreenState extends State<ReportsTicketsScreen> with Ticker
         opacity: _fadeAnimation,
         child: Column(
           children: [
-            _StatsHeader(),
+            _StatsHeader(stats: stats),
             Expanded(
-              child: _reports.isEmpty
+              child: reports.isEmpty
                   ? _EmptyState()
                   : ListView.builder(
                       physics: const BouncingScrollPhysics(),
                       padding: EdgeInsets.all(AppConstants.spacingMD),
-                      itemCount: _reports.length,
+                      itemCount: reports.length,
                       itemBuilder: (context, index) {
                         return Padding(
                           padding: EdgeInsets.only(
                             bottom: AppConstants.spacingMD,
                           ),
                           child: _ReportCard(
-                            report: _reports[index],
-                            onTap: () => _showReportDetail(_reports[index]),
-                            onConfirmResolved: _reports[index].status == ReportStatus.resolved
-                                ? () => _handleResolvedTicketConfirmation(_reports[index])
+                            report: reports[index],
+                            onTap: () => _showReportDetail(reports[index]),
+                            onConfirmResolved: reports[index].status == ReportStatus.resolved
+                                ? () => _handleResolvedTicketConfirmation(reports[index])
                                 : null,
                           ),
                         );
@@ -170,11 +116,7 @@ class _ReportsTicketsScreenState extends State<ReportsTicketsScreen> with Ticker
     );
   }
 
-  Widget _StatsHeader() {
-    final pendingCount = _reports.where((r) => r.status == ReportStatus.pending).length;
-    final inProgressCount = _reports.where((r) => r.status == ReportStatus.inProgress).length;
-    final resolvedCount = _reports.where((r) => r.status == ReportStatus.resolved).length;
-
+  Widget _StatsHeader({required Map<String, int> stats}) {
     return Container(
       margin: EdgeInsets.all(AppConstants.spacingMD),
       padding: EdgeInsets.all(AppConstants.spacingLG),
@@ -209,7 +151,7 @@ class _ReportsTicketsScreenState extends State<ReportsTicketsScreen> with Ticker
               Expanded(
                 child: _StatCard(
                   title: 'Pending',
-                  count: pendingCount,
+                  count: stats['pending'] ?? 0,
                   color: context.colorScheme.error,
                   icon: Iconsax.clock,
                 ),
@@ -218,7 +160,7 @@ class _ReportsTicketsScreenState extends State<ReportsTicketsScreen> with Ticker
               Expanded(
                 child: _StatCard(
                   title: 'In Progress',
-                  count: inProgressCount,
+                  count: stats['inProgress'] ?? 0,
                   color: Colors.orange,
                   icon: Iconsax.refresh,
                 ),
@@ -227,7 +169,7 @@ class _ReportsTicketsScreenState extends State<ReportsTicketsScreen> with Ticker
               Expanded(
                 child: _StatCard(
                   title: 'Resolved',
-                  count: resolvedCount,
+                  count: stats['resolved'] ?? 0,
                   color: Colors.green,
                   icon: Iconsax.tick_circle,
                 ),
@@ -327,9 +269,7 @@ class _ReportsTicketsScreenState extends State<ReportsTicketsScreen> with Ticker
       MaterialPageRoute(
         builder: (context) => SubmitReportScreen(
           onReportSubmitted: (report) {
-            setState(() {
-              _reports.insert(0, report);
-            });
+            ref.read(reportsProvider.notifier).addReport(report);
             Loaders.successSnackBar(
               context,
               title: 'Report Submitted',
@@ -414,9 +354,7 @@ class _ReportsTicketsScreenState extends State<ReportsTicketsScreen> with Ticker
   }
 
   void _archiveReport(Report report, int? rating, String? comment) {
-    setState(() {
-      _reports.removeWhere((r) => r.id == report.id);
-    });
+    ref.read(reportsProvider.notifier).removeReport(report.id);
 
     // Show success message
     Loaders.successSnackBar(
@@ -654,47 +592,4 @@ class _ReportCard extends StatelessWidget {
       return '${date.day}/${date.month}/${date.year}';
     }
   }
-}
-
-// Data Models
-enum ReportStatus { pending, inProgress, resolved, closed }
-
-class Report {
-  final String id;
-  final String unitNumber;
-  final String category;
-  final String subCategory;
-  final String description;
-  final ReportStatus status;
-  final DateTime submittedAt;
-  final DateTime? resolvedAt;
-  final String tenantName;
-  final List<String> attachments;
-  final List<ReportUpdate> updates;
-
-  Report({
-    required this.id,
-    required this.unitNumber,
-    required this.category,
-    required this.subCategory,
-    required this.description,
-    required this.status,
-    required this.submittedAt,
-    this.resolvedAt,
-    required this.tenantName,
-    this.attachments = const [],
-    this.updates = const [],
-  });
-}
-
-class ReportUpdate {
-  final String message;
-  final DateTime timestamp;
-  final bool isAdmin;
-
-  ReportUpdate({
-    required this.message,
-    required this.timestamp,
-    required this.isAdmin,
-  });
 }
