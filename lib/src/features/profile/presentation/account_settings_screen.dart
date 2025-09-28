@@ -21,8 +21,6 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> w
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
 
-  bool get _showAddOccupantButton => !_isWaitingForAdminApproval;
-
   // Form keys
   final _formKey = GlobalKey<FormState>();
   final _occupantFormKey = GlobalKey<FormState>();
@@ -36,10 +34,7 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> w
   // State variables
   bool _isEditingEmail = false;
   bool _isEditingPhone = false;
-  bool _isWaitingForAdminApproval = false;
-  bool _hasApprovedRequest = false; // Track if admin has approved adding another occupant
   OccupantModel? _editingOccupant;
-  int? _editingOccupantIndex;
 
   @override
   void initState() {
@@ -212,10 +207,18 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> w
   Widget _OccupantSection() {
     return Consumer(
       builder: (context, ref, child) {
-        final occupantsAsync = ref.watch(occupantsProvider);
+        final activeOccupantsAsync = ref.watch(activeOccupantsProvider);
+        final pendingOccupantsAsync = ref.watch(pendingOccupantsProvider);
         
-        return occupantsAsync.when(
-          data: (occupants) => _OccupantContent(occupants: occupants),
+        return activeOccupantsAsync.when(
+          data: (activeOccupants) => pendingOccupantsAsync.when(
+            data: (pendingOccupants) => _OccupantContent(
+              activeOccupants: activeOccupants, 
+              pendingOccupants: pendingOccupants
+            ),
+            loading: () => _OccupantLoading(),
+            error: (error, stack) => _OccupantError(error: error.toString()),
+          ),
           loading: () => _OccupantLoading(),
           error: (error, stack) => _OccupantError(error: error.toString()),
         );
@@ -223,7 +226,10 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> w
     );
   }
 
-  Widget _OccupantContent({required List<OccupantModel> occupants}) {
+  Widget _OccupantContent({
+    required List<OccupantModel> activeOccupants, 
+    required List<OccupantModel> pendingOccupants
+  }) {
     return Container(
       padding: EdgeInsets.all(AppConstants.spacingLG),
       decoration: BoxDecoration(
@@ -254,16 +260,15 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> w
                   fontFamily: 'Montserrat',
                 ),
               ),
-              if (_showAddOccupantButton)
-                IconButton(
-                  onPressed: _handleAddOccupantAction,
-                  icon: Icon(
-                    Iconsax.add_circle,
-                    color: context.colorScheme.primary,
-                    size: 24,
-                  ),
-                  tooltip: occupants.isEmpty ? 'Add Occupant' : 'Add Another Occupant',
+              IconButton(
+                onPressed: () => _handleAddOccupantAction(activeOccupants),
+                icon: Icon(
+                  Iconsax.add_circle,
+                  color: context.colorScheme.primary,
+                  size: 24,
                 ),
+                tooltip: activeOccupants.isEmpty ? 'Add Occupant' : 'Add Another Occupant',
+              ),
             ],
           ),
           SizedBox(height: AppConstants.spacingSM),
@@ -276,14 +281,14 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> w
           ),
           SizedBox(height: AppConstants.spacingLG),
           
-          if (occupants.isNotEmpty)
+          if (activeOccupants.isNotEmpty)
             Column(
-              children: occupants.asMap().entries.map((entry) {
+              children: activeOccupants.asMap().entries.map((entry) {
                 int index = entry.key;
                 OccupantModel occupant = entry.value;
                 return Padding(
                   padding: EdgeInsets.only(
-                    bottom: index < occupants.length - 1 ? AppConstants.spacingMD : 0,
+                    bottom: index < activeOccupants.length - 1 ? AppConstants.spacingMD : 0,
                   ),
                   child: _OccupantCard(
                     occupant: occupant,
@@ -295,6 +300,12 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> w
             )
           else
             _EmptyOccupantState(),
+
+          // Show pending occupants if any
+          if (pendingOccupants.isNotEmpty) ...[
+            SizedBox(height: AppConstants.spacingLG),
+            _PendingOccupantsSection(pendingOccupants: pendingOccupants),
+          ],
           
           // Permanent Admin Test Controls
           SizedBox(height: AppConstants.spacingLG),
@@ -390,14 +401,126 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> w
   }
 
   // Helper method to determine add occupant action
-  void _handleAddOccupantAction() {
-    if (_occupants.isEmpty || _hasApprovedRequest) {
-      // If no occupants exist or admin has already approved, show dialog directly
+  void _handleAddOccupantAction(List<OccupantModel> occupants) {
+    if (occupants.isEmpty) {
+      // If no occupants exist, show dialog directly
       _showAddOccupantDialog();
     } else {
-      // If occupants exist and no approval yet, show warning first
+      // If occupants exist, show warning first then proceed to add with PENDING status
       _showAddAnotherOccupantWarning();
     }
+  }
+
+  Widget _PendingOccupantsSection({required List<OccupantModel> pendingOccupants}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              Iconsax.clock,
+              color: Colors.orange,
+              size: 20,
+            ),
+            SizedBox(width: AppConstants.spacingXS),
+            Text(
+              'Pending Approval (${pendingOccupants.length})',
+              style: context.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                fontFamily: 'Montserrat',
+                color: Colors.orange,
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: AppConstants.spacingSM),
+        Text(
+          'These occupants are waiting for admin approval',
+          style: context.textTheme.bodySmall?.copyWith(
+            color: context.colorScheme.onSurface.withValues(alpha: 0.7),
+            fontFamily: 'Montserrat',
+          ),
+        ),
+        SizedBox(height: AppConstants.spacingMD),
+        Column(
+          children: pendingOccupants.asMap().entries.map((entry) {
+            int index = entry.key;
+            OccupantModel occupant = entry.value;
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: index < pendingOccupants.length - 1 ? AppConstants.spacingMD : 0,
+              ),
+              child: _PendingOccupantCard(occupant: occupant),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _PendingOccupantCard({required OccupantModel occupant}) {
+    return Container(
+      padding: EdgeInsets.all(AppConstants.spacingMD),
+      decoration: BoxDecoration(
+        color: context.colorScheme.surfaceContainer.withValues(alpha: 0.5),
+        borderRadius: context.radiusMD,
+        border: Border.all(
+          color: Colors.orange.withValues(alpha: 0.3),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          SizedBox(width: AppConstants.spacingSM),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  occupant.occupantName,
+                  style: context.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    fontFamily: 'Montserrat',
+                  ),
+                ),
+                SizedBox(height: AppConstants.spacingXS / 2),
+                Text(
+                  occupant.occupantPhone,
+                  style: context.textTheme.bodyMedium?.copyWith(
+                    color: context.colorScheme.onSurface.withValues(alpha: 0.7),
+                    fontFamily: 'Montserrat',
+                  ),
+                ),
+                SizedBox(height: AppConstants.spacingXS / 2),
+                Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: AppConstants.spacingXS,
+                    vertical: AppConstants.spacingXS / 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.2),
+                    borderRadius: context.radiusSM,
+                  ),
+                  child: Text(
+                    'PENDING',
+                    style: context.textTheme.labelSmall?.copyWith(
+                      color: Colors.orange,
+                      fontWeight: FontWeight.w600,
+                      fontFamily: 'Montserrat',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Icon(
+            Iconsax.clock,
+            color: Colors.orange.withValues(alpha: 0.6),
+            size: 20,
+          ),
+        ],
+      ),
+    );
   }
 
   void _showAddOccupantDialog() {
@@ -420,6 +543,40 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> w
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // Show status indicator for existing occupants
+              if (_editingOccupant != null && _editingOccupant!.status == OccupantStatus.pending) ...[
+                Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.all(AppConstants.spacingSM),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.1),
+                    borderRadius: context.radiusSM,
+                    border: Border.all(
+                      color: Colors.orange.withValues(alpha: 0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Iconsax.clock,
+                        color: Colors.orange,
+                        size: 16,
+                      ),
+                      SizedBox(width: AppConstants.spacingXS),
+                      Text(
+                        'This occupant is pending approval',
+                        style: context.textTheme.bodySmall?.copyWith(
+                          color: Colors.orange,
+                          fontWeight: FontWeight.w500,
+                          fontFamily: 'Montserrat',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: AppConstants.spacingMD),
+              ],
               TextFormField(
                 controller: _occupantNameController,
                 validator: (value) => Validators.validateEmptyText('Name', value),
@@ -494,74 +651,173 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> w
 
 
   Widget _PermanentAdminTestControls() {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(AppConstants.spacingMD),
-      decoration: BoxDecoration(
-        color: context.colorScheme.errorContainer.withValues(alpha:0.3),
-        borderRadius: context.radiusSM,
-        border: Border.all(
-          color: context.colorScheme.error.withValues(alpha:0.3),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        children: [
-          Text(
-            '🛠️ Admin Test Controls',
-            style: context.textTheme.labelMedium?.copyWith(
-              color: context.colorScheme.error,
-              fontFamily: 'Montserrat',
-              fontWeight: FontWeight.w600,
+    return Consumer(
+      builder: (context, ref, child) {
+        final pendingOccupantsAsync = ref.watch(pendingOccupantsProvider);
+        
+        return Container(
+          width: double.infinity,
+          padding: EdgeInsets.all(AppConstants.spacingMD),
+          decoration: BoxDecoration(
+            color: context.colorScheme.errorContainer.withValues(alpha:0.3),
+            borderRadius: context.radiusSM,
+            border: Border.all(
+              color: context.colorScheme.error.withValues(alpha:0.3),
+              width: 1,
             ),
           ),
-          SizedBox(height: AppConstants.spacingXS),
-          Text(
-            'For testing purposes only',
-            style: context.textTheme.bodySmall?.copyWith(
-              color: context.colorScheme.onSurface.withValues(alpha:0.6),
-              fontFamily: 'Montserrat',
-            ),
-          ),
-          SizedBox(height: AppConstants.spacingSM),
-          Row(
+          child: Column(
             children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: _simulateAdminReject,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: context.colorScheme.error,
-                    side: BorderSide(color: context.colorScheme.error),
-                    padding: EdgeInsets.symmetric(vertical: AppConstants.spacingSM),
-                  ),
-                  child: Text(
-                    'Reject Request',
-                    style: TextStyle(fontFamily: 'Montserrat'),
-                  ),
+              Text(
+                '🛠️ Admin Test Controls',
+                style: context.textTheme.labelMedium?.copyWith(
+                  color: context.colorScheme.error,
+                  fontFamily: 'Montserrat',
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-              SizedBox(width: AppConstants.spacingSM),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: _simulateAdminApprove,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: context.colorScheme.primary,
-                    foregroundColor: context.colorScheme.onPrimary,
-                    padding: EdgeInsets.symmetric(vertical: AppConstants.spacingSM),
-                  ),
+              SizedBox(height: AppConstants.spacingXS),
+              Text(
+                'For testing purposes only',
+                style: context.textTheme.bodySmall?.copyWith(
+                  color: context.colorScheme.onSurface.withValues(alpha:0.6),
+                  fontFamily: 'Montserrat',
+                ),
+              ),
+              SizedBox(height: AppConstants.spacingSM),
+              
+              // Show pending count and next occupant info
+              pendingOccupantsAsync.when(
+                data: (pendingOccupants) => pendingOccupants.isNotEmpty 
+                  ? Container(
+                      width: double.infinity,
+                      padding: EdgeInsets.all(AppConstants.spacingSM),
+                      margin: EdgeInsets.only(bottom: AppConstants.spacingSM),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withValues(alpha: 0.1),
+                        borderRadius: context.radiusSM,
+                        border: Border.all(
+                          color: Colors.orange.withValues(alpha: 0.3),
+                          width: 1,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '📋 Next Pending Request:',
+                            style: context.textTheme.bodySmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              fontFamily: 'Montserrat',
+                              color: Colors.orange,
+                            ),
+                          ),
+                          SizedBox(height: AppConstants.spacingXS),
+                          Text(
+                            '${pendingOccupants.first.occupantName}',
+                            style: context.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              fontFamily: 'Montserrat',
+                            ),
+                          ),
+                          Text(
+                            '📱 ${pendingOccupants.first.occupantPhone}',
+                            style: context.textTheme.bodySmall?.copyWith(
+                              fontFamily: 'Montserrat',
+                              color: context.colorScheme.onSurface.withValues(alpha: 0.7),
+                            ),
+                          ),
+                          if (pendingOccupants.length > 1)
+                            Text(
+                              '+${pendingOccupants.length - 1} more pending',
+                              style: context.textTheme.bodySmall?.copyWith(
+                                fontFamily: 'Montserrat',
+                                color: Colors.orange,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                        ],
+                      ),
+                    )
+                  : Container(
+                      width: double.infinity,
+                      padding: EdgeInsets.all(AppConstants.spacingSM),
+                      margin: EdgeInsets.only(bottom: AppConstants.spacingSM),
+                      decoration: BoxDecoration(
+                        color: context.colorScheme.surfaceContainer.withValues(alpha: 0.5),
+                        borderRadius: context.radiusSM,
+                      ),
+                      child: Text(
+                        '✅ No pending requests',
+                        style: context.textTheme.bodySmall?.copyWith(
+                          fontFamily: 'Montserrat',
+                          color: context.colorScheme.onSurface.withValues(alpha: 0.6),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                loading: () => Container(
+                  padding: EdgeInsets.all(AppConstants.spacingSM),
                   child: Text(
-                    'Approve Request',
-                    style: TextStyle(
+                    '⏳ Loading pending requests...',
+                    style: context.textTheme.bodySmall?.copyWith(
                       fontFamily: 'Montserrat',
-                      fontWeight: FontWeight.w600,
+                      color: context.colorScheme.onSurface.withValues(alpha: 0.6),
+                    ),
+                  ),
+                ),
+                error: (error, stack) => Container(
+                  padding: EdgeInsets.all(AppConstants.spacingSM),
+                  child: Text(
+                    '❌ Error loading requests',
+                    style: context.textTheme.bodySmall?.copyWith(
+                      fontFamily: 'Montserrat',
+                      color: context.colorScheme.error,
                     ),
                   ),
                 ),
               ),
+              
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _simulateAdminReject,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: context.colorScheme.error,
+                        side: BorderSide(color: context.colorScheme.error),
+                        padding: EdgeInsets.symmetric(vertical: AppConstants.spacingSM),
+                      ),
+                      child: Text(
+                        'Reject Request',
+                        style: TextStyle(fontFamily: 'Montserrat'),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: AppConstants.spacingSM),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _simulateAdminApprove,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: context.colorScheme.primary,
+                        foregroundColor: context.colorScheme.onPrimary,
+                        padding: EdgeInsets.symmetric(vertical: AppConstants.spacingSM),
+                      ),
+                      child: Text(
+                        'Approve Request',
+                        style: TextStyle(
+                          fontFamily: 'Montserrat',
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -688,28 +944,33 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> w
       final newOccupant = OccupantModel(
         occupantName: _occupantNameController.text,
         occupantPhone: _occupantPhoneController.text,
+        // Preserve the original status when editing, or use default for new occupants
+        status: _editingOccupant?.status ?? OccupantStatus.active,
       );
       
       if (_editingOccupant != null) {
-        // If editing, update existing occupant
+        // If editing, update existing occupant while preserving status
         await occupantsNotifier.updateOccupant(_editingOccupant!.id!, newOccupant);
+        
+        Loaders.successSnackBar(
+          context,
+          title: 'Occupant Updated',
+          message: 'Occupant information has been successfully saved',
+        );
         _editingOccupant = null;
-        _editingOccupantIndex = null;
       } else {
-        // Add new occupant
+        // Add new occupant (status will be determined automatically in the provider)
         await occupantsNotifier.addOccupant(newOccupant);
-        // Reset approval flag when occupant is successfully added
-        _hasApprovedRequest = false;
+        
+        Loaders.successSnackBar(
+          context,
+          title: 'Occupant Added',
+          message: 'Occupant information has been successfully saved',
+        );
       }
       
       _occupantNameController.clear();
       _occupantPhoneController.clear();
-
-      Loaders.successSnackBar(
-        context,
-        title: _editingOccupant != null ? 'Occupant Updated' : 'Occupant Added',
-        message: 'Occupant information has been successfully saved',
-      );
     } catch (e) {
       Loaders.errorSnackBar(
         context,
@@ -724,16 +985,16 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> w
       _occupantNameController.text = occupant.occupantName;
       _occupantPhoneController.text = occupant.occupantPhone;
       _editingOccupant = occupant;
-      _editingOccupantIndex = index;
     });
     _showAddOccupantDialog();
   }
 
   Future<void> _removeOccupant(OccupantModel occupant) async {
     HapticFeedback.mediumImpact();
-    showDialog(
+    
+    final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: Text(
           'Remove Occupant',
           style: TextStyle(
@@ -747,7 +1008,7 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> w
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(dialogContext).pop(false),
             child: Text('Cancel'),
           ),
           ElevatedButton(
@@ -755,37 +1016,50 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> w
               backgroundColor: context.colorScheme.error,
               foregroundColor: Colors.white,
             ),
-            onPressed: () async {
-              Navigator.of(context).pop();
-              
-              try {
-                final occupantsNotifier = ref.read(occupantsNotifierProvider.notifier);
-                await occupantsNotifier.deleteOccupant(occupant.id!);
-                
-                Loaders.successSnackBar(
-                  context,
-                  title: 'Occupant Removed',
-                  message: 'Occupant information has been removed',
-                );
-              } catch (e) {
-                Loaders.errorSnackBar(
-                  context,
-                  title: 'Remove Failed',
-                  message: 'Failed to remove occupant: ${e.toString()}',
-                );
-              }
-            },
+            onPressed: () => Navigator.of(dialogContext).pop(true),
             child: Text('Remove'),
           ),
         ],
       ),
     );
+
+    // Only proceed if user confirmed and widget is still mounted
+    if (confirmed == true && mounted) {
+      try {
+        final occupantsNotifier = ref.read(occupantsNotifierProvider.notifier);
+        
+        // Soft delete: Mark as DELETED instead of hard delete
+        final deletedOccupant = occupant.copyWith(status: OccupantStatus.deleted);
+        await occupantsNotifier.updateOccupant(occupant.id!, deletedOccupant);
+        
+        // Add a small delay to ensure the UI is stable before showing SnackBar
+        if (mounted) {
+          await Future.delayed(const Duration(milliseconds: 100));
+          
+          if (mounted) {
+            Loaders.successSnackBar(
+              context,
+              title: 'Occupant Removed',
+              message: 'Occupant information has been removed',
+            );
+          }
+        }
+      } catch (e) {
+        // Check if widget is still mounted before showing error
+        if (mounted) {
+          Loaders.errorSnackBar(
+            context,
+            title: 'Remove Failed',
+            message: 'Failed to remove occupant: ${e.toString()}',
+          );
+        }
+      }
+    }
   }
 
   void _cancelAddOccupant() {
     setState(() {
       _editingOccupant = null;
-      _editingOccupantIndex = null;
       _occupantNameController.clear();
       _occupantPhoneController.clear();
     });
@@ -888,7 +1162,7 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> w
             ),
             onPressed: () {
               Navigator.of(context).pop();
-              _requestAdminApproval();
+              _showAddOccupantDialog(); // Directly show the add occupant dialog
             },
             child: Text(
               'Proceed',
@@ -903,69 +1177,125 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> w
     );
   }
 
-  void _requestAdminApproval() {
-    HapticFeedback.lightImpact();
-    setState(() {
-      _isWaitingForAdminApproval = true;
-    });
-
-    Loaders.infoSnackBar(
-      context,
-      title: 'Request Sent',
-      message: 'We will notify the admins, please wait',
-    );
-  }
-
-  void _simulateAdminApprove() {
+  void _simulateAdminApprove() async {
     HapticFeedback.mediumImpact();
     
-    if (_isWaitingForAdminApproval) {
-      // If waiting for approval, approve the request and allow adding
-      setState(() {
-        _isWaitingForAdminApproval = false;
-        _hasApprovedRequest = true; // Set approval flag
-      });
-
-      Loaders.successSnackBar(
-        context,
-        title: 'Request Approved',
-        message: 'Admin has approved your request. You can now add another occupant.',
-      );
+    try {
+      // Get current pending occupants
+      final pendingOccupantsAsync = ref.read(pendingOccupantsProvider);
       
-      // Show the add occupant dialog after approval
-      _showAddOccupantDialog();
-    } else {
-      // If not waiting, just show test message
-      Loaders.infoSnackBar(
-        context,
-        title: 'Admin Test',
-        message: 'This would approve an occupant request when one is pending.',
+      await pendingOccupantsAsync.when(
+        data: (pendingOccupants) async {
+          if (pendingOccupants.isNotEmpty) {
+            final firstPending = pendingOccupants.first;
+            
+            await ref.read(occupantsNotifierProvider.notifier).approveOccupant(firstPending.id!);
+            
+            if (mounted) {
+              Loaders.successSnackBar(
+                context,
+                title: 'Occupant Approved',
+                message: '${firstPending.occupantName} has been approved and is now active.',
+              );
+            }
+          } else {
+            if (mounted) {
+              Loaders.infoSnackBar(
+                context,
+                title: 'No Pending Requests',
+                message: 'There are no pending occupant requests to approve.',
+              );
+            }
+          }
+        },
+        loading: () async {
+          if (mounted) {
+            Loaders.infoSnackBar(
+              context,
+              title: 'Loading...',
+              message: 'Loading pending occupants...',
+            );
+          }
+        },
+        error: (error, stack) async {
+          if (mounted) {
+            Loaders.errorSnackBar(
+              context,
+              title: 'Error',
+              message: 'Failed to load pending occupants: ${error.toString()}',
+            );
+          }
+        },
       );
+    } catch (e) {
+      if (mounted) {
+        Loaders.errorSnackBar(
+          context,
+          title: 'Approval Failed',
+          message: 'Failed to approve occupant: ${e.toString()}',
+        );
+      }
     }
   }
 
-  void _simulateAdminReject() {
+  void _simulateAdminReject() async {
     HapticFeedback.mediumImpact();
     
-    if (_isWaitingForAdminApproval) {
-      // If waiting for approval, reject the request
-      setState(() {
-        _isWaitingForAdminApproval = false;
-        _hasApprovedRequest = false; // Reset approval flag on rejection
-      });
-
-      Loaders.errorSnackBar(
-        context,
-        title: 'Request Rejected',
-        message: 'Admin has rejected your request. Please contact them for more details.',
+    try {
+      // Get current pending occupants
+      final pendingOccupantsAsync = ref.read(pendingOccupantsProvider);
+      
+      await pendingOccupantsAsync.when(
+        data: (pendingOccupants) async {
+          if (pendingOccupants.isNotEmpty) {
+            final firstPending = pendingOccupants.first;
+            
+            await ref.read(occupantsNotifierProvider.notifier).rejectOccupant(firstPending.id!);
+            
+            if (mounted) {
+              Loaders.errorSnackBar(
+                context,
+                title: 'Occupant Rejected',
+                message: '${firstPending.occupantName} request has been rejected.',
+              );
+            }
+          } else {
+            if (mounted) {
+              Loaders.infoSnackBar(
+                context,
+                title: 'No Pending Requests',
+                message: 'There are no pending occupant requests to reject.',
+              );
+            }
+          }
+        },
+        loading: () async {
+          if (mounted) {
+            Loaders.infoSnackBar(
+              context,
+              title: 'Loading...',
+              message: 'Loading pending occupants...',
+            );
+          }
+        },
+        error: (error, stack) async {
+          if (mounted) {
+            Loaders.errorSnackBar(
+              context,
+              title: 'Error',
+              message: 'Failed to load pending occupants: ${error.toString()}',
+            );
+          }
+        },
       );
-    } else {
-      // If not waiting, just show test message
-      Loaders.infoSnackBar(
-        context,
-        title: 'Admin Test',
-        message: 'This would reject an occupant request when one is pending.',
-      );
+    } catch (e) {
+      if (mounted) {
+        Loaders.errorSnackBar(
+          context,
+          title: 'Rejection Failed',
+          message: 'Failed to reject occupant: ${e.toString()}',
+        );
+      }
     }
   }
 }

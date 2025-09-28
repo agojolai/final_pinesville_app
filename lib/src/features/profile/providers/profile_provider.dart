@@ -33,10 +33,28 @@ final userProfileFutureProvider = FutureProvider<UserModel>((ref) async {
   return await userRepository.fetchUserDetails();
 });
 
-// Occupants Provider - Streams the current user's occupants
+// Occupants Provider - Streams the current user's occupants (excludes DELETED)
 final occupantsProvider = StreamProvider<List<OccupantModel>>((ref) {
   final userRepository = ref.watch(userRepositoryProvider);
-  return userRepository.streamOccupants();
+  return userRepository.streamOccupants().map((occupants) => 
+    occupants.where((occupant) => occupant.status != OccupantStatus.deleted).toList()
+  );
+});
+
+// Active Occupants Provider - Streams only ACTIVE occupants
+final activeOccupantsProvider = StreamProvider<List<OccupantModel>>((ref) {
+  final userRepository = ref.watch(userRepositoryProvider);
+  return userRepository.streamOccupants().map((occupants) => 
+    occupants.where((occupant) => occupant.status == OccupantStatus.active).toList()
+  );
+});
+
+// Pending Occupants Provider - Streams only PENDING occupants (for admin controls)
+final pendingOccupantsProvider = StreamProvider<List<OccupantModel>>((ref) {
+  final userRepository = ref.watch(userRepositoryProvider);
+  return userRepository.streamOccupants().map((occupants) => 
+    occupants.where((occupant) => occupant.status == OccupantStatus.pending).toList()
+  );
 });
 
 // Occupants Future Provider - For one-time fetches
@@ -108,23 +126,36 @@ class OccupantsNotifier extends StateNotifier<AsyncValue<List<OccupantModel>>> {
 
   Future<void> _loadOccupants() async {
     try {
-      final occupants = await _userRepository.fetchOccupants();
-      state = AsyncValue.data(occupants);
+      final allOccupants = await _userRepository.fetchOccupants();
+      // Filter out DELETED occupants
+      final visibleOccupants = allOccupants.where((occupant) => occupant.status != OccupantStatus.deleted).toList();
+      state = AsyncValue.data(visibleOccupants);
     } catch (e, stackTrace) {
       state = AsyncValue.error(e, stackTrace);
     }
   }
 
-  // Add new occupant
+  // Add new occupant with status determination
   Future<void> addOccupant(OccupantModel occupant) async {
     state = const AsyncValue.loading();
     
     try {
-      await _userRepository.addOccupant(occupant);
+      // Get current active occupants to determine status
+      final currentOccupants = await _userRepository.fetchOccupants();
+      final activeOccupants = currentOccupants.where((o) => o.status == OccupantStatus.active).toList();
+      
+      // First occupant gets ACTIVE status, additional ones get PENDING
+      final occupantWithStatus = occupant.copyWith(
+        status: activeOccupants.isEmpty ? OccupantStatus.active : OccupantStatus.pending
+      );
+      
+      await _userRepository.addOccupant(occupantWithStatus);
       await _loadOccupants();
       
-      // Also refresh the stream provider
+      // Also refresh the stream providers
       _ref.invalidate(occupantsProvider);
+      _ref.invalidate(activeOccupantsProvider);
+      _ref.invalidate(pendingOccupantsProvider);
     } catch (e, stackTrace) {
       state = AsyncValue.error(e, stackTrace);
     }
@@ -138,8 +169,10 @@ class OccupantsNotifier extends StateNotifier<AsyncValue<List<OccupantModel>>> {
       await _userRepository.updateOccupant(occupantId, occupant);
       await _loadOccupants();
       
-      // Also refresh the stream provider
+      // Also refresh the stream providers
       _ref.invalidate(occupantsProvider);
+      _ref.invalidate(activeOccupantsProvider);
+      _ref.invalidate(pendingOccupantsProvider);
     } catch (e, stackTrace) {
       state = AsyncValue.error(e, stackTrace);
     }
@@ -153,8 +186,56 @@ class OccupantsNotifier extends StateNotifier<AsyncValue<List<OccupantModel>>> {
       await _userRepository.deleteOccupant(occupantId);
       await _loadOccupants();
       
-      // Also refresh the stream provider
+      // Also refresh the stream providers
       _ref.invalidate(occupantsProvider);
+      _ref.invalidate(activeOccupantsProvider);
+      _ref.invalidate(pendingOccupantsProvider);
+    } catch (e, stackTrace) {
+      state = AsyncValue.error(e, stackTrace);
+    }
+  }
+
+  // Approve pending occupant (change status to ACTIVE)
+  Future<void> approveOccupant(String occupantId) async {
+    state = const AsyncValue.loading();
+    
+    try {
+      // Get current occupant data
+      final occupants = await _userRepository.fetchOccupants();
+      final occupant = occupants.firstWhere((o) => o.id == occupantId);
+      
+      // Update status to ACTIVE
+      final approvedOccupant = occupant.copyWith(status: OccupantStatus.active);
+      await _userRepository.updateOccupant(occupantId, approvedOccupant);
+      await _loadOccupants();
+      
+      // Also refresh the stream providers
+      _ref.invalidate(occupantsProvider);
+      _ref.invalidate(activeOccupantsProvider);
+      _ref.invalidate(pendingOccupantsProvider);
+    } catch (e, stackTrace) {
+      state = AsyncValue.error(e, stackTrace);
+    }
+  }
+
+  // Reject pending occupant (change status to DELETED)
+  Future<void> rejectOccupant(String occupantId) async {
+    state = const AsyncValue.loading();
+    
+    try {
+      // Get current occupant data
+      final occupants = await _userRepository.fetchOccupants();
+      final occupant = occupants.firstWhere((o) => o.id == occupantId);
+      
+      // Update status to DELETED
+      final rejectedOccupant = occupant.copyWith(status: OccupantStatus.deleted);
+      await _userRepository.updateOccupant(occupantId, rejectedOccupant);
+      await _loadOccupants();
+      
+      // Also refresh the stream providers
+      _ref.invalidate(occupantsProvider);
+      _ref.invalidate(activeOccupantsProvider);
+      _ref.invalidate(pendingOccupantsProvider);
     } catch (e, stackTrace) {
       state = AsyncValue.error(e, stackTrace);
     }
