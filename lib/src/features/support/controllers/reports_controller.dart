@@ -1,123 +1,153 @@
 import '../data/models/report_model.dart';
+import '../data/repositories/reports_repository.dart';
 
-/// Controller for managing reports and tickets
+/// Controller for managing reports and tickets with Firestore integration
 class ReportsController {
-  // Sample reports data - in a real app, this would come from a backend service
-  List<Report> _reports = [
-    Report(
-      id: 'R001',
-      unitNumber: '204-B',
-      category: 'Maintenance / Repairs',
-      subCategory: 'Plumbing (leaks, clogs, water issues)',
-      description: 'Kitchen sink is clogged and water is backing up',
-      status: ReportStatus.inProgress,
-      submittedAt: DateTime.now().subtract(const Duration(days: 2)),
-      tenantName: 'Caleb Anderson',
-      attachments: [],
-      updates: [
-        ReportUpdate(
-          message: 'Report received. Maintenance team has been notified.',
-          timestamp: DateTime.now().subtract(const Duration(days: 2)),
-          isAdmin: true,
-        ),
-        ReportUpdate(
-          message: 'Plumber scheduled for tomorrow morning.',
-          timestamp: DateTime.now().subtract(const Duration(days: 1)),
-          isAdmin: true,
-        ),
-      ],
-    ),
-    Report(
-      id: 'R002',
-      unitNumber: '204-B',
-      category: 'Billing & Payment',
-      subCategory: 'Incorrect billing amount',
-      description: 'Monthly rent charged includes utilities but I handle my own utilities',
-      status: ReportStatus.resolved,
-      submittedAt: DateTime.now().subtract(const Duration(days: 7)),
-      resolvedAt: DateTime.now().subtract(const Duration(days: 3)),
-      tenantName: 'Caleb Anderson',
-      attachments: [],
-      updates: [
-        ReportUpdate(
-          message: 'Report received. Checking billing records.',
-          timestamp: DateTime.now().subtract(const Duration(days: 7)),
-          isAdmin: true,
-        ),
-        ReportUpdate(
-          message: 'Billing error confirmed. Adjustment will appear on next statement.',
-          timestamp: DateTime.now().subtract(const Duration(days: 3)),
-          isAdmin: true,
-        ),
-      ],
-    ),
-    Report(
-      id: 'R003',
-      unitNumber: '204-B',
-      category: 'Complaints / Concerns',
-      subCategory: 'Noise disturbance',
-      description: 'Upstairs neighbor is consistently loud during late night hours',
-      status: ReportStatus.pending,
-      submittedAt: DateTime.now().subtract(const Duration(days: 1)),
-      tenantName: 'Caleb Anderson',
-      attachments: [],
-      updates: [],
-    ),
-  ];
+  final ReportsRepository _repository = ReportsRepository.instance;
 
-  /// Get all reports
-  List<Report> get reports => List.unmodifiable(_reports);
+  /// Get all reports for the current user
+  Future<List<Report>> getReports() async {
+    try {
+      return await _repository.fetchUserReports();
+    } catch (e) {
+      throw Exception('Failed to fetch reports: $e');
+    }
+  }
+
+  /// Get real-time stream of user reports
+  Stream<List<Report>> streamReports() {
+    return _repository.streamUserReports();
+  }
 
   /// Get report by ID
-  Report? getReportById(String id) {
+  Future<Report?> getReportById(String id) async {
     try {
-      return _reports.firstWhere((report) => report.id == id);
+      return await _repository.getReportById(id);
     } catch (e) {
-      return null;
+      throw Exception('Failed to fetch report: $e');
     }
   }
 
   /// Add a new report
-  void addReport(Report report) {
-    _reports.insert(0, report);
+  Future<void> addReport(Report report) async {
+    try {
+      await _repository.submitReport(report);
+    } catch (e) {
+      throw Exception('Failed to submit report: $e');
+    }
   }
 
   /// Update an existing report
-  void updateReport(Report updatedReport) {
-    final index = _reports.indexWhere((report) => report.id == updatedReport.id);
-    if (index != -1) {
-      _reports[index] = updatedReport;
+  Future<void> updateReport(Report updatedReport) async {
+    try {
+      await _repository.updateReport(updatedReport);
+    } catch (e) {
+      throw Exception('Failed to update report: $e');
     }
   }
 
   /// Remove a report (archive)
-  void removeReport(String reportId) {
-    _reports.removeWhere((report) => report.id == reportId);
+  Future<void> removeReport(String reportId) async {
+    try {
+      await _repository.deleteReport(reportId);
+    } catch (e) {
+      throw Exception('Failed to delete report: $e');
+    }
   }
 
   /// Generate a unique report ID
   String generateReportId() {
-    return 'R${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
+    return _repository.generateReportId();
   }
 
-  /// Get reports by status
-  List<Report> getReportsByStatus(ReportStatus status) {
-    return _reports.where((report) => report.status == status).toList();
+  /// Add an update to a report
+  Future<void> addReportUpdate(String reportId, ReportUpdate update) async {
+    try {
+      await _repository.addReportUpdate(reportId, update);
+    } catch (e) {
+      throw Exception('Failed to add report update: $e');
+    }
   }
 
-  /// Get reports count by status
-  int getReportsCountByStatus(ReportStatus status) {
-    return _reports.where((report) => report.status == status).length;
+  /// Update report status
+  Future<void> updateReportStatus(String reportId, ReportStatus status, {DateTime? resolvedAt}) async {
+    try {
+      await _repository.updateReportStatus(reportId, status, resolvedAt: resolvedAt);
+    } catch (e) {
+      throw Exception('Failed to update report status: $e');
+    }
   }
 
-  /// Get statistics
-  Map<String, int> getReportsStatistics() {
+  /// Get reports by status (from fetched data)
+  List<Report> getReportsByStatus(List<Report> reports, ReportStatus status) {
+    return reports.where((report) => report.status == status).toList();
+  }
+
+  /// Get reports count by status (from fetched data)
+  int getReportsCountByStatus(List<Report> reports, ReportStatus status) {
+    return reports.where((report) => report.status == status).length;
+  }
+
+  /// Get statistics (from fetched data)
+  Map<String, int> getReportsStatistics(List<Report> reports) {
     return {
-      'total': _reports.length,
-      'pending': getReportsCountByStatus(ReportStatus.pending),
-      'inProgress': getReportsCountByStatus(ReportStatus.inProgress),
-      'resolved': getReportsCountByStatus(ReportStatus.resolved),
-      'closed': getReportsCountByStatus(ReportStatus.closed),
+      'total': reports.length,
+      'pending': getReportsCountByStatus(reports, ReportStatus.pending),
+      'inProgress': getReportsCountByStatus(reports, ReportStatus.inProgress),
+      'resolved': getReportsCountByStatus(reports, ReportStatus.resolved),
+      'closed': getReportsCountByStatus(reports, ReportStatus.closed),
     };
+  }
+
+  // ADMIN METHODS
+
+  /// Fetch all reports across all users (admin only)
+  Future<List<Report>> getAllReports() async {
+    try {
+      return await _repository.fetchAllReports();
+    } catch (e) {
+      throw Exception('Failed to fetch all reports: $e');
+    }
+  }
+
+  /// Get global statistics across all users (admin only)
+  Future<Map<String, int>> getGlobalStatistics() async {
+    try {
+      return await _repository.fetchGlobalReportsStatistics();
+    } catch (e) {
+      throw Exception('Failed to fetch global statistics: $e');
+    }
+  }
+
+  /// Stream all reports across all users (admin only)
+  Stream<List<Report>> streamAllReports() {
+    return _repository.streamAllReports();
+  }
+
+  /// Update any report by admin
+  Future<void> adminUpdateReport(String userId, Report report) async {
+    try {
+      await _repository.adminUpdateReport(userId, report);
+    } catch (e) {
+      throw Exception('Failed to update report as admin: $e');
+    }
+  }
+
+  /// Create sample reports for testing
+  Future<void> createSampleData() async {
+    try {
+      await _repository.createSampleReports();
+    } catch (e) {
+      throw Exception('Failed to create sample data: $e');
+    }
+  }
+
+  /// Clear all reports for testing
+  Future<void> clearAllData() async {
+    try {
+      await _repository.clearAllReports();
+    } catch (e) {
+      throw Exception('Failed to clear data: $e');
+    }
   }
 }

@@ -10,6 +10,7 @@ import '../data/models/report_model.dart';
 import '../providers/reports_provider.dart';
 import 'submit_report_screen.dart';
 import 'report_detail_screen.dart';
+import 'admin_reports_test_screen.dart';
 
 class ReportsTicketsScreen extends ConsumerStatefulWidget {
   const ReportsTicketsScreen({super.key});
@@ -43,7 +44,7 @@ class _ReportsTicketsScreenState extends ConsumerState<ReportsTicketsScreen> wit
 
   @override
   Widget build(BuildContext context) {
-    final reports = ref.watch(reportsProvider);
+    final reportsAsync = ref.watch(reportsStreamProvider);
     final stats = ref.watch(reportsStatsProvider);
     
     return Scaffold(
@@ -65,6 +66,24 @@ class _ReportsTicketsScreenState extends ConsumerState<ReportsTicketsScreen> wit
             color: context.colorScheme.onSurface,
           ),
         ),
+        actions: [
+          // Admin Testing Button
+          IconButton(
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => AdminReportsTestScreen(),
+                ),
+              );
+            },
+            icon: Icon(
+              Iconsax.setting_2,
+              color: context.colorScheme.onSurface,
+            ),
+          ),
+        ],
         toolbarHeight: AppConstants.appBarHeight,
         elevation: 0,
         backgroundColor: context.colorScheme.surface,
@@ -75,27 +94,88 @@ class _ReportsTicketsScreenState extends ConsumerState<ReportsTicketsScreen> wit
           children: [
             _StatsHeader(stats: stats),
             Expanded(
-              child: reports.isEmpty
-                  ? _EmptyState()
-                  : ListView.builder(
-                      physics: const BouncingScrollPhysics(),
-                      padding: EdgeInsets.all(AppConstants.spacingMD),
-                      itemCount: reports.length,
-                      itemBuilder: (context, index) {
-                        return Padding(
-                          padding: EdgeInsets.only(
-                            bottom: AppConstants.spacingMD,
+              child: reportsAsync.when(
+                data: (reports) => reports.isEmpty
+                    ? _EmptyState()
+                    : RefreshIndicator(
+                        onRefresh: () async {
+                          ref.invalidate(reportsStreamProvider);
+                        },
+                        child: ListView.builder(
+                          physics: const BouncingScrollPhysics(),
+                          padding: EdgeInsets.all(AppConstants.spacingMD),
+                          itemCount: reports.length,
+                          itemBuilder: (context, index) {
+                            return Padding(
+                              padding: EdgeInsets.only(
+                                bottom: AppConstants.spacingMD,
+                              ),
+                              child: _ReportCard(
+                                report: reports[index],
+                                onTap: () => _showReportDetail(reports[index]),
+                                onConfirmResolved: reports[index].status == ReportStatus.resolved
+                                    ? () => _handleResolvedTicketConfirmation(reports[index])
+                                    : null,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                loading: () => Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: AppConstants.spacingMD),
+                      Text(
+                        'Loading reports...',
+                        style: context.textTheme.bodyMedium?.copyWith(
+                          color: context.colorScheme.onSurface.withValues(alpha:0.6),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                error: (error, stackTrace) => Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(AppConstants.spacingLG),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Iconsax.warning_2,
+                          size: 64,
+                          color: context.colorScheme.error,
+                        ),
+                        SizedBox(height: AppConstants.spacingMD),
+                        Text(
+                          'Error Loading Reports',
+                          style: context.textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: context.colorScheme.error,
                           ),
-                          child: _ReportCard(
-                            report: reports[index],
-                            onTap: () => _showReportDetail(reports[index]),
-                            onConfirmResolved: reports[index].status == ReportStatus.resolved
-                                ? () => _handleResolvedTicketConfirmation(reports[index])
-                                : null,
+                        ),
+                        SizedBox(height: AppConstants.spacingSM),
+                        Text(
+                          error.toString(),
+                          style: context.textTheme.bodyMedium?.copyWith(
+                            color: context.colorScheme.onSurface.withValues(alpha:0.6),
                           ),
-                        );
-                      },
+                          textAlign: TextAlign.center,
+                        ),
+                        SizedBox(height: AppConstants.spacingMD),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            ref.invalidate(reportsStreamProvider);
+                          },
+                          icon: Icon(Iconsax.refresh),
+                          label: Text('Retry'),
+                        ),
+                      ],
                     ),
+                  ),
+                ),
+              ),
             ),
           ],
         ),
@@ -267,16 +347,7 @@ class _ReportsTicketsScreenState extends ConsumerState<ReportsTicketsScreen> wit
     HapticFeedback.lightImpact();
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => SubmitReportScreen(
-          onReportSubmitted: (report) {
-            ref.read(reportsProvider.notifier).addReport(report);
-            Loaders.successSnackBar(
-              context,
-              title: 'Report Submitted',
-              message: 'Your report has been submitted successfully.',
-            );
-          },
-        ),
+        builder: (context) => const SubmitReportScreen(),
       ),
     );
   }
@@ -353,21 +424,33 @@ class _ReportsTicketsScreenState extends ConsumerState<ReportsTicketsScreen> wit
     );
   }
 
-  void _archiveReport(Report report, int? rating, String? comment) {
-    ref.read(reportsProvider.notifier).removeReport(report.id);
+  Future<void> _archiveReport(Report report, int? rating, String? comment) async {
+    try {
+      await ref.read(reportsActionProvider.notifier).removeReport(report.id);
 
-    // Show success message
-    Loaders.successSnackBar(
-      context,
-      title: 'Report Archived',
-      message: rating != null 
-          ? 'Thank you for your feedback! The report has been archived.'
-          : 'The report has been archived successfully.',
-    );
+      if (mounted) {
+        // Show success message
+        Loaders.successSnackBar(
+          context,
+          title: 'Report Archived',
+          message: rating != null 
+              ? 'Thank you for your feedback! The report has been archived.'
+              : 'The report has been archived successfully.',
+        );
+      }
 
-    // Here you would typically save the feedback to your backend
-    if (rating != null && comment != null) {
-      print('Feedback saved: Rating $rating, Comment: "$comment"');
+      // Here you would typically save the feedback to your backend
+      if (rating != null && comment != null) {
+        print('Feedback saved: Rating $rating, Comment: "$comment"');
+      }
+    } catch (e) {
+      if (mounted) {
+        Loaders.errorSnackBar(
+          context,
+          title: 'Error',
+          message: 'Failed to archive report: ${e.toString()}',
+        );
+      }
     }
   }
 }

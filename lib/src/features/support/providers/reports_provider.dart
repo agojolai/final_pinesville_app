@@ -7,33 +7,97 @@ final reportsControllerProvider = Provider<ReportsController>((ref) {
   return ReportsController();
 });
 
-/// State notifier for managing reports
-class ReportsNotifier extends StateNotifier<List<Report>> {
+/// Provider for streaming user reports from Firestore
+final reportsStreamProvider = StreamProvider<List<Report>>((ref) {
+  final controller = ref.watch(reportsControllerProvider);
+  return controller.streamReports();
+});
+
+/// Provider for reports statistics based on streamed data
+final reportsStatsProvider = Provider<Map<String, int>>((ref) {
+  final reportsAsyncValue = ref.watch(reportsStreamProvider);
+  
+  return reportsAsyncValue.when(
+    data: (reports) {
+      final controller = ref.watch(reportsControllerProvider);
+      return controller.getReportsStatistics(reports);
+    },
+    loading: () => {
+      'total': 0,
+      'pending': 0,
+      'inProgress': 0,
+      'resolved': 0,
+      'closed': 0,
+    },
+    error: (_, __) => {
+      'total': 0,
+      'pending': 0,
+      'inProgress': 0,
+      'resolved': 0,
+      'closed': 0,
+    },
+  );
+});
+
+/// State notifier for managing reports actions
+class ReportsNotifier extends StateNotifier<AsyncValue<void>> {
   final ReportsController _controller;
 
-  ReportsNotifier(this._controller) : super(_controller.reports);
+  ReportsNotifier(this._controller) : super(const AsyncValue.data(null));
 
   /// Add a new report
-  void addReport(Report report) {
-    _controller.addReport(report);
-    state = _controller.reports;
+  Future<void> addReport(Report report) async {
+    state = const AsyncValue.loading();
+    try {
+      await _controller.addReport(report);
+      state = const AsyncValue.data(null);
+    } catch (e) {
+      state = AsyncValue.error(e, StackTrace.current);
+    }
   }
 
   /// Update an existing report
-  void updateReport(Report report) {
-    _controller.updateReport(report);
-    state = _controller.reports;
+  Future<void> updateReport(Report report) async {
+    state = const AsyncValue.loading();
+    try {
+      await _controller.updateReport(report);
+      state = const AsyncValue.data(null);
+    } catch (e) {
+      state = AsyncValue.error(e, StackTrace.current);
+    }
   }
 
   /// Remove a report (archive)
-  void removeReport(String reportId) {
-    _controller.removeReport(reportId);
-    state = _controller.reports;
+  Future<void> removeReport(String reportId) async {
+    state = const AsyncValue.loading();
+    try {
+      await _controller.removeReport(reportId);
+      state = const AsyncValue.data(null);
+    } catch (e) {
+      state = AsyncValue.error(e, StackTrace.current);
+    }
   }
 
-  /// Get report by ID
-  Report? getReportById(String id) {
-    return _controller.getReportById(id);
+  /// Add an update to a report
+  Future<void> addReportUpdate(String reportId, ReportUpdate update) async {
+    state = const AsyncValue.loading();
+    try {
+      await _controller.addReportUpdate(reportId, update);
+      state = const AsyncValue.data(null);
+    } catch (e) {
+      state = AsyncValue.error(e, StackTrace.current);
+    }
+  }
+
+  /// Update report status
+  Future<void> updateReportStatus(String reportId, ReportStatus status, {DateTime? resolvedAt}) async {
+    state = const AsyncValue.loading();
+    try {
+      await _controller.updateReportStatus(reportId, status, resolvedAt: resolvedAt);
+      state = const AsyncValue.data(null);
+    } catch (e) {
+      state = AsyncValue.error(e, StackTrace.current);
+    }
   }
 
   /// Generate unique report ID
@@ -41,25 +105,69 @@ class ReportsNotifier extends StateNotifier<List<Report>> {
     return _controller.generateReportId();
   }
 
-  /// Get reports by status
-  List<Report> getReportsByStatus(ReportStatus status) {
-    return _controller.getReportsByStatus(status);
+  /// Create sample data for testing
+  Future<void> createSampleData() async {
+    state = const AsyncValue.loading();
+    try {
+      await _controller.createSampleData();
+      state = const AsyncValue.data(null);
+    } catch (e) {
+      state = AsyncValue.error(e, StackTrace.current);
+    }
   }
 
-  /// Get reports statistics
-  Map<String, int> getReportsStatistics() {
-    return _controller.getReportsStatistics();
+  /// Clear all data for testing
+  Future<void> clearAllData() async {
+    state = const AsyncValue.loading();
+    try {
+      await _controller.clearAllData();
+      state = const AsyncValue.data(null);
+    } catch (e) {
+      state = AsyncValue.error(e, StackTrace.current);
+    }
   }
 }
 
-/// Provider for the reports state notifier
-final reportsProvider = StateNotifierProvider<ReportsNotifier, List<Report>>((ref) {
+/// Provider for the reports action notifier
+final reportsActionProvider = StateNotifierProvider<ReportsNotifier, AsyncValue<void>>((ref) {
   final controller = ref.watch(reportsControllerProvider);
   return ReportsNotifier(controller);
 });
 
-/// Provider for reports statistics
-final reportsStatsProvider = Provider<Map<String, int>>((ref) {
-  final reportsNotifier = ref.watch(reportsProvider.notifier);
-  return reportsNotifier.getReportsStatistics();
+// ADMIN PROVIDERS
+
+/// Provider for streaming all reports across all users (admin only)
+final adminReportsStreamProvider = StreamProvider<List<Report>>((ref) {
+  final controller = ref.watch(reportsControllerProvider);
+  return controller.streamAllReports();
+});
+
+/// Provider for global statistics (admin only)
+final adminStatsProvider = FutureProvider<Map<String, int>>((ref) {
+  final controller = ref.watch(reportsControllerProvider);
+  return controller.getGlobalStatistics();
+});
+
+/// Admin state notifier for cross-user operations
+class AdminReportsNotifier extends StateNotifier<AsyncValue<void>> {
+  final ReportsController _controller;
+
+  AdminReportsNotifier(this._controller) : super(const AsyncValue.data(null));
+
+  /// Update any report by admin
+  Future<void> adminUpdateReport(String userId, Report report) async {
+    state = const AsyncValue.loading();
+    try {
+      await _controller.adminUpdateReport(userId, report);
+      state = const AsyncValue.data(null);
+    } catch (e) {
+      state = AsyncValue.error(e, StackTrace.current);
+    }
+  }
+}
+
+/// Provider for admin actions
+final adminReportsActionProvider = StateNotifierProvider<AdminReportsNotifier, AsyncValue<void>>((ref) {
+  final controller = ref.watch(reportsControllerProvider);
+  return AdminReportsNotifier(controller);
 });

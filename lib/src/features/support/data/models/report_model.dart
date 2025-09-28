@@ -55,6 +55,47 @@ class Report {
       updates: updates ?? this.updates,
     );
   }
+
+  /// Convert Report to JSON for Firestore
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'unitNumber': unitNumber,
+      'category': category,
+      'subCategory': subCategory,
+      'description': description,
+      'status': status.name,
+      'submittedAt': submittedAt.toIso8601String(),
+      'resolvedAt': resolvedAt?.toIso8601String(),
+      'tenantName': tenantName,
+      'attachments': attachments,
+      'updates': updates.map((update) => update.toJson()).toList(),
+    };
+  }
+
+  /// Create Report from JSON (Firestore)
+  factory Report.fromJson(Map<String, dynamic> json) {
+    return Report(
+      id: json['id'] ?? '',
+      unitNumber: json['unitNumber'] ?? '',
+      category: json['category'] ?? '',
+      subCategory: json['subCategory'] ?? '',
+      description: json['description'] ?? '',
+      status: ReportStatus.values.firstWhere(
+        (e) => e.name == json['status'],
+        orElse: () => ReportStatus.pending,
+      ),
+      submittedAt: DateTime.parse(json['submittedAt']),
+      resolvedAt: json['resolvedAt'] != null 
+          ? DateTime.parse(json['resolvedAt']) 
+          : null,
+      tenantName: json['tenantName'] ?? '',
+      attachments: List<String>.from(json['attachments'] ?? []),
+      updates: (json['updates'] as List<dynamic>?)
+          ?.map((update) => ReportUpdate.fromJson(update))
+          .toList() ?? [],
+    );
+  }
 }
 
 class ReportUpdate {
@@ -67,4 +108,22 @@ class ReportUpdate {
     required this.timestamp,
     required this.isAdmin,
   });
+
+  /// Convert ReportUpdate to JSON for Firestore
+  Map<String, dynamic> toJson() {
+    return {
+      'message': message,
+      'timestamp': timestamp.toIso8601String(),
+      'isAdmin': isAdmin,
+    };
+  }
+
+  /// Create ReportUpdate from JSON (Firestore)
+  factory ReportUpdate.fromJson(Map<String, dynamic> json) {
+    return ReportUpdate(
+      message: json['message'] ?? '',
+      timestamp: DateTime.parse(json['timestamp']),
+      isAdmin: json['isAdmin'] ?? false,
+    );
+  }
 }
