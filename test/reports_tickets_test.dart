@@ -1,5 +1,5 @@
 // Basic test for the reports and tickets feature
-import 'package:test/test.dart';
+import 'package:flutter_test/flutter_test.dart';
 import '../lib/src/features/support/data/models/report_model.dart';
 import '../lib/src/features/support/controllers/reports_controller.dart';
 
