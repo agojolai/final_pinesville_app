@@ -6,10 +6,13 @@ import '../../../theme/app_constants.dart';
 import '../../../theme/theme_extensions.dart';
 import '../../../core/constants/validators.dart';
 import '../../../core/snackbars/loaders.dart';
-import 'reports_tickets_screen.dart';
+import '../../../core/repositories/auth_repository.dart';
+import '../../../core/repositories/user_repository.dart';
+import '../data/models/report_model.dart';
+import '../data/repositories/report_repository.dart';
 
 class SubmitReportScreen extends StatefulWidget {
-  final Function(Report) onReportSubmitted;
+  final Function(ReportModel) onReportSubmitted;
 
   const SubmitReportScreen({
     super.key,
@@ -29,7 +32,8 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> with TickerProv
 
   String? _selectedCategory;
   String? _selectedSubCategory;
-  List<String> _attachments = [];
+  List<XFile> _attachmentFiles = [];
+  List<String> _attachments = []; // For display purposes only
 
   // User's unit (in real app, this would come from user session/account data)
   final String _userUnit = '204-B';
@@ -39,6 +43,9 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> with TickerProv
   
   // Maximum number of attachments allowed
   static const int maxAttachments = 5;
+
+  // Loading state for form submission
+  bool _isSubmitting = false;
 
   // Categories and subcategories
   final Map<String, List<String>> _categories = {
@@ -611,7 +618,7 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> with TickerProv
 
   Widget _SubmitButton() {
     return ElevatedButton(
-      onPressed: _submitReport,
+      onPressed: _isSubmitting ? null : _submitReport,
       style: ElevatedButton.styleFrom(
         backgroundColor: context.colorScheme.primary,
         foregroundColor: context.colorScheme.onPrimary,
@@ -624,10 +631,22 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> with TickerProv
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Iconsax.send_2),
+          if (_isSubmitting)
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  context.colorScheme.onPrimary,
+                ),
+              ),
+            )
+          else
+            Icon(Iconsax.send_2),
           SizedBox(width: AppConstants.spacingSM),
           Text(
-            'Submit Report',
+            _isSubmitting ? 'Submitting...' : 'Submit Report',
             style: context.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.bold,
               fontFamily: 'Montserrat',
@@ -643,7 +662,7 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> with TickerProv
       HapticFeedback.lightImpact();
       
       // Check attachment limit
-      if (_attachments.length >= maxAttachments) {
+      if (_attachmentFiles.length >= maxAttachments) {
         Loaders.errorSnackBar(
           context,
           title: 'Attachment Limit',
@@ -661,7 +680,8 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> with TickerProv
       
       if (photo != null) {
         setState(() {
-          _attachments.add(photo.path);
+          _attachmentFiles.add(photo);
+          _attachments.add(photo.path); // For display
         });
         Loaders.customToast(context, message: 'Photo captured successfully');
       }
@@ -679,7 +699,7 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> with TickerProv
       HapticFeedback.lightImpact();
       
       // Check attachment limit
-      if (_attachments.length >= maxAttachments) {
+      if (_attachmentFiles.length >= maxAttachments) {
         Loaders.errorSnackBar(
           context,
           title: 'Attachment Limit',
@@ -753,7 +773,8 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> with TickerProv
         
         if (pickedFile != null) {
           setState(() {
-            _attachments.add(pickedFile!.path);
+            _attachmentFiles.add(pickedFile!);
+            _attachments.add(pickedFile.path); // For display
           });
           Loaders.customToast(
             context, 
@@ -770,7 +791,7 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> with TickerProv
     }
   }
 
-  void _submitReport() {
+  void _submitReport() async {
     if (!_formKey.currentState!.validate()) {
       Loaders.errorSnackBar(
         context,
@@ -780,30 +801,72 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> with TickerProv
       return;
     }
 
-    HapticFeedback.mediumImpact();
+    if (_selectedCategory == null) {
+      Loaders.errorSnackBar(
+        context,
+        title: 'Error',
+        message: 'Please select a category',
+      );
+      return;
+    }
 
-    // Generate report ID
-    final reportId = 'R${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
+    setState(() {
+      _isSubmitting = true;
+    });
 
-    // Create report object
-    final report = Report(
-      id: reportId,
-      unitNumber: _userUnit,
-      category: _selectedCategory!,
-      subCategory: _selectedSubCategory ?? '',
-      description: _descriptionController.text,
-      status: ReportStatus.pending,
-      submittedAt: DateTime.now(),
-      tenantName: 'Caleb Anderson', // In real app, get from user session
-      attachments: List.from(_attachments),
-      updates: [],
-    );
+    try {
+      HapticFeedback.mediumImpact();
 
-    // Call the callback
-    widget.onReportSubmitted(report);
+      // Get current user info
+      final currentUser = AuthRepository.instance.authUser;
+      if (currentUser == null) {
+        throw 'User not authenticated';
+      }
 
-    // Navigate back
-    Navigator.of(context).pop();
+      // Try to get user details from UserRepository
+      String tenantName = 'Test User';
+      try {
+        final userModel = await UserRepository.instance.fetchUserDetails();
+        tenantName = '${userModel.profile.firstName} ${userModel.profile.lastName}';
+      } catch (e) {
+        // Fallback to Firebase Auth display name
+        tenantName = currentUser.displayName ?? currentUser.email?.split('@').first ?? 'Test User';
+      }
+
+      // Submit report using ReportRepository
+      final report = await ReportRepository.instance.submitReport(
+        unitNumber: _userUnit,
+        category: _selectedCategory!,
+        subCategory: _selectedSubCategory ?? '',
+        description: _descriptionController.text,
+        tenantUserId: currentUser.uid,
+        tenantName: tenantName,
+        attachmentFiles: _attachmentFiles.isNotEmpty ? _attachmentFiles : null,
+      );
+
+      // Call the callback with the created report
+      widget.onReportSubmitted(report);
+
+      // Show success message
+      Loaders.successSnackBar(
+        context,
+        title: 'Report Submitted',
+        message: 'Your report has been submitted successfully.',
+      );
+
+      // Navigate back
+      Navigator.of(context).pop();
+    } catch (e) {
+      Loaders.errorSnackBar(
+        context,
+        title: 'Submission Failed',
+        message: 'Failed to submit report: ${e.toString()}',
+      );
+    } finally {
+      setState(() {
+        _isSubmitting = false;
+      });
+    }
   }
 }
 

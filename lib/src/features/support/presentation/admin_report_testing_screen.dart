@@ -1,0 +1,725 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:iconsax/iconsax.dart';
+import '../../../theme/app_constants.dart';
+import '../../../theme/theme_extensions.dart';
+import '../../../core/snackbars/loaders.dart';
+import '../data/models/report_model.dart';
+import '../data/repositories/report_repository.dart';
+
+class AdminReportTestingScreen extends StatefulWidget {
+  const AdminReportTestingScreen({super.key});
+
+  @override
+  State<AdminReportTestingScreen> createState() => _AdminReportTestingScreenState();
+}
+
+class _AdminReportTestingScreenState extends State<AdminReportTestingScreen> with TickerProviderStateMixin {
+  late AnimationController _fadeController;
+  late Animation<double> _fadeAnimation;
+
+  List<ReportModel> _reports = [];
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fadeController = AnimationController(
+      duration: AppConstants.durationNormal,
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
+    );
+    _fadeController.forward();
+    _loadAllReports();
+  }
+
+  @override
+  void dispose() {
+    _fadeController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          'Admin Report Testing',
+          style: context.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.bold,
+            fontFamily: 'Montserrat',
+          ),
+        ),
+        leading: IconButton(
+          onPressed: () {
+            HapticFeedback.lightImpact();
+            Navigator.of(context).pop();
+          },
+          icon: Icon(
+            Iconsax.arrow_left,
+            color: context.colorScheme.onSurface,
+          ),
+        ),
+        toolbarHeight: AppConstants.appBarHeight,
+        elevation: 0,
+        backgroundColor: context.colorScheme.surface,
+        actions: [
+          IconButton(
+            onPressed: _loadAllReports,
+            icon: Icon(Iconsax.refresh),
+            tooltip: 'Refresh',
+          ),
+        ],
+      ),
+      body: FadeTransition(
+        opacity: _fadeAnimation,
+        child: Column(
+          children: [
+            _AdminActions(),
+            SizedBox(height: AppConstants.spacingMD),
+            _StatsHeader(),
+            Expanded(
+              child: _isLoading
+                  ? _LoadingState()
+                  : _reports.isEmpty
+                      ? _EmptyState()
+                      : RefreshIndicator(
+                          onRefresh: _loadAllReports,
+                          child: ListView.builder(
+                            physics: const BouncingScrollPhysics(),
+                            padding: EdgeInsets.all(AppConstants.spacingMD),
+                            itemCount: _reports.length,
+                            itemBuilder: (context, index) {
+                              return Padding(
+                                padding: EdgeInsets.only(
+                                  bottom: AppConstants.spacingMD,
+                                ),
+                                child: _AdminReportCard(
+                                  report: _reports[index],
+                                  onStatusUpdate: (report, status) => _updateReportStatus(report, status),
+                                  onAddUpdate: (report) => _addReportUpdate(report),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _AdminActions() {
+    return Container(
+      padding: EdgeInsets.all(AppConstants.spacingMD),
+      margin: EdgeInsets.all(AppConstants.spacingMD),
+      decoration: BoxDecoration(
+        color: context.colorScheme.primaryContainer.withValues(alpha: 0.3),
+        borderRadius: context.radiusLG,
+        border: Border.all(
+          color: context.colorScheme.primary.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Admin Testing Utilities',
+            style: context.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              fontFamily: 'Montserrat',
+              color: context.colorScheme.primary,
+            ),
+          ),
+          SizedBox(height: AppConstants.spacingMD),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _createSampleReports,
+                  icon: Icon(Iconsax.add_circle, size: 18),
+                  label: Text('Create Samples'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: context.colorScheme.primary,
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(width: AppConstants.spacingSM),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _deleteAllReports,
+                  icon: Icon(Iconsax.trash, size: 18),
+                  label: Text('Delete All'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: context.colorScheme.error,
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _StatsHeader() {
+    final pendingCount = _reports.where((r) => r.status == ReportStatus.pending).length;
+    final inProgressCount = _reports.where((r) => r.status == ReportStatus.inProgress).length;
+    final resolvedCount = _reports.where((r) => r.status == ReportStatus.resolved).length;
+    final closedCount = _reports.where((r) => r.status == ReportStatus.closed).length;
+
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: AppConstants.spacingMD),
+      child: Row(
+        children: [
+          _StatCard(
+            label: 'Pending',
+            count: pendingCount,
+            color: Colors.orange,
+          ),
+          SizedBox(width: AppConstants.spacingSM),
+          _StatCard(
+            label: 'In Progress',
+            count: inProgressCount,
+            color: Colors.blue,
+          ),
+          SizedBox(width: AppConstants.spacingSM),
+          _StatCard(
+            label: 'Resolved',
+            count: resolvedCount,
+            color: Colors.green,
+          ),
+          SizedBox(width: AppConstants.spacingSM),
+          _StatCard(
+            label: 'Closed',
+            count: closedCount,
+            color: Colors.grey,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _StatCard({
+    required String label,
+    required int count,
+    required Color color,
+  }) {
+    return Expanded(
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          vertical: AppConstants.spacingSM,
+          horizontal: AppConstants.spacingXS,
+        ),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: context.radiusMD,
+          border: Border.all(
+            color: color.withValues(alpha: 0.3),
+            width: 1,
+          ),
+        ),
+        child: Column(
+          children: [
+            Text(
+              count.toString(),
+              style: context.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: color,
+                fontFamily: 'Montserrat',
+              ),
+            ),
+            Text(
+              label,
+              style: context.textTheme.bodySmall?.copyWith(
+                color: color,
+                fontFamily: 'Montserrat',
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _LoadingState() {
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.all(AppConstants.spacingLG),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(
+                context.colorScheme.primary,
+              ),
+            ),
+            SizedBox(height: AppConstants.spacingLG),
+            Text(
+              'Loading Reports...',
+              style: context.textTheme.titleMedium?.copyWith(
+                fontFamily: 'Montserrat',
+                color: context.colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _EmptyState() {
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.all(AppConstants.spacingLG),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Iconsax.document_text,
+              size: 80,
+              color: context.colorScheme.onSurface.withValues(alpha: 0.3),
+            ),
+            SizedBox(height: AppConstants.spacingLG),
+            Text(
+              'No Reports Found',
+              style: context.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: context.colorScheme.onSurface.withValues(alpha: 0.6),
+                fontFamily: 'Montserrat',
+              ),
+            ),
+            SizedBox(height: AppConstants.spacingSM),
+            Text(
+              'Create sample reports to test the system.',
+              style: context.textTheme.bodyMedium?.copyWith(
+                color: context.colorScheme.onSurface.withValues(alpha: 0.5),
+                fontFamily: 'Montserrat',
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _loadAllReports() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final reports = await ReportRepository.instance.getAllReports();
+      setState(() {
+        _reports = reports;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      Loaders.errorSnackBar(
+        context,
+        title: 'Error Loading Reports',
+        message: e.toString(),
+      );
+    }
+  }
+
+  Future<void> _createSampleReports() async {
+    try {
+      await ReportRepository.instance.createSampleReports();
+      Loaders.successSnackBar(
+        context,
+        title: 'Success',
+        message: 'Sample reports created successfully',
+      );
+      _loadAllReports();
+    } catch (e) {
+      Loaders.errorSnackBar(
+        context,
+        title: 'Error',
+        message: 'Failed to create sample reports: ${e.toString()}',
+      );
+    }
+  }
+
+  Future<void> _deleteAllReports() async {
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Confirm Delete',
+          style: TextStyle(
+            fontFamily: 'Montserrat',
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to delete all reports? This action cannot be undone.',
+          style: TextStyle(fontFamily: 'Montserrat'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: context.colorScheme.error,
+              foregroundColor: Colors.white,
+            ),
+            child: Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await ReportRepository.instance.deleteAllReports();
+        Loaders.successSnackBar(
+          context,
+          title: 'Success',
+          message: 'All reports deleted successfully',
+        );
+        _loadAllReports();
+      } catch (e) {
+        Loaders.errorSnackBar(
+          context,
+          title: 'Error',
+          message: 'Failed to delete reports: ${e.toString()}',
+        );
+      }
+    }
+  }
+
+  Future<void> _updateReportStatus(ReportModel report, ReportStatus newStatus) async {
+    try {
+      String? message;
+      switch (newStatus) {
+        case ReportStatus.inProgress:
+          message = 'Report is now being processed by the maintenance team.';
+          break;
+        case ReportStatus.resolved:
+          message = 'Report has been resolved successfully.';
+          break;
+        case ReportStatus.closed:
+          message = 'Report has been closed.';
+          break;
+        default:
+          break;
+      }
+
+      await ReportRepository.instance.updateReportStatus(
+        reportId: report.id,
+        status: newStatus,
+        message: message,
+      );
+
+      Loaders.successSnackBar(
+        context,
+        title: 'Status Updated',
+        message: 'Report status updated to ${newStatus.name}',
+      );
+      _loadAllReports();
+    } catch (e) {
+      Loaders.errorSnackBar(
+        context,
+        title: 'Error',
+        message: 'Failed to update status: ${e.toString()}',
+      );
+    }
+  }
+
+  Future<void> _addReportUpdate(ReportModel report) async {
+    String? message = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        final controller = TextEditingController();
+        return AlertDialog(
+          title: Text(
+            'Add Update',
+            style: TextStyle(
+              fontFamily: 'Montserrat',
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: TextField(
+            controller: controller,
+            decoration: InputDecoration(
+              hintText: 'Enter update message...',
+              border: OutlineInputBorder(),
+            ),
+            maxLines: 3,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(controller.text),
+              child: Text('Add'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (message != null && message.isNotEmpty) {
+      try {
+        await ReportRepository.instance.addReportUpdate(
+          reportId: report.id,
+          message: message,
+        );
+
+        Loaders.successSnackBar(
+          context,
+          title: 'Update Added',
+          message: 'Report update added successfully',
+        );
+        _loadAllReports();
+      } catch (e) {
+        Loaders.errorSnackBar(
+          context,
+          title: 'Error',
+          message: 'Failed to add update: ${e.toString()}',
+        );
+      }
+    }
+  }
+}
+
+class _AdminReportCard extends StatelessWidget {
+  final ReportModel report;
+  final Function(ReportModel, ReportStatus) onStatusUpdate;
+  final Function(ReportModel) onAddUpdate;
+
+  const _AdminReportCard({
+    required this.report,
+    required this.onStatusUpdate,
+    required this.onAddUpdate,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(AppConstants.spacingMD),
+      decoration: BoxDecoration(
+        color: context.colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: context.colorScheme.outline.withValues(alpha: 0.2),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: context.colorScheme.shadow.withValues(alpha: 0.05),
+            blurRadius: 4,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          '#${report.id}',
+                          style: context.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            fontFamily: 'Montserrat',
+                          ),
+                        ),
+                        Spacer(),
+                        _StatusChip(status: report.status),
+                      ],
+                    ),
+                    SizedBox(height: AppConstants.spacingXS),
+                    Text(
+                      report.category,
+                      style: context.textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        fontFamily: 'Montserrat',
+                      ),
+                    ),
+                    if (report.subCategory.isNotEmpty) ...[
+                      SizedBox(height: AppConstants.spacingXS / 2),
+                      Text(
+                        report.subCategory,
+                        style: context.textTheme.bodyMedium?.copyWith(
+                          color: context.colorScheme.primary,
+                          fontFamily: 'Montserrat',
+                        ),
+                      ),
+                    ],
+                    SizedBox(height: AppConstants.spacingSM),
+                    Text(
+                      report.description,
+                      style: context.textTheme.bodyMedium?.copyWith(
+                        color: context.colorScheme.onSurface.withValues(alpha: 0.7),
+                        fontFamily: 'Montserrat',
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    SizedBox(height: AppConstants.spacingSM),
+                    Row(
+                      children: [
+                        Icon(
+                          Iconsax.profile,
+                          size: 14,
+                          color: context.colorScheme.onSurface.withValues(alpha: 0.5),
+                        ),
+                        SizedBox(width: AppConstants.spacingXS),
+                        Text(
+                          report.tenant.name,
+                          style: context.textTheme.bodySmall?.copyWith(
+                            color: context.colorScheme.onSurface.withValues(alpha: 0.5),
+                            fontFamily: 'Montserrat',
+                          ),
+                        ),
+                        SizedBox(width: AppConstants.spacingMD),
+                        Icon(
+                          Iconsax.home_2,
+                          size: 14,
+                          color: context.colorScheme.onSurface.withValues(alpha: 0.5),
+                        ),
+                        SizedBox(width: AppConstants.spacingXS),
+                        Text(
+                          report.unitNumber,
+                          style: context.textTheme.bodySmall?.copyWith(
+                            color: context.colorScheme.onSurface.withValues(alpha: 0.5),
+                            fontFamily: 'Montserrat',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: AppConstants.spacingMD),
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<ReportStatus>(
+                  value: report.status,
+                  decoration: InputDecoration(
+                    labelText: 'Status',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                  ),
+                  items: ReportStatus.values.map((status) {
+                    return DropdownMenuItem(
+                      value: status,
+                      child: Text(
+                        status.name.toUpperCase(),
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (status) {
+                    if (status != null && status != report.status) {
+                      onStatusUpdate(report, status);
+                    }
+                  },
+                ),
+              ),
+              SizedBox(width: AppConstants.spacingSM),
+              ElevatedButton.icon(
+                onPressed: () => onAddUpdate(report),
+                icon: Icon(Iconsax.message_add, size: 16),
+                label: Text('Add Update', style: TextStyle(fontSize: 12)),
+                style: ElevatedButton.styleFrom(
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusChip extends StatelessWidget {
+  final ReportStatus status;
+
+  const _StatusChip({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    Color getColor() {
+      switch (status) {
+        case ReportStatus.pending:
+          return Colors.orange;
+        case ReportStatus.inProgress:
+          return Colors.blue;
+        case ReportStatus.resolved:
+          return Colors.green;
+        case ReportStatus.closed:
+          return Colors.grey;
+      }
+    }
+
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: AppConstants.spacingSM,
+        vertical: AppConstants.spacingXS / 2,
+      ),
+      decoration: BoxDecoration(
+        color: getColor().withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: getColor().withValues(alpha: 0.3),
+          width: 1,
+        ),
+      ),
+      child: Text(
+        status.name.toUpperCase(),
+        style: TextStyle(
+          color: getColor(),
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+          fontFamily: 'Montserrat',
+        ),
+      ),
+    );
+  }
+}

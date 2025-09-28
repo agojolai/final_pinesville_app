@@ -3,10 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:iconsax/iconsax.dart';
 import '../../../theme/app_constants.dart';
 import '../../../theme/theme_extensions.dart';
-import 'reports_tickets_screen.dart';
+import '../data/models/report_model.dart';
 
 class ReportDetailScreen extends StatefulWidget {
-  final Report report;
+  final ReportModel report;
 
   const ReportDetailScreen({
     super.key,
