@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:iconsax/iconsax.dart';
 import '../../../theme/app_constants.dart';
 import '../../../theme/theme_extensions.dart';
+import '../../../core/snackbars/loaders.dart';
 import '../data/models/report_model.dart';
+import '../data/repositories/report_repository.dart';
 
 class ReportDetailScreen extends StatefulWidget {
   final ReportModel report;
@@ -108,6 +110,11 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> with TickerProv
                 SizedBox(height: AppConstants.spacingLG),
               ],
               _UpdatesSection(),
+              // Add feedback section for resolved reports
+              if (widget.report.status == ReportStatus.resolved) ...[
+                SizedBox(height: AppConstants.spacingLG),
+                _FeedbackSection(),
+              ],
               SizedBox(height: AppConstants.spacingXL),
             ],
           ),
@@ -700,6 +707,264 @@ class _UpdateCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Widget _FeedbackSection() {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(AppConstants.spacingLG),
+      decoration: BoxDecoration(
+        color: context.colorScheme.primaryContainer.withValues(alpha: 0.3),
+        borderRadius: context.radiusXL,
+        border: Border.all(
+          color: context.colorScheme.primary.withValues(alpha: 0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Iconsax.star,
+                color: context.colorScheme.primary,
+                size: 20,
+              ),
+              SizedBox(width: AppConstants.spacingSM),
+              Text(
+                'Feedback',
+                style: context.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: context.colorScheme.primary,
+                  fontFamily: 'Montserrat',
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: AppConstants.spacingMD),
+          if (widget.report.feedback != null) 
+            _ExistingFeedback()
+          else
+            _FeedbackForm(),
+        ],
+      ),
+    );
+  }
+
+  Widget _ExistingFeedback() {
+    final feedback = widget.report.feedback!;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'Your Rating:',
+              style: context.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                fontFamily: 'Montserrat',
+              ),
+            ),
+            SizedBox(width: AppConstants.spacingSM),
+            Row(
+              children: List.generate(5, (index) {
+                return Icon(
+                  index < feedback.rating ? Iconsax.star5 : Iconsax.star,
+                  color: index < feedback.rating 
+                      ? Colors.amber 
+                      : context.colorScheme.outline,
+                  size: 16,
+                );
+              }),
+            ),
+            SizedBox(width: AppConstants.spacingSM),
+            Text(
+              '${feedback.rating}/5',
+              style: context.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: context.colorScheme.primary,
+                fontFamily: 'Montserrat',
+              ),
+            ),
+          ],
+        ),
+        if (feedback.comment.isNotEmpty) ...[
+          SizedBox(height: AppConstants.spacingMD),
+          Text(
+            'Your Comment:',
+            style: context.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              fontFamily: 'Montserrat',
+            ),
+          ),
+          SizedBox(height: AppConstants.spacingSM),
+          Text(
+            feedback.comment,
+            style: context.textTheme.bodyMedium?.copyWith(
+              fontFamily: 'Montserrat',
+              color: context.colorScheme.onSurface.withValues(alpha: 0.8),
+            ),
+          ),
+        ],
+        SizedBox(height: AppConstants.spacingMD),
+        Text(
+          'Thank you for your feedback!',
+          style: context.textTheme.bodySmall?.copyWith(
+            color: context.colorScheme.primary,
+            fontFamily: 'Montserrat',
+            fontStyle: FontStyle.italic,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _FeedbackForm() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'How would you rate our service for this report?',
+          style: context.textTheme.bodyMedium?.copyWith(
+            fontFamily: 'Montserrat',
+            color: context.colorScheme.onSurface.withValues(alpha: 0.8),
+          ),
+        ),
+        SizedBox(height: AppConstants.spacingMD),
+        ElevatedButton.icon(
+          onPressed: _showFeedbackDialog,
+          icon: Icon(Iconsax.star, size: 18),
+          label: Text('Give Feedback'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: context.colorScheme.primary,
+            foregroundColor: Colors.white,
+            padding: EdgeInsets.symmetric(
+              horizontal: AppConstants.spacingLG,
+              vertical: AppConstants.spacingMD,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showFeedbackDialog() {
+    int selectedRating = 5;
+    final commentController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text(
+                'Rate Our Service',
+                style: TextStyle(
+                  fontFamily: 'Montserrat',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'How would you rate our service for this report?',
+                    style: TextStyle(fontFamily: 'Montserrat'),
+                  ),
+                  SizedBox(height: AppConstants.spacingLG),
+                  Center(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(5, (index) {
+                        return GestureDetector(
+                          onTap: () {
+                            setDialogState(() {
+                              selectedRating = index + 1;
+                            });
+                          },
+                          child: Container(
+                            padding: EdgeInsets.all(8),
+                            child: Icon(
+                              index < selectedRating ? Iconsax.star5 : Iconsax.star,
+                              color: index < selectedRating 
+                                  ? Colors.amber 
+                                  : Colors.grey,
+                              size: 32,
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
+                  SizedBox(height: AppConstants.spacingLG),
+                  TextField(
+                    controller: commentController,
+                    decoration: InputDecoration(
+                      labelText: 'Additional Comments (optional)',
+                      hintText: 'Share your experience...',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    maxLines: 3,
+                    maxLength: 500,
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    Navigator.of(context).pop();
+                    await _submitFeedback(selectedRating, commentController.text);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: context.colorScheme.primary,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: Text('Submit'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _submitFeedback(int rating, String comment) async {
+    try {
+      await ReportRepository.instance.addReportFeedback(
+        reportId: widget.report.id,
+        rating: rating,
+        comment: comment,
+      );
+
+      Loaders.successSnackBar(
+        context,
+        title: 'Feedback Submitted',
+        message: 'Thank you for your feedback!',
+      );
+
+      // Refresh the report data by popping and returning an updated report
+      // In a real app, you might want to refetch from the repository
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      Loaders.errorSnackBar(
+        context,
+        title: 'Submission Failed',
+        message: 'Failed to submit feedback: ${e.toString()}',
+      );
+    }
   }
 
   String _formatUpdateTime(DateTime time) {

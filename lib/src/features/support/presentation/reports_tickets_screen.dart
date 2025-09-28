@@ -404,7 +404,12 @@ class _ReportsTicketsScreenState extends State<ReportsTicketsScreen> with Ticker
       MaterialPageRoute(
         builder: (context) => ReportDetailScreen(report: report),
       ),
-    );
+    ).then((result) {
+      // Refresh reports if feedback was submitted
+      if (result == true) {
+        _loadReports();
+      }
+    });
   }
 
   void _handleResolvedTicketConfirmation(ReportModel report) {
