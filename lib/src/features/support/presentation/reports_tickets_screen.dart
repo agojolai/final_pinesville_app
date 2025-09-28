@@ -10,6 +10,7 @@ import '../data/models/report_model.dart';
 import '../data/repositories/report_repository.dart';
 import 'submit_report_screen.dart';
 import 'report_detail_screen.dart';
+import 'admin_report_testing_screen.dart';
 
 class ReportsTicketsScreen extends StatefulWidget {
   const ReportsTicketsScreen({super.key});
@@ -71,6 +72,62 @@ class _ReportsTicketsScreenState extends State<ReportsTicketsScreen> with Ticker
     await _loadReports();
   }
 
+  void _showAdminMenu() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Admin Tools',
+          style: TextStyle(
+            fontFamily: 'Montserrat',
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Icon(Iconsax.setting),
+              title: Text('Report Management'),
+              subtitle: Text('Manage all reports in the system'),
+              onTap: () {
+                Navigator.of(context).pop();
+                _navigateToAdminScreen();
+              },
+            ),
+            ListTile(
+              leading: Icon(Iconsax.refresh),
+              title: Text('Refresh Data'),
+              subtitle: Text('Reload reports from server'),
+              onTap: () {
+                Navigator.of(context).pop();
+                _loadReports();
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _navigateToAdminScreen() {
+    HapticFeedback.lightImpact();
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const AdminReportTestingScreen(),
+      ),
+    ).then((_) {
+      // Refresh reports when returning from admin screen
+      _loadReports();
+    });
+  }
+
   @override
   void dispose() {
     _fadeController.dispose();
@@ -101,6 +158,14 @@ class _ReportsTicketsScreenState extends State<ReportsTicketsScreen> with Ticker
         toolbarHeight: AppConstants.appBarHeight,
         elevation: 0,
         backgroundColor: context.colorScheme.surface,
+        actions: [
+          // Debug/Admin menu - only show in debug mode or for testing
+          IconButton(
+            onPressed: _showAdminMenu,
+            icon: Icon(Iconsax.setting_2),
+            tooltip: 'Admin Tools',
+          ),
+        ],
       ),
       body: FadeTransition(
         opacity: _fadeAnimation,
