@@ -437,8 +437,8 @@ class _ProfileSections extends StatelessWidget {
               _ProfileMenuItem(
                 icon: Iconsax.document_text,
                 title: 'My Contract',
-                subtitle: 'Download, view end date',
-                onTap: () => _showComingSoon(context),
+                subtitle: 'Download your contract',
+                onTap: () => _showComingSoon(context), // TODO: download dapat to
               ),
               _ProfileMenuItem(
                 icon: Iconsax.home_2,

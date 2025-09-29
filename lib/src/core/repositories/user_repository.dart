@@ -225,6 +225,11 @@ class UserRepository {
     );
   }
 
+
+  //TODO: default values to be changed. it will be fetched 
+//together w/ the unit& property dropdown 
+//once the unit and property models are ready
+
   // Update specific user profile fields (not overwrite everything)
   Future<void> updateUserProfileField(Map<String, dynamic> fields) async {
     try {
@@ -401,6 +406,3 @@ class UserRepository {
   }
 }
 
-//TODO: default values to be changed. it will be fetched 
-//together w/ the unit& property dropdown 
-//once the unit and property models are ready
