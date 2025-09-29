@@ -1,5 +1,24 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+/// Helper function to parse DateTime from various formats (String or Timestamp)
+DateTime? parseDateTime(dynamic dateTime) {
+  if (dateTime == null) return null;
+  
+  if (dateTime is String) {
+    try {
+      return DateTime.parse(dateTime);
+    } catch (e) {
+      return null;
+    }
+  }
+  
+  if (dateTime is Timestamp) {
+    return dateTime.toDate();
+  }
+  
+  return null;
+}
+
 /// Report status enum
 enum ReportStatus { pending, inProgress, resolved, closed }
 
@@ -13,6 +32,7 @@ class ReportModel {
   final ReportStatus status;
   final DateTime submittedAt;
   final DateTime? resolvedAt;
+  final DateTime? closedAt;
   final TenantInfo tenant;
   final List<String> attachments;
   final List<ReportUpdate> updates;
@@ -27,6 +47,7 @@ class ReportModel {
     required this.status,
     required this.submittedAt,
     this.resolvedAt,
+    this.closedAt,
     required this.tenant,
     this.attachments = const [],
     this.updates = const [],
@@ -44,6 +65,7 @@ class ReportModel {
       'status': status.name,
       'submittedAt': submittedAt.toIso8601String(),
       'resolvedAt': resolvedAt?.toIso8601String(),
+      'closedAt': closedAt?.toIso8601String(),
       'tenant': tenant.toJson(),
       'attachments': attachments,
       'updates': updates.map((update) => update.toJson()).toList(),
@@ -66,8 +88,9 @@ class ReportModel {
       subCategory: json['subCategory'] ?? '',
       description: json['description'] ?? '',
       status: _parseStatus(json['status']),
-      submittedAt: DateTime.parse(json['submittedAt']),
-      resolvedAt: json['resolvedAt'] != null ? DateTime.parse(json['resolvedAt']) : null,
+      submittedAt: parseDateTime(json['submittedAt'])!,
+      resolvedAt: parseDateTime(json['resolvedAt']),
+      closedAt: parseDateTime(json['closedAt']),
       tenant: TenantInfo.fromJson(json['tenant'] ?? {}),
       attachments: List<String>.from(json['attachments'] ?? []),
       updates: (json['updates'] as List<dynamic>? ?? [])
@@ -117,6 +140,7 @@ class ReportModel {
     ReportStatus? status,
     DateTime? submittedAt,
     DateTime? resolvedAt,
+    DateTime? closedAt,
     TenantInfo? tenant,
     List<String>? attachments,
     List<ReportUpdate>? updates,
@@ -131,6 +155,7 @@ class ReportModel {
       status: status ?? this.status,
       submittedAt: submittedAt ?? this.submittedAt,
       resolvedAt: resolvedAt ?? this.resolvedAt,
+      closedAt: closedAt ?? this.closedAt,
       tenant: tenant ?? this.tenant,
       attachments: attachments ?? this.attachments,
       updates: updates ?? this.updates,
@@ -189,7 +214,7 @@ class ReportUpdate {
   factory ReportUpdate.fromJson(Map<String, dynamic> json) {
     return ReportUpdate(
       message: json['message'] ?? '',
-      timestamp: DateTime.parse(json['timestamp']),
+      timestamp: parseDateTime(json['timestamp']) ?? DateTime.now(),
       isAdmin: json['isAdmin'] ?? false,
     );
   }

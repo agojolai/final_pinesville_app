@@ -1,29 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../theme/app_constants.dart';
 import '../../../theme/theme_extensions.dart';
 import '../../../core/constants/validators.dart';
 import '../../../core/snackbars/loaders.dart';
-import '../../../core/repositories/auth_repository.dart';
-import '../../../core/repositories/user_repository.dart';
-import '../data/models/report_model.dart';
-import '../data/repositories/report_repository.dart';
+import '../providers/reports_provider.dart';
+import '../../profile/providers/profile_provider.dart';
 
-class SubmitReportScreen extends StatefulWidget {
-  final Function(ReportModel) onReportSubmitted;
-
-  const SubmitReportScreen({
-    super.key,
-    required this.onReportSubmitted,
-  });
+class SubmitReportScreen extends ConsumerStatefulWidget {
+  final Function(dynamic)? onReportSubmitted;
+  
+  const SubmitReportScreen({super.key, this.onReportSubmitted});
 
   @override
-  State<SubmitReportScreen> createState() => _SubmitReportScreenState();
+  ConsumerState<SubmitReportScreen> createState() => _SubmitReportScreenState();
 }
 
-class _SubmitReportScreenState extends State<SubmitReportScreen> with TickerProviderStateMixin {
+class _SubmitReportScreenState extends ConsumerState<SubmitReportScreen> with TickerProviderStateMixin {
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
 
@@ -35,17 +31,11 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> with TickerProv
   List<XFile> _attachmentFiles = [];
   List<String> _attachments = []; // For display purposes only
 
-  // User's unit (in real app, this would come from user session/account data)
-  final String _userUnit = '204-B';
-
   // Image picker instance
   final ImagePicker _picker = ImagePicker();
   
   // Maximum number of attachments allowed
   static const int maxAttachments = 5;
-
-  // Loading state for form submission
-  bool _isSubmitting = false;
 
   // Categories and subcategories
   final Map<String, List<String>> _categories = {
@@ -173,12 +163,34 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> with TickerProv
                   ),
                 ),
                 SizedBox(height: AppConstants.spacingXS / 2),
-                Text(
-                  'Your report will be automatically tagged with your name, unit number, and submission date.',
-                  style: context.textTheme.bodySmall?.copyWith(
-                    color: context.colorScheme.onSurface.withValues(alpha:0.7),
-                    fontFamily: 'Montserrat',
-                  ),
+                Consumer(
+                  builder: (context, ref, child) {
+                    final userProfileAsync = ref.watch(userProfileProvider);
+                    
+                    return userProfileAsync.when(
+                      data: (user) => Text(
+                        'Your report will be automatically tagged with your name, unit ${user.unitId}, and submission date.',
+                        style: context.textTheme.bodySmall?.copyWith(
+                          color: context.colorScheme.onSurface.withValues(alpha:0.7),
+                          fontFamily: 'Montserrat',
+                        ),
+                      ),
+                      loading: () => Text(
+                        'Loading your unit information...',
+                        style: context.textTheme.bodySmall?.copyWith(
+                          color: context.colorScheme.onSurface.withValues(alpha:0.7),
+                          fontFamily: 'Montserrat',
+                        ),
+                      ),
+                      error: (_, __) => Text(
+                        'Unable to load unit information. Please contact support.',
+                        style: context.textTheme.bodySmall?.copyWith(
+                          color: context.colorScheme.onSurface.withValues(alpha:0.7),
+                          fontFamily: 'Montserrat',
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
@@ -617,43 +629,50 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> with TickerProv
   }
 
   Widget _SubmitButton() {
-    return ElevatedButton(
-      onPressed: _isSubmitting ? null : _submitReport,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: context.colorScheme.primary,
-        foregroundColor: context.colorScheme.onPrimary,
-        padding: EdgeInsets.symmetric(vertical: AppConstants.spacingMD),
-        shape: RoundedRectangleBorder(
-          borderRadius: context.radiusXL,
-        ),
-        elevation: 2,
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          if (_isSubmitting)
-            SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  context.colorScheme.onPrimary,
+    return Consumer(
+      builder: (context, ref, child) {
+        final submissionState = ref.watch(reportSubmissionProvider);
+        final isSubmitting = submissionState.status == ReportSubmissionStatus.loading;
+        
+        return ElevatedButton(
+          onPressed: isSubmitting ? null : _submitReport,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: context.colorScheme.primary,
+            foregroundColor: context.colorScheme.onPrimary,
+            padding: EdgeInsets.symmetric(vertical: AppConstants.spacingMD),
+            shape: RoundedRectangleBorder(
+              borderRadius: context.radiusXL,
+            ),
+            elevation: 2,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (isSubmitting)
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      context.colorScheme.onPrimary,
+                    ),
+                  ),
+                )
+              else
+                Icon(Iconsax.send_2),
+              SizedBox(width: AppConstants.spacingSM),
+              Text(
+                isSubmitting ? 'Submitting...' : 'Submit Report',
+                style: context.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Montserrat',
                 ),
               ),
-            )
-          else
-            Icon(Iconsax.send_2),
-          SizedBox(width: AppConstants.spacingSM),
-          Text(
-            _isSubmitting ? 'Submitting...' : 'Submit Report',
-            style: context.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              fontFamily: 'Montserrat',
-            ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -810,62 +829,48 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> with TickerProv
       return;
     }
 
-    setState(() {
-      _isSubmitting = true;
-    });
-
     try {
-      HapticFeedback.mediumImpact();
-
-      // Get current user info
-      final currentUser = AuthRepository.instance.authUser;
-      if (currentUser == null) {
-        throw 'User not authenticated';
-      }
-
-      // Try to get user details from UserRepository
-      String tenantName = 'Test User';
-      try {
-        final userModel = await UserRepository.instance.fetchUserDetails();
-        tenantName = '${userModel.profile.firstName} ${userModel.profile.lastName}';
-      } catch (e) {
-        // Fallback to Firebase Auth display name
-        tenantName = currentUser.displayName ?? currentUser.email?.split('@').first ?? 'Test User';
-      }
-
-      // Submit report using ReportRepository
-      final report = await ReportRepository.instance.submitReport(
-        unitNumber: _userUnit,
+      // Use the reportSubmissionProvider to submit the report
+      final submissionNotifier = ref.read(reportSubmissionProvider.notifier);
+      
+      // Submit the report and wait for result
+      await submissionNotifier.submitReport(
         category: _selectedCategory!,
         subCategory: _selectedSubCategory ?? '',
         description: _descriptionController.text,
-        tenantUserId: currentUser.uid,
-        tenantName: tenantName,
         attachmentFiles: _attachmentFiles.isNotEmpty ? _attachmentFiles : null,
       );
 
-      // Call the callback with the created report
-      widget.onReportSubmitted(report);
-
-      // Show success message
-      Loaders.successSnackBar(
-        context,
-        title: 'Report Submitted',
-        message: 'Your report has been submitted successfully.',
-      );
-
-      // Navigate back
-      Navigator.of(context).pop();
+      // Check the final state
+      final finalState = ref.read(reportSubmissionProvider);
+      
+      if (finalState.status == ReportSubmissionStatus.success) {
+        Loaders.successSnackBar(
+          context,
+          title: 'Report Submitted',
+          message: finalState.successMessage ?? 'Your report has been submitted successfully.',
+        );
+        
+        // Call the callback if provided
+        if (widget.onReportSubmitted != null && finalState.submittedReport != null) {
+          widget.onReportSubmitted!(finalState.submittedReport!);
+        }
+        
+        // Navigate back
+        Navigator.of(context).pop();
+      } else if (finalState.status == ReportSubmissionStatus.error) {
+        Loaders.errorSnackBar(
+          context,
+          title: 'Submission Failed',
+          message: finalState.errorMessage ?? 'Failed to submit report',
+        );
+      }
     } catch (e) {
       Loaders.errorSnackBar(
         context,
         title: 'Submission Failed',
         message: 'Failed to submit report: ${e.toString()}',
       );
-    } finally {
-      setState(() {
-        _isSubmitting = false;
-      });
     }
   }
 }

@@ -160,6 +160,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with TickerProvid
     );
   }
 }
+//TODO: REMOVE POPULATED DATA
 
 // Profile Header Widget
 class _ProfileHeader extends StatelessWidget {
@@ -460,9 +461,7 @@ class _ProfileSections extends StatelessWidget {
               _ProfileMenuItem(
                 icon: Iconsax.message_question,
                 title: 'Reports & Tickets',
-                subtitle: activeReportsCount > 0 
-                    ? 'Submit and track issues • ${activeReportsCount} active'
-                    : 'Submit and track issues',
+                subtitle: 'Submit and track issues',
                 onTap: () async {
                   HapticFeedback.lightImpact();
                   await Navigator.of(context).push(
@@ -470,11 +469,9 @@ class _ProfileSections extends StatelessWidget {
                       builder: (context) => const ReportsTicketsScreen(),
                     ),
                   );
-                  // Refresh badge count when returning from Reports screen
-                  onRefreshBadge();
+      
                 },
-                showBadge: activeReportsCount > 0,
-                badgeCount: activeReportsCount,
+ 
               ),
             ],
           ),
@@ -602,16 +599,14 @@ class _ProfileMenuItem extends StatelessWidget {
   final String title;
   final String subtitle;
   final VoidCallback onTap;
-  final bool showBadge;
-  final int badgeCount;
+
 
   const _ProfileMenuItem({
     required this.icon,
     required this.title,
     required this.subtitle,
     required this.onTap,
-    this.showBadge = false,
-    this.badgeCount = 0,
+
   });
 
   @override
@@ -654,27 +649,6 @@ class _ProfileMenuItem extends StatelessWidget {
                             fontFamily: 'Montserrat',
                           ),
                         ),
-                        if (showBadge && badgeCount > 0) ...[
-                          SizedBox(width: AppConstants.spacingXS),
-                          Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: AppConstants.spacingXS,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: context.colorScheme.error,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              badgeCount.toString(),
-                              style: context.textTheme.bodySmall?.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 10,
-                              ),
-                            ),
-                          ),
-                        ],
                       ],
                     ),
                     SizedBox(height: AppConstants.spacingXS / 2),

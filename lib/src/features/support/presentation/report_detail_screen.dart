@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax/iconsax.dart';
 import '../../../theme/app_constants.dart';
 import '../../../theme/theme_extensions.dart';
+import '../../../common/widgets/feedback/feedback.dart';
 import '../../../core/snackbars/loaders.dart';
 import '../data/models/report_model.dart';
-import '../data/repositories/report_repository.dart';
+import '../providers/feedback_provider.dart';
 
-class ReportDetailScreen extends StatefulWidget {
+class ReportDetailScreen extends ConsumerStatefulWidget {
   final ReportModel report;
 
   const ReportDetailScreen({
@@ -16,10 +18,10 @@ class ReportDetailScreen extends StatefulWidget {
   });
 
   @override
-  State<ReportDetailScreen> createState() => _ReportDetailScreenState();
+  ConsumerState<ReportDetailScreen> createState() => _ReportDetailScreenState();
 }
 
-class _ReportDetailScreenState extends State<ReportDetailScreen> with TickerProviderStateMixin {
+class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> with TickerProviderStateMixin {
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
 
@@ -105,15 +107,93 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> with TickerProv
               SizedBox(height: AppConstants.spacingLG),
               _ReportDetails(),
               SizedBox(height: AppConstants.spacingLG),
-              if (widget.report.attachments.isNotEmpty) ...[
-                _AttachmentsSection(),
-                SizedBox(height: AppConstants.spacingLG),
-              ],
               _UpdatesSection(),
               // Add feedback section for resolved reports
               if (widget.report.status == ReportStatus.resolved) ...[
                 SizedBox(height: AppConstants.spacingLG),
-                _FeedbackSection(),
+                // Feedback Section
+                Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.all(AppConstants.spacingLG),
+                  decoration: BoxDecoration(
+                    color: context.colorScheme.primaryContainer.withValues(alpha: 0.3),
+                    borderRadius: context.radiusXL,
+                    border: Border.all(
+                      color: context.colorScheme.primary.withValues(alpha: 0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Iconsax.star,
+                            color: context.colorScheme.primary,
+                            size: 20,
+                          ),
+                          SizedBox(width: AppConstants.spacingSM),
+                          Text(
+                            'Feedback',
+                            style: context.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: context.colorScheme.primary,
+                              fontFamily: 'Montserrat',
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: AppConstants.spacingMD),
+                      if (widget.report.feedback != null) 
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  'Your Rating: ',
+                                  style: context.textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    fontFamily: 'Montserrat',
+                                  ),
+                                ),
+                                Row(
+                                  children: List.generate(5, (index) {
+                                    return Icon(
+                                      index < widget.report.feedback!.rating ? Iconsax.star5 : Iconsax.star,
+                                      color: index < widget.report.feedback!.rating ? Colors.amber : context.colorScheme.outline,
+                                      size: 16,
+                                    );
+                                  }),
+                                ),
+                                Text(' ${widget.report.feedback!.rating}/5'),
+                              ],
+                            ),
+                            if (widget.report.feedback!.comment.isNotEmpty) ...[
+                              SizedBox(height: AppConstants.spacingMD),
+                              Text(
+                                'Comment: ${widget.report.feedback!.comment}',
+                                style: context.textTheme.bodyMedium?.copyWith(
+                                  fontFamily: 'Montserrat',
+                                ),
+                              ),
+                            ],
+                          ],
+                        )
+                      else
+                        ElevatedButton.icon(
+                          onPressed: () => _showFeedbackDialog(),
+                          icon: Icon(Iconsax.star, size: 18),
+                          label: Text('Give Feedback'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: context.colorScheme.primary,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
               ],
               SizedBox(height: AppConstants.spacingXL),
             ],
@@ -245,7 +325,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> with TickerProv
           _DetailRow(
             icon: Iconsax.user,
             label: 'Submitted by',
-            value: widget.report.tenantName,
+            value: widget.report.tenant.name,
           ),
           
           _DetailRow(
@@ -335,91 +415,6 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> with TickerProv
               ),
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _AttachmentsSection() {
-    return Container(
-      padding: EdgeInsets.all(AppConstants.spacingLG),
-      decoration: BoxDecoration(
-        color: context.colorScheme.surface,
-        borderRadius: context.radiusXL,
-        border: Border.all(
-          color: context.colorScheme.outline.withValues(alpha:0.2),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: context.colorScheme.shadow.withValues(alpha:0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Iconsax.attach_square,
-                size: 20,
-                color: context.colorScheme.primary,
-              ),
-              SizedBox(width: AppConstants.spacingXS),
-              Text(
-                'Attachments (${widget.report.attachments.length})',
-                style: context.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'Montserrat',
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: AppConstants.spacingMD),
-          ...widget.report.attachments.asMap().entries.map((entry) {
-            int index = entry.key;
-            String attachment = entry.value;
-            return Container(
-              margin: EdgeInsets.only(
-                bottom: index < widget.report.attachments.length - 1 
-                    ? AppConstants.spacingSM : 0,
-              ),
-              padding: EdgeInsets.all(AppConstants.spacingMD),
-              decoration: BoxDecoration(
-                color: context.colorScheme.primaryContainer.withValues(alpha:0.2),
-                borderRadius: context.radiusMD,
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    _getAttachmentIcon(attachment),
-                    size: 24,
-                    color: context.colorScheme.primary,
-                  ),
-                  SizedBox(width: AppConstants.spacingSM),
-                  Expanded(
-                    child: Text(
-                      attachment,
-                      style: context.textTheme.bodyMedium?.copyWith(
-                        fontFamily: 'Montserrat',
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => _viewAttachment(attachment),
-                    icon: Icon(
-                      Iconsax.eye,
-                      size: 20,
-                      color: context.colorScheme.primary,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }).toList(),
         ],
       ),
     );
@@ -570,18 +565,6 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> with TickerProv
     }
   }
 
-  IconData _getAttachmentIcon(String fileName) {
-    if (fileName.toLowerCase().contains('photo') || 
-        fileName.toLowerCase().endsWith('.jpg') ||
-        fileName.toLowerCase().endsWith('.png')) {
-      return Iconsax.gallery;
-    } else if (fileName.toLowerCase().endsWith('.pdf')) {
-      return Iconsax.document;
-    } else {
-      return Iconsax.document_text;
-    }
-  }
-
   String _formatDate(DateTime date) {
     return '${date.day}/${date.month}/${date.year}';
   }
@@ -614,15 +597,61 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> with TickerProv
     );
   }
 
-  void _viewAttachment(String attachment) {
-    // In real app, implement attachment viewer
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Opening $attachment...'),
-        duration: Duration(seconds: 2),
-      ),
+  void _showFeedbackDialog() {
+    FeedbackUtils.showFeedback(
+      context,
+      title: 'Rate Your Experience',
+      subtitle: 'How satisfied are you with the resolution of your ${widget.report.category.toLowerCase()} report?',
+      submitButtonText: 'Submit Feedback',
+      cancelButtonText: 'Skip',
+      onSubmit: (rating, comment) async {
+        await _submitFeedback(rating, comment);
+      },
+      onCancel: () {
+        // Just close the dialog, no feedback submitted
+      },
     );
   }
+
+  Future<void> _submitFeedback(int rating, String comment) async {
+    try {
+      // Submit feedback using the feedback provider
+      await ref.read(feedbackSubmissionProvider.notifier).submitFeedback(
+        reportId: widget.report.id,
+        rating: rating,
+        comments: comment,
+      );
+
+      if (mounted) {
+        final feedbackState = ref.read(feedbackSubmissionProvider);
+        if (feedbackState.status == FeedbackSubmissionStatus.success) {
+          Loaders.successSnackBar(
+            context,
+            title: 'Feedback Submitted',
+            message: 'Thank you for your feedback! The report has been closed.',
+          );
+          // Navigate back to refresh the report list
+          Navigator.of(context).pop();
+        } else if (feedbackState.status == FeedbackSubmissionStatus.error) {
+          Loaders.errorSnackBar(
+            context,
+            title: 'Feedback Failed',
+            message: feedbackState.errorMessage ?? 'Failed to submit feedback',
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        Loaders.errorSnackBar(
+          context,
+          title: 'Feedback Failed',
+          message: 'An error occurred while submitting feedback: $e',
+        );
+      }
+    }
+  }
+
+
 }
 
 // Update Card Widget
@@ -709,264 +738,6 @@ class _UpdateCard extends StatelessWidget {
     );
   }
 
-  Widget _FeedbackSection() {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(AppConstants.spacingLG),
-      decoration: BoxDecoration(
-        color: context.colorScheme.primaryContainer.withValues(alpha: 0.3),
-        borderRadius: context.radiusXL,
-        border: Border.all(
-          color: context.colorScheme.primary.withValues(alpha: 0.3),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Iconsax.star,
-                color: context.colorScheme.primary,
-                size: 20,
-              ),
-              SizedBox(width: AppConstants.spacingSM),
-              Text(
-                'Feedback',
-                style: context.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: context.colorScheme.primary,
-                  fontFamily: 'Montserrat',
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: AppConstants.spacingMD),
-          if (widget.report.feedback != null) 
-            _ExistingFeedback()
-          else
-            _FeedbackForm(),
-        ],
-      ),
-    );
-  }
-
-  Widget _ExistingFeedback() {
-    final feedback = widget.report.feedback!;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text(
-              'Your Rating:',
-              style: context.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                fontFamily: 'Montserrat',
-              ),
-            ),
-            SizedBox(width: AppConstants.spacingSM),
-            Row(
-              children: List.generate(5, (index) {
-                return Icon(
-                  index < feedback.rating ? Iconsax.star5 : Iconsax.star,
-                  color: index < feedback.rating 
-                      ? Colors.amber 
-                      : context.colorScheme.outline,
-                  size: 16,
-                );
-              }),
-            ),
-            SizedBox(width: AppConstants.spacingSM),
-            Text(
-              '${feedback.rating}/5',
-              style: context.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: context.colorScheme.primary,
-                fontFamily: 'Montserrat',
-              ),
-            ),
-          ],
-        ),
-        if (feedback.comment.isNotEmpty) ...[
-          SizedBox(height: AppConstants.spacingMD),
-          Text(
-            'Your Comment:',
-            style: context.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-              fontFamily: 'Montserrat',
-            ),
-          ),
-          SizedBox(height: AppConstants.spacingSM),
-          Text(
-            feedback.comment,
-            style: context.textTheme.bodyMedium?.copyWith(
-              fontFamily: 'Montserrat',
-              color: context.colorScheme.onSurface.withValues(alpha: 0.8),
-            ),
-          ),
-        ],
-        SizedBox(height: AppConstants.spacingMD),
-        Text(
-          'Thank you for your feedback!',
-          style: context.textTheme.bodySmall?.copyWith(
-            color: context.colorScheme.primary,
-            fontFamily: 'Montserrat',
-            fontStyle: FontStyle.italic,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _FeedbackForm() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'How would you rate our service for this report?',
-          style: context.textTheme.bodyMedium?.copyWith(
-            fontFamily: 'Montserrat',
-            color: context.colorScheme.onSurface.withValues(alpha: 0.8),
-          ),
-        ),
-        SizedBox(height: AppConstants.spacingMD),
-        ElevatedButton.icon(
-          onPressed: _showFeedbackDialog,
-          icon: Icon(Iconsax.star, size: 18),
-          label: Text('Give Feedback'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: context.colorScheme.primary,
-            foregroundColor: Colors.white,
-            padding: EdgeInsets.symmetric(
-              horizontal: AppConstants.spacingLG,
-              vertical: AppConstants.spacingMD,
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  void _showFeedbackDialog() {
-    int selectedRating = 5;
-    final commentController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: Text(
-                'Rate Our Service',
-                style: TextStyle(
-                  fontFamily: 'Montserrat',
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'How would you rate our service for this report?',
-                    style: TextStyle(fontFamily: 'Montserrat'),
-                  ),
-                  SizedBox(height: AppConstants.spacingLG),
-                  Center(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(5, (index) {
-                        return GestureDetector(
-                          onTap: () {
-                            setDialogState(() {
-                              selectedRating = index + 1;
-                            });
-                          },
-                          child: Container(
-                            padding: EdgeInsets.all(8),
-                            child: Icon(
-                              index < selectedRating ? Iconsax.star5 : Iconsax.star,
-                              color: index < selectedRating 
-                                  ? Colors.amber 
-                                  : Colors.grey,
-                              size: 32,
-                            ),
-                          ),
-                        );
-                      }),
-                    ),
-                  ),
-                  SizedBox(height: AppConstants.spacingLG),
-                  TextField(
-                    controller: commentController,
-                    decoration: InputDecoration(
-                      labelText: 'Additional Comments (optional)',
-                      hintText: 'Share your experience...',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    maxLines: 3,
-                    maxLength: 500,
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    Navigator.of(context).pop();
-                    await _submitFeedback(selectedRating, commentController.text);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: context.colorScheme.primary,
-                    foregroundColor: Colors.white,
-                  ),
-                  child: Text('Submit'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Future<void> _submitFeedback(int rating, String comment) async {
-    try {
-      await ReportRepository.instance.addReportFeedback(
-        reportId: widget.report.id,
-        rating: rating,
-        comment: comment,
-      );
-
-      Loaders.successSnackBar(
-        context,
-        title: 'Feedback Submitted',
-        message: 'Thank you for your feedback!',
-      );
-
-      // Refresh the report data by popping and returning an updated report
-      // In a real app, you might want to refetch from the repository
-      Navigator.of(context).pop(true);
-    } catch (e) {
-      Loaders.errorSnackBar(
-        context,
-        title: 'Submission Failed',
-        message: 'Failed to submit feedback: ${e.toString()}',
-      );
-    }
-  }
-
   String _formatUpdateTime(DateTime time) {
     final now = DateTime.now();
     final difference = now.difference(time);
@@ -983,3 +754,5 @@ class _UpdateCard extends StatelessWidget {
     }
   }
 }
+
+

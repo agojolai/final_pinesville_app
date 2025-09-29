@@ -20,6 +20,13 @@ class _AdminReportTestingScreenState extends State<AdminReportTestingScreen> wit
 
   List<ReportModel> _reports = [];
   bool _isLoading = false;
+  ReportStatus? _selectedFilter; // null means show all reports
+
+  // Get filtered reports based on selected filter
+  List<ReportModel> get _filteredReports {
+    if (_selectedFilter == null) return _reports;
+    return _reports.where((report) => report.status == _selectedFilter).toList();
+  }
 
   @override
   void initState() {
@@ -80,24 +87,58 @@ class _AdminReportTestingScreenState extends State<AdminReportTestingScreen> wit
             _AdminActions(),
             SizedBox(height: AppConstants.spacingMD),
             _StatsHeader(),
+            // Filter status chips
+            if (_selectedFilter != null) ...[
+              Container(
+                margin: EdgeInsets.symmetric(horizontal: AppConstants.spacingMD),
+                child: Row(
+                  children: [
+                    Chip(
+                      label: Text(
+                        'Filtered: ${_getStatusText(_selectedFilter!)}',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontFamily: 'Montserrat',
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      backgroundColor: _getStatusColor(_selectedFilter!),
+                      deleteIcon: Icon(Iconsax.close_circle, color: Colors.white, size: 18),
+                      onDeleted: () => setState(() => _selectedFilter = null),
+                    ),
+                    SizedBox(width: AppConstants.spacingSM),
+                    Text(
+                      '${_filteredReports.length} reports',
+                      style: context.textTheme.bodyMedium?.copyWith(
+                        color: context.colorScheme.onSurface.withValues(alpha: 0.7),
+                        fontFamily: 'Montserrat',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: AppConstants.spacingMD),
+            ],
             Expanded(
               child: _isLoading
                   ? _LoadingState()
                   : _reports.isEmpty
                       ? _EmptyState()
-                      : RefreshIndicator(
-                          onRefresh: _loadAllReports,
-                          child: ListView.builder(
-                            physics: const BouncingScrollPhysics(),
-                            padding: EdgeInsets.all(AppConstants.spacingMD),
-                            itemCount: _reports.length,
-                            itemBuilder: (context, index) {
-                              return Padding(
-                                padding: EdgeInsets.only(
-                                  bottom: AppConstants.spacingMD,
-                                ),
-                                child: _AdminReportCard(
-                                  report: _reports[index],
+                      : _filteredReports.isEmpty
+                          ? _EmptyFilterState()
+                          : RefreshIndicator(
+                              onRefresh: _loadAllReports,
+                              child: ListView.builder(
+                                physics: const BouncingScrollPhysics(),
+                                padding: EdgeInsets.all(AppConstants.spacingMD),
+                                itemCount: _filteredReports.length,
+                                itemBuilder: (context, index) {
+                                  return Padding(
+                                    padding: EdgeInsets.only(
+                                      bottom: AppConstants.spacingMD,
+                                    ),
+                                    child: _AdminReportCard(
+                                      report: _filteredReports[index],
                                   onStatusUpdate: (report, status) => _updateReportStatus(report, status),
                                   onAddUpdate: (report) => _addReportUpdate(report),
                                 ),
@@ -218,39 +259,59 @@ class _AdminReportTestingScreenState extends State<AdminReportTestingScreen> wit
     required int count,
     required Color color,
   }) {
+    final status = _getStatusFromLabel(label);
+    final isSelected = _selectedFilter == status;
+    
     return Expanded(
-      child: Container(
-        padding: EdgeInsets.symmetric(
-          vertical: AppConstants.spacingSM,
-          horizontal: AppConstants.spacingXS,
-        ),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            HapticFeedback.lightImpact();
+            setState(() {
+              _selectedFilter = _selectedFilter == status ? null : status;
+            });
+          },
           borderRadius: context.radiusMD,
-          border: Border.all(
-            color: color.withValues(alpha: 0.3),
-            width: 1,
+          child: Container(
+            padding: EdgeInsets.symmetric(
+              vertical: AppConstants.spacingSM,
+              horizontal: AppConstants.spacingXS,
+            ),
+            decoration: BoxDecoration(
+              color: isSelected 
+                  ? color.withValues(alpha: 0.2)
+                  : color.withValues(alpha: 0.1),
+              borderRadius: context.radiusMD,
+              border: Border.all(
+                color: isSelected 
+                    ? color
+                    : color.withValues(alpha: 0.3),
+                width: isSelected ? 2 : 1,
+              ),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  count.toString(),
+                  style: context.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                    fontFamily: 'Montserrat',
+                  ),
+                ),
+                Text(
+                  label,
+                  style: context.textTheme.bodySmall?.copyWith(
+                    color: color,
+                    fontFamily: 'Montserrat',
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
           ),
-        ),
-        child: Column(
-          children: [
-            Text(
-              count.toString(),
-              style: context.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: color,
-                fontFamily: 'Montserrat',
-              ),
-            ),
-            Text(
-              label,
-              style: context.textTheme.bodySmall?.copyWith(
-                color: color,
-                fontFamily: 'Montserrat',
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
         ),
       ),
     );
@@ -505,6 +566,93 @@ class _AdminReportTestingScreenState extends State<AdminReportTestingScreen> wit
         );
       }
     }
+  }
+
+  // Helper method to get ReportStatus from label text
+  ReportStatus _getStatusFromLabel(String label) {
+    switch (label) {
+      case 'Pending':
+        return ReportStatus.pending;
+      case 'In Progress':
+        return ReportStatus.inProgress;
+      case 'Resolved':
+        return ReportStatus.resolved;
+      case 'Closed':
+        return ReportStatus.closed;
+      default:
+        return ReportStatus.pending;
+    }
+  }
+
+  // Helper method to get status text
+  String _getStatusText(ReportStatus status) {
+    switch (status) {
+      case ReportStatus.pending:
+        return 'Pending';
+      case ReportStatus.inProgress:
+        return 'In Progress';
+      case ReportStatus.resolved:
+        return 'Resolved';
+      case ReportStatus.closed:
+        return 'Closed';
+    }
+  }
+
+  // Helper method to get status color
+  Color _getStatusColor(ReportStatus status) {
+    switch (status) {
+      case ReportStatus.pending:
+        return Colors.orange;
+      case ReportStatus.inProgress:
+        return Colors.blue;
+      case ReportStatus.resolved:
+        return Colors.green;
+      case ReportStatus.closed:
+        return Colors.grey;
+    }
+  }
+
+  // Empty state for when filter has no results
+  Widget _EmptyFilterState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Iconsax.search_status,
+            size: 64,
+            color: context.colorScheme.onSurface.withValues(alpha: 0.4),
+          ),
+          SizedBox(height: AppConstants.spacingMD),
+          Text(
+            'No ${_getStatusText(_selectedFilter!).toLowerCase()} reports found',
+            style: context.textTheme.titleMedium?.copyWith(
+              color: context.colorScheme.onSurface.withValues(alpha: 0.6),
+              fontFamily: 'Montserrat',
+            ),
+          ),
+          SizedBox(height: AppConstants.spacingSM),
+          Text(
+            'Try selecting a different status or clear the filter',
+            style: context.textTheme.bodyMedium?.copyWith(
+              color: context.colorScheme.onSurface.withValues(alpha: 0.5),
+              fontFamily: 'Montserrat',
+            ),
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: AppConstants.spacingLG),
+          ElevatedButton.icon(
+            onPressed: () => setState(() => _selectedFilter = null),
+            icon: Icon(Iconsax.refresh),
+            label: Text('Show All Reports'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: context.colorScheme.primary,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

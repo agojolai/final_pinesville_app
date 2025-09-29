@@ -85,18 +85,23 @@ class ReportRepository {
     }
   }
 
-  /// Get reports for a specific tenant
+  /// Get reports for a specific tenant (excludes closed reports for performance)
   Future<List<ReportModel>> getTenantReports(String tenantUserId) async {
     try {
       final querySnapshot = await _db
           .collection(_collection)
           .where('tenant.userId', isEqualTo: tenantUserId)
-          .orderBy('submittedAt', descending: true)
+          .where('status', whereNotIn: [ReportStatus.closed.name])
           .get();
 
-      return querySnapshot.docs
+      final reports = querySnapshot.docs
           .map((doc) => ReportModel.fromSnapshot(doc))
           .toList();
+      
+      // Sort by submittedAt descending (newest first)
+      reports.sort((a, b) => b.submittedAt.compareTo(a.submittedAt));
+      
+      return reports;
     } on FirebaseException catch (e) {
       throw custom_firebase.FirebaseException(e.code).message;
     } on custom_format.FormatException catch (_) {
@@ -130,16 +135,23 @@ class ReportRepository {
     }
   }
 
-  /// Stream tenant reports in real-time
+  /// Stream tenant reports in real-time (excludes closed reports for performance)
   Stream<List<ReportModel>> streamTenantReports(String tenantUserId) {
     return _db
         .collection(_collection)
         .where('tenant.userId', isEqualTo: tenantUserId)
-        .orderBy('submittedAt', descending: true)
+        .where('status', whereNotIn: [ReportStatus.closed.name])
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => ReportModel.fromSnapshot(doc))
-            .toList());
+        .map((snapshot) {
+          final reports = snapshot.docs
+              .map((doc) => ReportModel.fromSnapshot(doc))
+              .toList();
+          
+          // Sort by submittedAt descending (newest first)
+          reports.sort((a, b) => b.submittedAt.compareTo(a.submittedAt));
+          
+          return reports;
+        });
   }
 
   /// Stream all reports in real-time (admin function)

@@ -1,10 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:get_storage/get_storage.dart';
 import '../exceptions/firebase_auth_exceptions.dart' as custom_auth;
 import '../exceptions/firebase_exceptions.dart' as custom_firebase;
 import '../exceptions/format_exceptions.dart' as custom_format;
 import '../exceptions/platform_exceptions.dart' as custom_platform;
+
+final authRepositoryProvider = Provider<AuthRepository>((ref) {
+  return AuthRepository.instance;
+});
 
 class AuthRepository {
   static AuthRepository? _instance;

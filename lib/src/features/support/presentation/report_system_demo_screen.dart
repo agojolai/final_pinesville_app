@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import '../../../theme/app_constants.dart';
 import '../../../theme/theme_extensions.dart';
-import '../data/repositories/report_repository.dart';
 
 /// Development utility screen to showcase system capabilities
 class ReportSystemDemoScreen extends StatefulWidget {
@@ -61,7 +60,7 @@ class _ReportSystemDemoScreenState extends State<ReportSystemDemoScreen> {
               title: 'Repository Pattern',
               content: 'ReportRepository handles all CRUD operations, file uploads, '
                       'and provides both async and stream-based data access.',
-              icon: Iconsax.database,
+              icon: Iconsax.data,
               color: Colors.orange,
             ),
             SizedBox(height: AppConstants.spacingXL),
