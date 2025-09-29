@@ -245,6 +245,14 @@ class _PaymentQRSection extends StatelessWidget {
                 onTap: () => onMethodChanged('bdo'),
               ),
 
+                //TODO: sa dark theme, gawing puti yung photo
+              _PaymentMethodCard(
+                name: 'GOTyme',
+                imagePath: 'assets/images/icon-gotyme.png',
+                fallbackIcon: Iconsax.wallet,
+                isSelected: selectedMethod == 'gotyme',
+                onTap: () => onMethodChanged('gotyme'),
+              ),
 
               _PaymentMethodCard(
                 name: 'Cash',
@@ -553,6 +561,8 @@ class _QRCodeDisplay extends StatelessWidget {
         return 'assets/images/gcash.jpg';
       case 'bdo':
         return 'assets/images/bdo.jpg';
+      case 'gotyme':
+        return 'assets/images/gotyme.JPG';
       default:
         return null; // No QR image available
     }
@@ -564,6 +574,8 @@ class _QRCodeDisplay extends StatelessWidget {
         return 'GCash';
       case 'bdo': 
         return 'BDO';
+      case 'gotyme':
+        return 'GOTyme';
       case 'cash':
         return 'Cash Payment';
       default:

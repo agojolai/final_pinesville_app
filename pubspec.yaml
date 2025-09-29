@@ -87,6 +87,8 @@ flutter:
   - assets/images/default_profile.png
   - assets/images/icon-gcash.png
   - assets/images/icon-bdo.png
+  - assets/images/icon-gotyme.png
+  - assets/images/gotyme.JPG
 
 
   # An image asset can refer to one or more resolution-specific "variants", see
