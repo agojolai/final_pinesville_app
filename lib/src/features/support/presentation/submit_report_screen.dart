@@ -1,26 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../theme/app_constants.dart';
 import '../../../theme/theme_extensions.dart';
 import '../../../core/constants/validators.dart';
 import '../../../core/snackbars/loaders.dart';
-import 'reports_tickets_screen.dart';
+import '../providers/reports_provider.dart';
+import '../../profile/providers/profile_provider.dart';
 
-class SubmitReportScreen extends StatefulWidget {
-  final Function(Report) onReportSubmitted;
-
-  const SubmitReportScreen({
-    super.key,
-    required this.onReportSubmitted,
-  });
+class SubmitReportScreen extends ConsumerStatefulWidget {
+  final Function(dynamic)? onReportSubmitted;
+  
+  const SubmitReportScreen({super.key, this.onReportSubmitted});
 
   @override
-  State<SubmitReportScreen> createState() => _SubmitReportScreenState();
+  ConsumerState<SubmitReportScreen> createState() => _SubmitReportScreenState();
 }
 
-class _SubmitReportScreenState extends State<SubmitReportScreen> with TickerProviderStateMixin {
+class _SubmitReportScreenState extends ConsumerState<SubmitReportScreen> with TickerProviderStateMixin {
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
 
@@ -29,10 +28,8 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> with TickerProv
 
   String? _selectedCategory;
   String? _selectedSubCategory;
-  List<String> _attachments = [];
-
-  // User's unit (in real app, this would come from user session/account data)
-  final String _userUnit = '204-B';
+  List<XFile> _attachmentFiles = [];
+  List<String> _attachments = []; // For display purposes only
 
   // Image picker instance
   final ImagePicker _picker = ImagePicker();
@@ -166,12 +163,34 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> with TickerProv
                   ),
                 ),
                 SizedBox(height: AppConstants.spacingXS / 2),
-                Text(
-                  'Your report will be automatically tagged with your name, unit number, and submission date.',
-                  style: context.textTheme.bodySmall?.copyWith(
-                    color: context.colorScheme.onSurface.withValues(alpha:0.7),
-                    fontFamily: 'Montserrat',
-                  ),
+                Consumer(
+                  builder: (context, ref, child) {
+                    final userProfileAsync = ref.watch(userProfileProvider);
+                    
+                    return userProfileAsync.when(
+                      data: (user) => Text(
+                        'Your report will be automatically tagged with your name, unit ${user.unitId}, and submission date.',
+                        style: context.textTheme.bodySmall?.copyWith(
+                          color: context.colorScheme.onSurface.withValues(alpha:0.7),
+                          fontFamily: 'Montserrat',
+                        ),
+                      ),
+                      loading: () => Text(
+                        'Loading your unit information...',
+                        style: context.textTheme.bodySmall?.copyWith(
+                          color: context.colorScheme.onSurface.withValues(alpha:0.7),
+                          fontFamily: 'Montserrat',
+                        ),
+                      ),
+                      error: (_, __) => Text(
+                        'Unable to load unit information. Please contact support.',
+                        style: context.textTheme.bodySmall?.copyWith(
+                          color: context.colorScheme.onSurface.withValues(alpha:0.7),
+                          fontFamily: 'Montserrat',
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
@@ -610,31 +629,50 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> with TickerProv
   }
 
   Widget _SubmitButton() {
-    return ElevatedButton(
-      onPressed: _submitReport,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: context.colorScheme.primary,
-        foregroundColor: context.colorScheme.onPrimary,
-        padding: EdgeInsets.symmetric(vertical: AppConstants.spacingMD),
-        shape: RoundedRectangleBorder(
-          borderRadius: context.radiusXL,
-        ),
-        elevation: 2,
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Iconsax.send_2),
-          SizedBox(width: AppConstants.spacingSM),
-          Text(
-            'Submit Report',
-            style: context.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              fontFamily: 'Montserrat',
+    return Consumer(
+      builder: (context, ref, child) {
+        final submissionState = ref.watch(reportSubmissionProvider);
+        final isSubmitting = submissionState.status == ReportSubmissionStatus.loading;
+        
+        return ElevatedButton(
+          onPressed: isSubmitting ? null : _submitReport,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: context.colorScheme.primary,
+            foregroundColor: context.colorScheme.onPrimary,
+            padding: EdgeInsets.symmetric(vertical: AppConstants.spacingMD),
+            shape: RoundedRectangleBorder(
+              borderRadius: context.radiusXL,
             ),
+            elevation: 2,
           ),
-        ],
-      ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (isSubmitting)
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      context.colorScheme.onPrimary,
+                    ),
+                  ),
+                )
+              else
+                Icon(Iconsax.send_2),
+              SizedBox(width: AppConstants.spacingSM),
+              Text(
+                isSubmitting ? 'Submitting...' : 'Submit Report',
+                style: context.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Montserrat',
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -643,7 +681,7 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> with TickerProv
       HapticFeedback.lightImpact();
       
       // Check attachment limit
-      if (_attachments.length >= maxAttachments) {
+      if (_attachmentFiles.length >= maxAttachments) {
         Loaders.errorSnackBar(
           context,
           title: 'Attachment Limit',
@@ -661,7 +699,8 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> with TickerProv
       
       if (photo != null) {
         setState(() {
-          _attachments.add(photo.path);
+          _attachmentFiles.add(photo);
+          _attachments.add(photo.path); // For display
         });
         Loaders.customToast(context, message: 'Photo captured successfully');
       }
@@ -679,7 +718,7 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> with TickerProv
       HapticFeedback.lightImpact();
       
       // Check attachment limit
-      if (_attachments.length >= maxAttachments) {
+      if (_attachmentFiles.length >= maxAttachments) {
         Loaders.errorSnackBar(
           context,
           title: 'Attachment Limit',
@@ -753,7 +792,8 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> with TickerProv
         
         if (pickedFile != null) {
           setState(() {
-            _attachments.add(pickedFile!.path);
+            _attachmentFiles.add(pickedFile!);
+            _attachments.add(pickedFile.path); // For display
           });
           Loaders.customToast(
             context, 
@@ -770,7 +810,7 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> with TickerProv
     }
   }
 
-  void _submitReport() {
+  void _submitReport() async {
     if (!_formKey.currentState!.validate()) {
       Loaders.errorSnackBar(
         context,
@@ -780,30 +820,58 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> with TickerProv
       return;
     }
 
-    HapticFeedback.mediumImpact();
+    if (_selectedCategory == null) {
+      Loaders.errorSnackBar(
+        context,
+        title: 'Error',
+        message: 'Please select a category',
+      );
+      return;
+    }
 
-    // Generate report ID
-    final reportId = 'R${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
+    try {
+      // Use the reportSubmissionProvider to submit the report
+      final submissionNotifier = ref.read(reportSubmissionProvider.notifier);
+      
+      // Submit the report and wait for result
+      await submissionNotifier.submitReport(
+        category: _selectedCategory!,
+        subCategory: _selectedSubCategory ?? '',
+        description: _descriptionController.text,
+        attachmentFiles: _attachmentFiles.isNotEmpty ? _attachmentFiles : null,
+      );
 
-    // Create report object
-    final report = Report(
-      id: reportId,
-      unitNumber: _userUnit,
-      category: _selectedCategory!,
-      subCategory: _selectedSubCategory ?? '',
-      description: _descriptionController.text,
-      status: ReportStatus.pending,
-      submittedAt: DateTime.now(),
-      tenantName: 'Caleb Anderson', // In real app, get from user session
-      attachments: List.from(_attachments),
-      updates: [],
-    );
-
-    // Call the callback
-    widget.onReportSubmitted(report);
-
-    // Navigate back
-    Navigator.of(context).pop();
+      // Check the final state
+      final finalState = ref.read(reportSubmissionProvider);
+      
+      if (finalState.status == ReportSubmissionStatus.success) {
+        Loaders.successSnackBar(
+          context,
+          title: 'Report Submitted',
+          message: finalState.successMessage ?? 'Your report has been submitted successfully.',
+        );
+        
+        // Call the callback if provided
+        if (widget.onReportSubmitted != null && finalState.submittedReport != null) {
+          widget.onReportSubmitted!(finalState.submittedReport!);
+        }
+        
+        // Navigate back
+        Navigator.of(context).pop();
+      } else if (finalState.status == ReportSubmissionStatus.error) {
+        Loaders.errorSnackBar(
+          context,
+          title: 'Submission Failed',
+          message: finalState.errorMessage ?? 'Failed to submit report',
+        );
+      }
+    } catch (e) {
+      Loaders.errorSnackBar(
+        context,
+        title: 'Submission Failed',
+        message: 'Failed to submit report: ${e.toString()}',
+      );
+    }
   }
 }
 

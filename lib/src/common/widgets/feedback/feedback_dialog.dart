@@ -85,16 +85,18 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
   }
 
   void _handleSubmit() {
-    if (_rating == 0) {
+    final comment = _commentController.text.trim();
+    // Allow submission if a rating is given OR a comment is provided.
+    if (_rating == 0 && comment.isEmpty) {
       Loaders.errorSnackBar(
         context,
-        title: 'Rating Required',
-        message: 'Please select a rating before submitting',
+        title: 'Feedback Required',
+        message: 'Please provide a rating or a comment to submit.',
       );
       return;
     }
 
-    widget.onSubmit(_rating, _commentController.text.trim());
+    widget.onSubmit(_rating, comment);
     Navigator.of(context).pop();
   }
 
