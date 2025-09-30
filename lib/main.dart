@@ -42,8 +42,10 @@ Future<void> main() async {
   runApp(
     ProviderScope(
       child: ScreenUtilInit(
-        designSize: Size(375, 812), // Set to your design's width/height
+        designSize: const Size(375, 812), // Mobile design base
         minTextAdapt: true,
+        splitScreenMode: true, // Support for larger screens
+        useInheritedMediaQuery: true, // Better tablet support
         builder: (context, child) => const App(),
       ),
     ),

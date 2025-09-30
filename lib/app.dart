@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'src/theme/app_theme.dart';
 import 'src/features/auth/presentation/login_screen.dart';
-import 'src/common/widgets/main_navigation.dart';
+import 'src/common/widgets/role_based_navigation.dart';
 import 'src/features/auth/providers/auth_provider.dart';
 import 'src/features/onboarding/presentation/onboarding_screen.dart';
 import 'src/features/onboarding/data/onboarding_repository.dart';
@@ -52,9 +52,9 @@ class App extends ConsumerWidget {
               
               return currentUser.when(
                 data: (user) {
-                  // If user is logged in, go to main navigation
+                  // If user is logged in, go to role-based navigation
                   if (user != null) {
-                    return const MainNavigation();
+                    return const RoleBasedNavigation();
                   }
                   
                   // If not logged in, check onboarding status

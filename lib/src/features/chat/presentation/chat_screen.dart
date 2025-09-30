@@ -693,7 +693,11 @@ class _ImageMessage extends StatelessWidget {
   Future<void> _downloadImage(BuildContext context) async {
     try {
       // Show loading indicator
-      Loaders.customToast(context, message: 'Downloading image...');
+      Loaders.infoSnackBar(
+        context,
+        title: 'Downloading',
+        message: 'Saving image to your gallery...',
+      );
 
       // Download the image to gallery
       await Gal.putImage(message.imagePath!);

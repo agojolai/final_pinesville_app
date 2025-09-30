@@ -105,10 +105,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       ),
       body: FadeTransition(
         opacity: _fadeAnimation,
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          child: Padding(
-            padding: context.paddingHorizontal(AppConstants.spacingLG),
+        child: ResponsiveLayoutWrapper(
+          centerContent: true,
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -136,7 +136,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   void _showComingSoon(BuildContext context, String feature) {
     HapticFeedback.lightImpact();
-    Loaders.customToast(context, message: '$feature - Coming Soon!');
+    Loaders.infoSnackBar(
+      context,
+      title: 'Coming Soon',
+      message: '$feature will be available in a future update.',
+    );
   }
 
   void _showTransactionHistoryDialog() {

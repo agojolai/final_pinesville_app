@@ -702,7 +702,11 @@ class _SubmitReportScreenState extends ConsumerState<SubmitReportScreen> with Ti
           _attachmentFiles.add(photo);
           _attachments.add(photo.path); // For display
         });
-        Loaders.customToast(context, message: 'Photo captured successfully');
+        Loaders.successSnackBar(
+          context,
+          title: 'Photo Captured',
+          message: 'Photo added to your report successfully.',
+        );
       }
     } catch (e) {
       Loaders.errorSnackBar(
@@ -790,16 +794,7 @@ class _SubmitReportScreenState extends ConsumerState<SubmitReportScreen> with Ti
           );
         }
         
-        if (pickedFile != null) {
-          setState(() {
-            _attachmentFiles.add(pickedFile!);
-            _attachments.add(pickedFile.path); // For display
-          });
-          Loaders.customToast(
-            context, 
-            message: '${mediaType[0].toUpperCase()}${mediaType.substring(1)} selected successfully'
-          );
-        }
+
       }
     } catch (e) {
       Loaders.errorSnackBar(

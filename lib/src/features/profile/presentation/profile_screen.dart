@@ -509,7 +509,11 @@ class _ProfileSections extends StatelessWidget {
 
   void _showComingSoon(BuildContext context) {
     HapticFeedback.lightImpact();
-    Loaders.customToast(context, message: 'Coming Soon!');
+    Loaders.infoSnackBar(
+      context,
+      title: 'Coming Soon',
+      message: 'This feature will be available in a future update.',
+    );
   }
 
   void _showAboutDialog(BuildContext context) {
