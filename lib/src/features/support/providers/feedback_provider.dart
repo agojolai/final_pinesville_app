@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import '../data/repositories/feedback_repository.dart';
 
 enum FeedbackSubmissionStatus { initial, loading, success, error }

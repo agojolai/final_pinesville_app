@@ -4,6 +4,7 @@ import 'package:iconsax/iconsax.dart';
 import '../../../theme/app_constants.dart';
 import '../../../theme/theme_extensions.dart';
 import '../../../core/snackbars/loaders.dart';
+import '../data/seed_service.dart';
 
 class AdminDashboardScreen extends ConsumerStatefulWidget {
   const AdminDashboardScreen({
@@ -561,6 +562,12 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen>
               color: Colors.purple,
               onTap: () => _navigateToReports(),
             ),
+            _QuickActionCard(
+              title: 'Seed Test Data',
+              icon: Iconsax.cpu,
+              color: Colors.red,
+              onTap: () => _seedTestData(),
+            ),
           ],
         ),
       ],
@@ -665,6 +672,149 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen>
       context,
       title: 'Coming Soon',
       message: 'Reports feature will be available soon.',
+    );
+  }
+
+  Future<void> _seedTestData() async {
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+
+    try {
+      final seedService = SeedService();
+      final result = await seedService.seedAllData();
+
+      // Close loading
+      if (mounted) Navigator.of(context).pop();
+
+      if (result['success'] == true) {
+        if (mounted) {
+          // Show success with test credentials
+          _showSeedSuccessDialog(result);
+        }
+      } else {
+        if (mounted) {
+          Loaders.errorSnackBar(
+            context,
+            title: 'Error',
+            message: result['message'] ?? 'Failed to seed test data',
+          );
+        }
+      }
+    } catch (e) {
+      // Close loading
+      if (mounted) Navigator.of(context).pop();
+      
+      if (mounted) {
+        Loaders.errorSnackBar(
+          context,
+          title: 'Error',
+          message: 'An error occurred: $e',
+        );
+      }
+    }
+  }
+
+  void _showSeedSuccessDialog(Map<String, dynamic> result) {
+    final testCredentials = result['testCredentials'] as Map<String, dynamic>?;
+    final data = result['data'] as Map<String, dynamic>?;
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(
+              Icons.check_circle,
+              color: context.colorScheme.primary,
+            ),
+            const SizedBox(width: 8),
+            const Text('Seed Completed'),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                result['message'] ?? 'Test data seeded successfully',
+                style: context.textTheme.bodyMedium,
+              ),
+              if (data != null) ...[
+                const SizedBox(height: 16),
+                Text(
+                  'Data Created:',
+                  style: context.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text('• Properties: ${data['properties']}'),
+                Text('• Units: ${data['units']}'),
+                Text('• Tenants: ${data['tenants']}'),
+                Text('• Auth Accounts: ${data['authAccounts']}'),
+              ],
+              if (testCredentials != null) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: context.colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '🔑 Test Login Credentials',
+                        style: context.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: context.colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Email: ${testCredentials['email']}',
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          color: context.colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                      Text(
+                        'Password: ${testCredentials['password']}',
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          color: context.colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        testCredentials['note'] ?? '',
+                        style: context.textTheme.bodySmall?.copyWith(
+                          fontStyle: FontStyle.italic,
+                          color: context.colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
     );
   }
 }

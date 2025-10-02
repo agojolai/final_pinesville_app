@@ -14,22 +14,31 @@ class UnitRepository {
 
   /// Fetch all vacant units from Firestore
   /// Returns a sorted list of unit numbers that are available for rent
+  /// NOTE: This fetches from all properties. Consider filtering by propertyId if needed.
   Future<List<String>> fetchVacantUnits() async {
     try {
-      final snapshot = await _db
-          .collection('units')
-          .where('status', isEqualTo: 'Vacant')
-          .get();
-
-      // Extract unit numbers from documents
-      List<String> units = snapshot.docs
-          .map((doc) => doc['unitNumber'] as String)
-          .toList();
+      // Get all properties first
+      final propertiesSnapshot = await _db.collection('Property').get();
+      List<String> allVacantUnits = [];
+      
+      // Fetch vacant units from each property
+      for (var propertyDoc in propertiesSnapshot.docs) {
+        final unitsSnapshot = await _db
+            .collection('Property')
+            .doc(propertyDoc.id)
+            .collection('Units')
+            .where('status', isEqualTo: 'Vacant')
+            .get();
+        
+        allVacantUnits.addAll(
+          unitsSnapshot.docs.map((doc) => doc['unitNumber'] as String)
+        );
+      }
 
       // Sort the unit numbers (lexicographically)
-      units.sort();
+      allVacantUnits.sort();
 
-      return units;
+      return allVacantUnits;
     } on FirebaseException catch (e) {
       throw custom_firebase.FirebaseException(e.code).message;
     } on custom_format.FormatException catch (_) {
@@ -66,13 +75,15 @@ class UnitRepository {
     }
   }
 
-  //TODO: update this method 
   /// Update unit status (e.g., from 'vacant' to 'occupied')
   /// Useful when a tenant moves in/out
-  Future<void> updateUnitStatus(String unitId, String newStatus) async {
+  /// Requires propertyId to access the correct nested path: Property/{propertyId}/Units/{unitId}
+  Future<void> updateUnitStatus(String propertyId, String unitId, String newStatus) async {
     try {
       await _db
-          .collection('units')
+          .collection('Property')
+          .doc(propertyId)
+          .collection('Units')
           .doc(unitId)
           .update({'status': newStatus});
     } on FirebaseException catch (e) {

@@ -1,6 +1,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:untitled/src/theme/app_theme.dart';
 import '../../../theme/app_constants.dart';
 import '../../../theme/theme_extensions.dart';
@@ -8,6 +9,11 @@ import 'package:iconsax/iconsax.dart';
 import '../../payment/presentation/pay_rent_screen.dart';
 import '../../payment/presentation/view_billing_screen.dart';
 import '../../../core/snackbars/loaders.dart';
+import '../../../core/repositories/auth_repository.dart';
+import '../../billing/presentation/billing_providers.dart';
+import '../../billing/domain/bill_model.dart';
+import '../../profile/providers/profile_provider.dart';
+import '../../auth/data/models/user_model.dart';
 
 
 
@@ -16,24 +22,26 @@ class Transaction {
   final String date;
   final String reference;
   final double amount;
+  final BillModel bill; // Add bill reference for navigation
 
   const Transaction({
     required this.date,
     required this.reference,
     required this.amount,
+    required this.bill,
   });
 
   bool get isPositive => amount >= 0;
 }
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
+class _HomeScreenState extends ConsumerState<HomeScreen> with TickerProviderStateMixin {
   late PageController _pageController;
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
@@ -54,17 +62,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       'title': 'Pool Maintenance Notice',
       'content': 'Pool maintenance scheduled for next Tuesday from 8 AM to 12 PM. The pool will be temporarily closed during this time. Thank you for your understanding.',
     },
-  ];
-  
-  // Sample transaction data (up to 6 transactions)
-  static const List<Transaction> transactions = [
-    Transaction(date: '2025-08-25', reference: 'TXN001', amount: 1250.00),
-    Transaction(date: '2025-08-23', reference: 'TXN003', amount: 2100.50),
-    Transaction(date: '2025-08-21', reference: 'TXN005', amount: 750.25),
-    Transaction(date: '2025-08-21', reference: 'TXN005', amount: 750.25),
-    Transaction(date: '2025-08-23', reference: 'TXN003', amount: 2100.50),
-    Transaction(date: '2025-08-21', reference: 'TXN005', amount: 750.25),
-    Transaction(date: '2025-08-21', reference: 'TXN005', amount: 750.25),
   ];
 
   @override
@@ -87,9 +84,47 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _fadeController.dispose();
     super.dispose();
   }
+  
+  List<Transaction> _convertBillsToTransactions(List<BillModel> bills) {
+    return bills.take(6).map((bill) {
+      final monthName = _getMonthName(bill.billingPeriod.month);
+      final date = '$monthName ${bill.billingPeriod.year}';
+      
+      return Transaction(
+        date: date,
+        reference: bill.billId,
+        amount: bill.isPaid ? bill.amountPaid : bill.balance,
+        bill: bill,
+      );
+    }).toList();
+  }
+  
+  String _getMonthName(int month) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return months[month - 1];
+  }
 
   @override
   Widget build(BuildContext context) {
+    // Get current user ID
+    final currentUser = AuthRepository.instance.authUser;
+    if (currentUser == null) {
+      return Scaffold(
+        body: Center(child: Text('Not logged in')),
+      );
+    }
+    
+    final userId = currentUser.uid;
+    
+    // Watch user profile provider
+    final userProfileAsync = ref.watch(userProfileProvider);
+    
+    // Watch bills provider
+    final billsAsync = ref.watch(userBillsProvider(userId));
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -107,31 +142,99 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         opacity: _fadeAnimation,
         child: ResponsiveLayoutWrapper(
           centerContent: true,
-          child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-              _BillingCard(onComingSoon: _showComingSoon),
-              SizedBox(height: AppConstants.spacingSM),
-              _AnnouncementSection(
-                announcements: announcements,
-                pageController: _pageController,
-                currentPage: currentPage,
-                onPageChanged: (index) => setState(() => currentPage = index),
+          child: billsAsync.when(
+            data: (bills) {
+              // Get user profile data
+              return userProfileAsync.when(
+                data: (userModel) {
+                  // Find latest unpaid bill for the billing card
+                  BillModel? latestUnpaidBill;
+                  try {
+                    latestUnpaidBill = bills.firstWhere((bill) => !bill.isPaid);
+                  } catch (e) {
+                    // If no unpaid bills, use the latest bill (if any)
+                    latestUnpaidBill = bills.isNotEmpty ? bills.first : null;
+                  }
+                  
+                  // Convert bills to transactions
+                  final transactions = _convertBillsToTransactions(bills);
+                  
+                  return SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _BillingCard(
+                          bill: latestUnpaidBill,
+                          userModel: userModel,
+                          onComingSoon: _showComingSoon,
+                        ),
+                        SizedBox(height: AppConstants.spacingSM),
+                        _AnnouncementSection(
+                          announcements: announcements,
+                          pageController: _pageController,
+                          currentPage: currentPage,
+                          onPageChanged: (index) => setState(() => currentPage = index),
+                        ),
+                        SizedBox(height: AppConstants.spacingSM),
+                        _TransactionSection(
+                          transactions: transactions,
+                          onRequestHistory: _showTransactionHistoryDialog,
+                          onTransactionTap: (transaction) {
+                            HapticFeedback.lightImpact();
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => ViewBillingScreen(bill: transaction.bill),
+                              ),
+                            );
+                          },
+                        ),
+                        _ImageCard(),
+                        SizedBox(height: AppConstants.spacingSM),
+                        _ConsumptionSection(),
+                        SizedBox(height: AppConstants.spacingXL),
+                      ],
+                    ),
+                  );
+                },
+                loading: () => Center(child: CircularProgressIndicator()),
+                error: (error, stack) => Center(
+                  child: Text('Error loading user data: $error'),
+                ),
+              );
+            },
+            loading: () => Center(
+              child: CircularProgressIndicator(),
+            ),
+            error: (error, stack) => Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Iconsax.warning_2,
+                    size: 64,
+                    color: context.colorScheme.error,
+                  ),
+                  SizedBox(height: AppConstants.spacingMD),
+                  Text(
+                    'Error loading bills',
+                    style: context.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: AppConstants.spacingSM),
+                  Text(
+                    error.toString(),
+                    style: context.textTheme.bodySmall,
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ),
-              SizedBox(height: AppConstants.spacingSM),
-              _TransactionSection(
-                transactions: transactions,
-                onRequestHistory: _showTransactionHistoryDialog,
-              ),
-              _ImageCard(),
-              SizedBox(height: AppConstants.spacingXL),
-            ],
+            ),
           ),
         ),
       ),
-    ));
+    );
   }
 
   void _showComingSoon(BuildContext context, String feature) {
@@ -257,12 +360,22 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
 // Billing Card Widget
 class _BillingCard extends StatelessWidget {
+  final BillModel? bill;
+  final UserModel userModel;
   final Function(BuildContext, String) onComingSoon;
   
-  const _BillingCard({required this.onComingSoon});
+  const _BillingCard({
+    this.bill,
+    required this.userModel,
+    required this.onComingSoon,
+  });
 
   @override
   Widget build(BuildContext context) {
+    // If no bill, show placeholder
+    final displayAmount = bill != null ? bill!.balance : 0.0;
+    final hasUnpaidBill = bill != null && !bill!.isPaid;
+    
     return Container(
       margin: EdgeInsets.symmetric(vertical: AppConstants.spacingSM),
       padding: EdgeInsets.all(AppConstants.spacingLG),
@@ -289,7 +402,7 @@ class _BillingCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Hi, Caleb!',
+            'Hi, ${userModel.fullName.split(' ').first}!',
             style: context.textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.bold,
               color: Colors.white,
@@ -298,49 +411,55 @@ class _BillingCard extends StatelessWidget {
           ),
           SizedBox(height: AppConstants.spacingSM),
           Text(
-            'Your rent for this month is',
+            hasUnpaidBill ? 'Your rent for this month is' : 'No pending bills',
             style: context.textTheme.bodyLarge?.copyWith(
               fontFamily: 'Montserrat',
               color: Colors.white.withValues(alpha: 0.9),
             ),
           ),
-          SizedBox(height: AppConstants.spacingSM),
-          Text(
-            '₱25,000.00',
-            style: context.textTheme.headlineMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              fontFamily: 'Montserrat',
-              color: Colors.white,
+          if (hasUnpaidBill) ...[
+            SizedBox(height: AppConstants.spacingSM),
+            Text(
+              '₱${displayAmount.toStringAsFixed(2)}',
+              style: context.textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                fontFamily: 'Montserrat',
+                color: Colors.white,
+              ),
             ),
-          ),
+          ],
           SizedBox(height: AppConstants.spacingMD),
           Row(
             children: [
               Expanded(
                 child: _BillingButton(
                   label: 'Pay Rent',
-                  onPressed: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const PayRentScreen(),
-                      ),
-                    );
-                  },
+                  onPressed: hasUnpaidBill
+                      ? () {
+                          HapticFeedback.lightImpact();
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => PayRentScreen(bill: bill),
+                            ),
+                          );
+                        }
+                      : () => onComingSoon(context, 'Payment'),
                 ),
               ),
               SizedBox(width: AppConstants.spacingMD),
               Expanded(
                 child: _BillingButton(
                   label: 'View Billing',
-                  onPressed: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const ViewBillingScreen(),
-                      ),
-                    );
-                  },
+                  onPressed: bill != null
+                      ? () {
+                          HapticFeedback.lightImpact();
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => ViewBillingScreen(bill: bill),
+                            ),
+                          );
+                        }
+                      : () => onComingSoon(context, 'Billing'),
                 ),
               ),
             ],
@@ -535,10 +654,12 @@ class _AnnouncementSection extends StatelessWidget {
 class _TransactionSection extends StatelessWidget {
   final List<Transaction> transactions;
   final VoidCallback onRequestHistory;
+  final Function(Transaction) onTransactionTap;
 
   const _TransactionSection({
     required this.transactions,
     required this.onRequestHistory,
+    required this.onTransactionTap,
   });
 
   @override
@@ -583,7 +704,10 @@ class _TransactionSection extends StatelessWidget {
                 )
               else
                 ...transactions.take(6).map((transaction) {
-                  return _TransactionItem(transaction: transaction);
+                  return _TransactionItem(
+                    transaction: transaction,
+                    onTap: () => onTransactionTap(transaction),
+                  );
                 }),
               if (transactions.length > 6)
                 Padding(
@@ -635,59 +759,87 @@ class _TransactionSection extends StatelessWidget {
 // Transaction Item Widget
 class _TransactionItem extends StatelessWidget {
   final Transaction transaction;
+  final VoidCallback onTap;
 
-  const _TransactionItem({required this.transaction});
+  const _TransactionItem({
+    required this.transaction,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        vertical: AppConstants.spacingSM,
-        horizontal: AppConstants.spacingXS,
-      ),
-      margin: EdgeInsets.only(bottom: AppConstants.spacingXS),
-      child: Row(
-        children: [
-          // Left side - Date and Reference
-          Expanded(
-            flex: 3,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  transaction.date,
-                  style: context.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: context.colorScheme.onSurface,
+    // Get color based on bill status
+    Color statusColor;
+    if (transaction.bill.isPaid) {
+      statusColor = context.colorScheme.success; // Green
+    } else if (transaction.bill.isOverdue || transaction.bill.lateFeeDetails.isLate) {
+      statusColor = context.colorScheme.error; // Red
+    } else {
+      statusColor = context.colorScheme.warning; // Yellow/Orange
+    }
+    
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: EdgeInsets.symmetric(
+            vertical: AppConstants.spacingSM,
+            horizontal: AppConstants.spacingXS,
+          ),
+          margin: EdgeInsets.only(bottom: AppConstants.spacingXS),
+          child: Row(
+            children: [
+              // Left side - Color indicator, Date and Reference
+              Container(
+                width: 4,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: statusColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              SizedBox(width: AppConstants.spacingSM),
+              Expanded(
+                flex: 3,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      transaction.date,
+                      style: context.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: context.colorScheme.onSurface,
+                        fontFamily: 'Montserrat',
+                      ),
+                    ),
+                    SizedBox(height: AppConstants.spacingXS / 2),
+                    Text(
+                      transaction.reference,
+                      style: context.textTheme.bodySmall?.copyWith(
+                        color: context.colorScheme.onSurface.withValues(alpha:0.7),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Right side - Amount
+              Expanded(
+                flex: 2,
+                child: Text(
+                  '₱${transaction.amount.toStringAsFixed(2)}',
+                  textAlign: TextAlign.right,
+                  style: context.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: statusColor,
                     fontFamily: 'Montserrat',
                   ),
                 ),
-                SizedBox(height: AppConstants.spacingXS / 2),
-                Text(
-                  transaction.reference,
-                  style: context.textTheme.bodySmall?.copyWith(
-                    color: context.colorScheme.onSurface.withValues(alpha:0.7),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Right side - Amount
-          Expanded(
-            flex: 2,
-            child: Text(
-              '₱${transaction.amount.abs().toStringAsFixed(2)}',
-              textAlign: TextAlign.right,
-              style: context.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: transaction.isPositive 
-                    ? context.colorScheme.success
-                    : context.colorScheme.error,
-                fontFamily: 'Montserrat',
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -712,6 +864,304 @@ class _ImageCard extends StatelessWidget {
           'assets/images/IMG.jpg',
           fit: BoxFit.cover,
         ),
+      ),
+    );
+  }
+}
+
+// Consumption Data Model
+class ConsumptionData {
+  final String month;
+  final double value;
+  final String unit;
+
+  const ConsumptionData({
+    required this.month,
+    required this.value,
+    required this.unit,
+  });
+}
+
+// Consumption Section Widget
+class _ConsumptionSection extends StatelessWidget {
+  const _ConsumptionSection();
+
+  // Sample electricity consumption data (kWh) - last 6 months
+  static const List<ConsumptionData> electricityData = [
+    ConsumptionData(month: 'Apr', value: 285.5, unit: 'kWh'),
+    ConsumptionData(month: 'May', value: 312.8, unit: 'kWh'),
+    ConsumptionData(month: 'Jun', value: 298.2, unit: 'kWh'),
+    ConsumptionData(month: 'Jul', value: 325.6, unit: 'kWh'),
+    ConsumptionData(month: 'Aug', value: 301.4, unit: 'kWh'),
+    ConsumptionData(month: 'Sep', value: 318.9, unit: 'kWh'),
+  ];
+
+  // Sample water consumption data (m³) - last 6 months
+  static const List<ConsumptionData> waterData = [
+    ConsumptionData(month: 'Apr', value: 18.5, unit: 'm³'),
+    ConsumptionData(month: 'May', value: 21.2, unit: 'm³'),
+    ConsumptionData(month: 'Jun', value: 19.8, unit: 'm³'),
+    ConsumptionData(month: 'Jul', value: 23.4, unit: 'm³'),
+    ConsumptionData(month: 'Aug', value: 20.1, unit: 'm³'),
+    ConsumptionData(month: 'Sep', value: 22.6, unit: 'm³'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Consumption Overview',
+          style: context.textTheme.bodyLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+            fontFamily: 'Montserrat',
+          ),
+        ),
+        SizedBox(height: AppConstants.spacingSM),
+        
+        // Electricity Consumption Chart
+        _ConsumptionChart(
+          title: 'Electricity Usage',
+          icon: Iconsax.flash_1,
+          iconColor: Colors.amber,
+          data: electricityData,
+          barColor: Colors.amber,
+        ),
+        
+        SizedBox(height: AppConstants.spacingMD),
+        
+        // Water Consumption Chart
+        _ConsumptionChart(
+          title: 'Water Usage',
+          icon: Iconsax.drop,
+          iconColor: Colors.blue,
+          data: waterData,
+          barColor: Colors.blue,
+        ),
+      ],
+    );
+  }
+}
+
+// Consumption Chart Widget
+class _ConsumptionChart extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final Color iconColor;
+  final List<ConsumptionData> data;
+  final Color barColor;
+
+  const _ConsumptionChart({
+    required this.title,
+    required this.icon,
+    required this.iconColor,
+    required this.data,
+    required this.barColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Find max value for scaling bars
+    final maxValue = data.map((e) => e.value).reduce((a, b) => a > b ? a : b);
+    
+    return Container(
+      padding: EdgeInsets.all(AppConstants.spacingMD),
+      decoration: BoxDecoration(
+        color: context.colorScheme.surface,
+        borderRadius: context.radiusXL,
+        boxShadow: [
+          BoxShadow(
+            color: context.colorScheme.outline.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(AppConstants.spacingXS),
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  icon,
+                  color: iconColor,
+                  size: 20,
+                ),
+              ),
+              SizedBox(width: AppConstants.spacingSM),
+              Text(
+                title,
+                style: context.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Montserrat',
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: AppConstants.spacingMD),
+          
+          // Bar Chart
+          Column(
+            children: data.map((item) {
+              final barWidth = (item.value / maxValue) * 0.85; // Max 85% width
+              return _BarChartRow(
+                month: item.month,
+                value: item.value,
+                unit: item.unit,
+                barWidth: barWidth,
+                barColor: barColor,
+              );
+            }).toList(),
+          ),
+          
+          // Average Info
+          SizedBox(height: AppConstants.spacingSM),
+          Container(
+            padding: EdgeInsets.all(AppConstants.spacingSM),
+            decoration: BoxDecoration(
+              color: barColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Iconsax.chart_1,
+                  size: 16,
+                  color: barColor,
+                ),
+                SizedBox(width: AppConstants.spacingXS),
+                Text(
+                  'Avg: ${_calculateAverage().toStringAsFixed(1)} ${data.first.unit}',
+                  style: context.textTheme.bodySmall?.copyWith(
+                    color: context.colorScheme.onSurface.withValues(alpha: 0.8),
+                    fontWeight: FontWeight.w600,
+                    fontFamily: 'Montserrat',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  double _calculateAverage() {
+    final sum = data.fold(0.0, (sum, item) => sum + item.value);
+    return sum / data.length;
+  }
+}
+
+// Bar Chart Row Widget
+class _BarChartRow extends StatelessWidget {
+  final String month;
+  final double value;
+  final String unit;
+  final double barWidth;
+  final Color barColor;
+
+  const _BarChartRow({
+    required this.month,
+    required this.value,
+    required this.unit,
+    required this.barWidth,
+    required this.barColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: AppConstants.spacingSM),
+      child: Row(
+        children: [
+          // Month label
+          SizedBox(
+            width: 40,
+            child: Text(
+              month,
+              style: context.textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                fontFamily: 'Montserrat',
+                color: context.colorScheme.onSurface.withValues(alpha: 0.7),
+              ),
+            ),
+          ),
+          SizedBox(width: AppConstants.spacingXS),
+          
+          // Bar
+          Expanded(
+            child: Stack(
+              children: [
+                // Background bar
+                Container(
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: barColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+                // Actual value bar
+                FractionallySizedBox(
+                  widthFactor: barWidth,
+                  child: Container(
+                    height: 28,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          barColor.withValues(alpha: 0.8),
+                          barColor,
+                        ],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                      ),
+                      borderRadius: BorderRadius.circular(6),
+                      boxShadow: [
+                        BoxShadow(
+                          color: barColor.withValues(alpha: 0.3),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    alignment: Alignment.centerRight,
+                    padding: EdgeInsets.symmetric(horizontal: AppConstants.spacingXS),
+                    child: Text(
+                      value.toStringAsFixed(1),
+                      style: context.textTheme.bodySmall?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Montserrat',
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: AppConstants.spacingXS),
+          
+          // Unit label
+          SizedBox(
+            width: 35,
+            child: Text(
+              unit,
+              style: context.textTheme.bodySmall?.copyWith(
+                fontFamily: 'Montserrat',
+                color: context.colorScheme.onSurface.withValues(alpha: 0.6),
+                fontSize: 11,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
