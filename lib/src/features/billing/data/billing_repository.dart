@@ -406,13 +406,46 @@ class BillingRepository {
 
   /// Get property utility rates
   Future<PropertyUtilityRates?> getPropertyRates(String propertyId) async {
-    final doc = await firestore.collection('Property').doc(propertyId).get();
-    if (!doc.exists) return null;
+    try {
+      final doc = await firestore.collection('Property').doc(propertyId).get();
+      if (!doc.exists) {
+        print('❌ TRACE: Property document does not exist for ID: $propertyId');
+        return null;
+      }
 
-    final data = doc.data()!;
-    if (!data.containsKey('utilityRates')) return null;
+      final data = doc.data()!;
+      print('🔍 TRACE: Raw Firestore data for Property/$propertyId: $data');
+      print('🔍 TRACE: Property-level keys: ${data.keys}');
+      
+      if (!data.containsKey('utilityRates')) {
+        print('⚠️ TRACE: No utilityRates field found in property document');
+        return null;
+      }
 
-    return PropertyUtilityRates.fromMap(data['utilityRates'] as Map<String, dynamic>);
+      final utilityRatesData = data['utilityRates'] as Map<String, dynamic>;
+      print('🔍 TRACE: utilityRates data: $utilityRatesData');
+      
+      // CRITICAL FIX: fixedCharges is at property level, not in utilityRates!
+      // Pass it separately to fromMap
+      final combinedData = Map<String, dynamic>.from(utilityRatesData);
+      if (data.containsKey('fixedCharges')) {
+        print('✅ TRACE: Found fixedCharges at property level!');
+        combinedData['fixedCharges'] = data['fixedCharges'];
+        print('🔍 TRACE: Property-level fixedCharges: ${data['fixedCharges']}');
+      } else {
+        print('⚠️ TRACE: No fixedCharges found at property level');
+      }
+      
+      final rates = PropertyUtilityRates.fromMap(combinedData);
+      print('🔍 TRACE: Parsed PropertyUtilityRates - fixedCharges count: ${rates.fixedCharges.length}');
+      print('🔍 TRACE: Fixed charges details: ${rates.fixedCharges}');
+      
+      return rates;
+    } catch (e, stackTrace) {
+      print('❌ ERROR in getPropertyRates: $e');
+      print('❌ Stack trace: $stackTrace');
+      return null;
+    }
   }
 
   // ==================== ENHANCED BILL CREATION ====================
@@ -424,8 +457,10 @@ class BillingRepository {
     required double electricityCurrent,
     required double waterCurrent,
     required Map<String, double> additionalCharges,
+    String? additionalChargesDescription, // Optional description for 'other' charges
     required int month,
     required int year,
+    double? rentOverride, // Optional: use this if rent was manually adjusted
   }) async {
     // Get unit details
     final unit = await getUnitDetails(propertyId, unitId);
@@ -452,8 +487,11 @@ class BillingRepository {
     final waterConsumption = waterCurrent - waterPrevious;
     final waterAmount = waterConsumption * rates.waterRatePerCubicMeter;
 
+    // Use rent override if provided, otherwise use unit's monthly rent
+    final rentAmount = rentOverride ?? unit.monthlyRent;
+
     // Calculate total
-    final subtotal = unit.monthlyRent +
+    final subtotal = rentAmount +
         electricityAmount +
         waterAmount +
         additionalCharges.values.fold(0.0, (total, amount) => total + amount);
@@ -492,7 +530,7 @@ class BillingRepository {
       unitId: unitId,
       propertyId: propertyId,
       billingPeriod: billingPeriod,
-      baseRent: unit.monthlyRent,
+      baseRent: rentAmount,
       rentDescription: 'Monthly rent for Unit ${unit.unitNumber}',
       electricity: UtilityCharge(
         previousReading: electricityPrevious,
@@ -514,14 +552,7 @@ class BillingRepository {
         meterNumber: unit.lastWaterReading?.meterNumber ?? 'N/A',
         readingDate: now,
       ),
-      additionalCharges: additionalCharges.entries
-          .map((e) => AdditionalCharge(
-                chargeId: 'CHARGE_${now.millisecondsSinceEpoch}_${e.key}',
-                description: _capitalizeFirst(e.key),
-                amount: e.value,
-                category: e.key,
-              ))
-          .toList(),
+      additionalCharges: const [],  // No longer used - data is in paymentBreakdown
       subtotal: subtotal,
       discount: 0.0,
       discountReason: '',
@@ -531,9 +562,9 @@ class BillingRepository {
       amountPaid: 0.0,
       balance: subtotal,
       rentBreakdown: PaymentBreakdownItem(
-        amount: unit.monthlyRent,
+        amount: rentAmount,
         amountPaid: 0.0,
-        balance: unit.monthlyRent,
+        balance: rentAmount,
         isPaid: false,
       ),
       electricityBreakdown: PaymentBreakdownItem(
@@ -561,9 +592,9 @@ class BillingRepository {
         isPaid: false,
       ),
       parkingBreakdown: PaymentBreakdownItem(
-        amount: unit.hasParking ? unit.parkingFee : 0.0,
+        amount: additionalCharges['parking'] ?? 0.0,
         amountPaid: 0.0,
-        balance: unit.hasParking ? unit.parkingFee : 0.0,
+        balance: additionalCharges['parking'] ?? 0.0,
         isPaid: false,
       ),
       additionalChargesBreakdown: PaymentBreakdownItem(
@@ -571,6 +602,7 @@ class BillingRepository {
         amountPaid: 0.0,
         balance: additionalCharges['other'] ?? 0.0,
         isPaid: false,
+        description: additionalChargesDescription, // Store admin's custom description
       ),
       lateFeeDetails: lateFeeDetails,
       status: BillStatus.pending,
@@ -890,11 +922,17 @@ class BillingRepository {
     return months[month - 1];
   }
 
-  // ==================== HELPER METHODS ====================
+  // ==================== PAYMENT VALIDATION (ADMIN) ====================
 
-  /// Capitalize first letter of a string
-  String _capitalizeFirst(String text) {
-    if (text.isEmpty) return text;
-    return text[0].toUpperCase() + text.substring(1);
+  /// Get all pending payments (for admin validation)
+  /// Returns payments with status='pending' (newly submitted payments)
+  Stream<List<PaymentModel>> getPendingPayments() {
+    return firestore
+        .collection('Payments')
+        .where('status', isEqualTo: 'pending')
+        .orderBy('transactionDate', descending: true)
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => PaymentModel.fromSnapshot(doc)).toList());
   }
 }

@@ -57,10 +57,16 @@ final billPaymentsProvider = StreamProvider.family<List<PaymentModel>, String>((
   return repository.getBillPayments(billId);
 });
 
-/// Provider for pending verification payments (Admin)
+/// Provider for pending verification payments (Admin) - Legacy
 final pendingVerificationPaymentsProvider = StreamProvider<List<PaymentModel>>((ref) {
   final repository = ref.watch(billingRepositoryProvider);
   return repository.getPendingVerificationPayments();
+});
+
+/// Provider for pending payments (Admin) - New simplified workflow
+final pendingPaymentsProvider = StreamProvider<List<PaymentModel>>((ref) {
+  final repository = ref.watch(billingRepositoryProvider);
+  return repository.getPendingPayments();
 });
 
 // ==================== STATISTICS PROVIDERS ====================

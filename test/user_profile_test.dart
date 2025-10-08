@@ -20,6 +20,7 @@ void main() {
         leaseEndDate: DateTime(2024, 12, 31),
         rentAmount: 1200.0,
         status: 'active',
+        role: UserRole.tenant,
         createdAt: DateTime(2024, 1, 1),
       );
 
@@ -46,6 +47,7 @@ void main() {
         leaseEndDate: DateTime(2024, 12, 31),
         rentAmount: 1200.0,
         status: 'active',
+        role: UserRole.tenant,
         createdAt: DateTime(2024, 1, 1),
       );
 

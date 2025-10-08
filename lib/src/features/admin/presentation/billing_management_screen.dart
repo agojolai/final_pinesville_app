@@ -5,7 +5,11 @@ import '../../../theme/app_constants.dart';
 import '../../../theme/theme_extensions.dart';
 import '../../billing/presentation/billing_providers.dart';
 import '../../billing/domain/bill_model.dart';
+import '../../billing/domain/payment_model.dart';
 import '../../billing/domain/unit_billing_model.dart';
+import '../../billing/data/billing_repository.dart';
+import '../../../core/repositories/auth_repository.dart';
+import '../../../core/snackbars/loaders.dart';
 import 'admin_create_bill_screen.dart';
 import 'admin_bill_detail_screen.dart';
 
@@ -317,21 +321,516 @@ class _BillingManagementScreenState extends ConsumerState<BillingManagementScree
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(
-        child: Text('Error loading payments: $error'),
+      error: (error, stack) {
+        print('❌ Error loading payments: $error');
+        print('📋 Stack trace: $stack');
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Iconsax.danger,
+                size: 64,
+                color: context.colorScheme.error,
+              ),
+              SizedBox(height: AppConstants.spacingMD),
+              Text(
+                'Error Loading Payments',
+                style: context.textTheme.titleMedium,
+              ),
+              SizedBox(height: AppConstants.spacingSM),
+              Text(
+                '$error',
+                style: context.textTheme.bodySmall?.copyWith(
+                  color: context.colorScheme.error,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPaymentCard(PaymentModel payment) {
+    final colorScheme = context.colorScheme;
+    final textTheme = context.textTheme;
+
+    return Card(
+      margin: EdgeInsets.only(bottom: AppConstants.spacingMD),
+      elevation: 2,
+      child: Padding(
+        padding: EdgeInsets.all(AppConstants.spacingMD),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header: Payment Info
+            Row(
+              children: [
+                CircleAvatar(
+                  backgroundColor: colorScheme.primary.withValues(alpha: 0.1),
+                  child: Icon(
+                    Iconsax.wallet_money,
+                    color: colorScheme.primary,
+                  ),
+                ),
+                SizedBox(width: AppConstants.spacingSM),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        payment.userName,
+                        style: textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        'Unit: ${payment.unitId}',
+                        style: textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurface.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Amount Badge
+                Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: AppConstants.spacingSM,
+                    vertical: AppConstants.spacingXS,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(AppConstants.radiusSM),
+                  ),
+                  child: Text(
+                    '₱${payment.amount.toStringAsFixed(2)}',
+                    style: textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.primary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            
+            Divider(height: AppConstants.spacingLG),
+            
+            // Payment Details
+            _buildDetailRow('Payment Method', payment.paymentMethod.displayName, Iconsax.card),
+            SizedBox(height: AppConstants.spacingXS),
+            _buildDetailRow(
+              'Transaction Date',
+              _formatDate(payment.transactionDate),
+              Iconsax.calendar,
+            ),
+            SizedBox(height: AppConstants.spacingXS),
+            _buildDetailRow(
+              'Paid For',
+              payment.paidFor.map((c) => c.displayName).join(', '),
+              Iconsax.receipt_item,
+            ),
+            
+            if (payment.notes.isNotEmpty) ...[
+              SizedBox(height: AppConstants.spacingSM),
+              Container(
+                padding: EdgeInsets.all(AppConstants.spacingSM),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(AppConstants.radiusSM),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Iconsax.message_text,
+                      size: 16,
+                      color: colorScheme.onSurface.withValues(alpha: 0.6),
+                    ),
+                    SizedBox(width: AppConstants.spacingXS),
+                    Expanded(
+                      child: Text(
+                        payment.notes,
+                        style: textTheme.bodySmall,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            
+            // Proof of Payment
+            if (payment.proofOfPaymentUrl != null) ...[
+              SizedBox(height: AppConstants.spacingMD),
+              Text(
+                'Proof of Payment',
+                style: textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: AppConstants.spacingSM),
+              InkWell(
+                onTap: () => _showProofImage(payment.proofOfPaymentUrl!),
+                borderRadius: BorderRadius.circular(AppConstants.radiusMD),
+                child: Container(
+                  height: 200,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(AppConstants.radiusMD),
+                    border: Border.all(
+                      color: colorScheme.outline.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(AppConstants.radiusMD),
+                    child: Image.network(
+                      payment.proofOfPaymentUrl!,
+                      fit: BoxFit.cover,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Center(
+                          child: CircularProgressIndicator(
+                            value: loadingProgress.expectedTotalBytes != null
+                                ? loadingProgress.cumulativeBytesLoaded /
+                                    loadingProgress.expectedTotalBytes!
+                                : null,
+                          ),
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) {
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Iconsax.gallery_slash,
+                                size: 48,
+                                color: colorScheme.error,
+                              ),
+                              SizedBox(height: AppConstants.spacingSM),
+                              Text(
+                                'Failed to load image',
+                                style: textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.error,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(height: AppConstants.spacingXS),
+              Center(
+                child: TextButton.icon(
+                  onPressed: () => _showProofImage(payment.proofOfPaymentUrl!),
+                  icon: const Icon(Iconsax.eye, size: 16),
+                  label: const Text('View Full Size'),
+                ),
+              ),
+            ],
+            
+            SizedBox(height: AppConstants.spacingMD),
+            
+            // Action Buttons
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () => _approvePayment(payment),
+                    icon: const Icon(Iconsax.tick_circle),
+                    label: const Text('Approve'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ),
+                SizedBox(width: AppConstants.spacingSM),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _rejectPayment(payment),
+                    icon: const Icon(Iconsax.close_circle),
+                    label: const Text('Reject'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: colorScheme.error,
+                      side: BorderSide(color: colorScheme.error),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildPaymentCard(payment) {
-    // TODO: Implement payment validation card
-    return Card(
-      margin: EdgeInsets.only(bottom: AppConstants.spacingMD),
-      child: Padding(
-        padding: EdgeInsets.all(AppConstants.spacingMD),
-        child: const Text('Payment validation card - Coming soon'),
+  Widget _buildDetailRow(String label, String value, IconData icon) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          size: 16,
+          color: context.colorScheme.onSurface.withValues(alpha: 0.6),
+        ),
+        SizedBox(width: AppConstants.spacingXS),
+        Text(
+          '$label: ',
+          style: context.textTheme.bodySmall?.copyWith(
+            color: context.colorScheme.onSurface.withValues(alpha: 0.6),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: context.textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    const months = [
+      '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return '${months[date.month]} ${date.day}, ${date.year} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  }
+
+  void _showProofImage(String imageUrl) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AppBar(
+              title: const Text('Proof of Payment'),
+              automaticallyImplyLeading: false,
+              actions: [
+                IconButton(
+                  icon: const Icon(Iconsax.close_circle),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            Expanded(
+              child: InteractiveViewer(
+                minScale: 0.5,
+                maxScale: 4.0,
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.contain,
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return Center(
+                      child: CircularProgressIndicator(
+                        value: loadingProgress.expectedTotalBytes != null
+                            ? loadingProgress.cumulativeBytesLoaded /
+                                loadingProgress.expectedTotalBytes!
+                            : null,
+                      ),
+                    );
+                  },
+                  errorBuilder: (context, error, stackTrace) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Iconsax.gallery_slash,
+                            size: 64,
+                            color: context.colorScheme.error,
+                          ),
+                          SizedBox(height: AppConstants.spacingMD),
+                          Text(
+                            'Failed to load image',
+                            style: context.textTheme.bodyLarge?.copyWith(
+                              color: context.colorScheme.error,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  Future<void> _approvePayment(PaymentModel payment) async {
+    final adminUser = AuthRepository.instance.authUser;
+    if (adminUser == null) {
+      Loaders.errorSnackBar(
+        context,
+        title: 'Error',
+        message: 'Admin user not found',
+      );
+      return;
+    }
+
+    // Show confirmation dialog
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Approve Payment'),
+        content: Text(
+          'Approve payment of ₱${payment.amount.toStringAsFixed(2)} from ${payment.userName}?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.green,
+            ),
+            child: const Text('Approve'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      final repository = ref.read(billingRepositoryProvider);
+      await repository.verifyPayment(
+        paymentId: payment.paymentId,
+        adminUserId: adminUser.uid,
+        approve: true,
+        adminNotes: 'Payment approved by admin',
+      );
+
+      if (mounted) {
+        Loaders.successSnackBar(
+          context,
+          title: 'Success',
+          message: 'Payment approved successfully',
+        );
+      }
+
+      // Refresh the payments list
+      ref.invalidate(pendingVerificationPaymentsProvider);
+    } catch (e) {
+      print('❌ Error approving payment: $e');
+      if (mounted) {
+        Loaders.errorSnackBar(
+          context,
+          title: 'Error',
+          message: 'Failed to approve payment: $e',
+        );
+      }
+    }
+  }
+
+  Future<void> _rejectPayment(PaymentModel payment) async {
+    final adminUser = AuthRepository.instance.authUser;
+    if (adminUser == null) {
+      Loaders.errorSnackBar(
+        context,
+        title: 'Error',
+        message: 'Admin user not found',
+      );
+      return;
+    }
+
+    // Show rejection reason dialog
+    String? rejectionReason;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reject Payment'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Reject payment of ₱${payment.amount.toStringAsFixed(2)} from ${payment.userName}?',
+            ),
+            SizedBox(height: AppConstants.spacingMD),
+            TextField(
+              decoration: const InputDecoration(
+                labelText: 'Rejection Reason',
+                hintText: 'Enter reason for rejection',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 3,
+              onChanged: (value) => rejectionReason = value,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: context.colorScheme.error,
+            ),
+            child: const Text('Reject'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    if (rejectionReason == null || rejectionReason!.trim().isEmpty) {
+      Loaders.warningSnackBar(
+        context,
+        title: 'Warning',
+        message: 'Please provide a rejection reason',
+      );
+      return;
+    }
+
+    try {
+      final repository = ref.read(billingRepositoryProvider);
+      await repository.verifyPayment(
+        paymentId: payment.paymentId,
+        adminUserId: adminUser.uid,
+        approve: false,
+        adminNotes: rejectionReason!,
+      );
+
+      if (mounted) {
+        Loaders.successSnackBar(
+          context,
+          title: 'Success',
+          message: 'Payment rejected',
+        );
+      }
+
+      // Refresh the payments list
+      ref.invalidate(pendingVerificationPaymentsProvider);
+    } catch (e) {
+      print('❌ Error rejecting payment: $e');
+      if (mounted) {
+        Loaders.errorSnackBar(
+          context,
+          title: 'Error',
+          message: 'Failed to reject payment: $e',
+        );
+      }
+    }
   }
 
   // ==================== TAB 3: BILLS OVERVIEW ====================

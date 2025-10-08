@@ -3,6 +3,13 @@
 ## Overview
 This document outlines the Firebase Firestore database structure for the billing and payment system.
 
+**Last Updated:** October 2025  
+**Recent Changes:**
+- Removed `additionalCharges` array from bill storage (data now only in `paymentBreakdown`)
+- Added optional `description` field to `paymentBreakdown.additionalCharges` 
+- Unified fixed charges (trash, wifi, parking) at property level in `fixedCharges` map
+- Removed unit-level parking references
+
 ---
 
 ## Collections Structure
@@ -61,33 +68,10 @@ Each bill document represents a monthly billing statement for a tenant.
     }
   },
   
-  // Additional Charges
-  "additionalCharges": [
-    {
-      "chargeId": "CHARGE_001",
-      "description": "Trash Collection",
-      "amount": 200.00,
-      "category": "trash"
-    },
-    {
-      "chargeId": "CHARGE_002",
-      "description": "WiFi",
-      "amount": 500.00,
-      "category": "wifi"
-    },
-    {
-      "chargeId": "CHARGE_003",
-      "description": "Parking Fee",
-      "amount": 1000.00,
-      "category": "parking"
-    },
-    {
-      "chargeId": "CHARGE_004",
-      "description": "Additional Charges",
-      "amount": 300.00,
-      "category": "other"
-    }
-  ],
+  // Additional Charges (DEPRECATED - October 2025)
+  // This field is no longer stored in new bills. Data is now only in paymentBreakdown.
+  // Kept in BillModel for backward compatibility with old bills.
+  // "additionalCharges": [],  // Always empty for new bills
   
   // Bill Summary
   "summary": {
@@ -161,7 +145,8 @@ Each bill document represents a monthly billing statement for a tenant.
       "amountPaid": 0.00,
       "balance": 300.00,
       "isPaid": false,
-      "paidAt": null
+      "paidAt": null,
+      "description": "Late payment penalty"  // Optional: Admin-provided description
     }
   },
   
@@ -226,6 +211,11 @@ Each property has its own utility rates and fixed charges.
       "amount": 500.00,
       "enabled": true,
       "description": "WiFi Service"
+    },
+    "parking": {
+      "amount": 1000.00,
+      "enabled": true,
+      "description": "Parking Fee"
     }
   },
   
@@ -255,12 +245,9 @@ Each unit stores the last meter readings for the next billing cycle.
     "tenantId": "USER123"
   },
   
-  // Parking
-  "parking": {
-    "hasParking": true,
-    "parkingFee": 1000.00,
-    "parkingSlot": "P-101"
-  },
+  // Parking (DEPRECATED - October 2025)
+  // Parking is now managed at property level in fixedCharges.
+  // This field may exist in legacy units but is no longer used for billing.
   
   // Last Meter Readings (used as previous reading for next billing)
   "lastReadings": {
@@ -1163,256 +1150,11 @@ If you have existing data, follow this migration:
 
 ---
 
-## Implementation Guide
-
-### Models Created ✅
-
-All models are located in `lib/src/features/billing/domain/`:
-
-1. **billing_models.dart** - Supporting models:
-   - `BillingPeriod` - Billing cycle information
-   - `UtilityCharge` - Electricity/water charges
-   - `AdditionalCharge` - Extra charges
-   - `PaymentBreakdownItem` - Partial payment tracking
-
-2. **bill_model.dart** - Main bill model:
-   - `BillModel` - Complete bill with all charges and payment tracking
-   - `BillStatus` enum - pending, partiallyPaid, paid, overdue, cancelled
-
-3. **payment_model.dart** - Payment model:
-   - `PaymentModel` - Payment transaction with allocation tracking
-   - `PaymentType` enum - full, partial
-   - `PaymentStatus` enum - pending, completed, failed, refunded
-   - `PaymentVerificationStatus` enum - pendingVerification, verified, rejected
-   - `PaymentMethod` enum - gcash, bdo, cash, bankTransfer, creditCard
-   - `PaymentCategory` enum - rent, electricity, water, additionalCharges
-
-### Repository Created ✅
-
-**billing_repository.dart** - Located in `lib/src/features/billing/data/`:
-
-Provides all Firebase operations:
-- `getUserBills()` - Get all bills for a user
-- `getUnpaidBills()` - Get unpaid bills
-- `getOverdueBills()` - Get overdue bills  
-- `getPartiallyPaidBills()` - Get partially paid bills
-- `getBillById()` - Get specific bill
-- `createBill()` - Create new bill (Admin)
-- `getUserPayments()` - Get user's payment history
-- `getBillPayments()` - Get payments for specific bill
-- `getPendingVerificationPayments()` - Get unverified payments (Admin)
-- `submitPartialPayment()` - Submit partial payment
-- `verifyPayment()` - Approve/reject payment (Admin)
-- `getUnpaidBreakdown()` - Get what's still unpaid in a bill
-
-### Riverpod Providers Created ✅
-
-**billing_providers.dart** - Located in `lib/src/features/billing/presentation/`:
-
-Stream Providers:
-- `userBillsProvider(userId)` - Real-time bills stream
-- `unpaidBillsProvider(userId)` - Real-time unpaid bills
-- `overdueBillsProvider(userId)` - Real-time overdue bills
-- `partiallyPaidBillsProvider(userId)` - Real-time partially paid bills
-- `userPaymentsProvider(userId)` - Real-time payment history
-- `billPaymentsProvider(billId)` - Real-time payments for a bill
-- `pendingVerificationPaymentsProvider` - Real-time pending payments (Admin)
-
-Future Providers:
-- `billProvider(billId)` - Get single bill
-- `unpaidBreakdownProvider(billId)` - Get unpaid breakdown
-
-Computed Providers:
-- `totalUnpaidAmountProvider(userId)` - Calculate total unpaid
-- `unpaidBillsCountProvider(userId)` - Count unpaid bills
-- `overdueBillsCountProvider(userId)` - Count overdue bills
-- `billsDueSoonProvider(userId)` - Get bills due within 3 days
-
-### Usage Examples
-
-#### Import the billing feature:
-\`\`\`dart
-import 'package:application_pinesville/src/features/billing/billing.dart';
-\`\`\`
-
-#### Display user's bills:
-\`\`\`dart
-class BillsScreen extends ConsumerWidget {
-  final String userId;
-  
-  const BillsScreen({required this.userId});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final billsAsync = ref.watch(userBillsProvider(userId));
-    
-    return billsAsync.when(
-      data: (bills) => ListView.builder(
-        itemCount: bills.length,
-        itemBuilder: (context, index) {
-          final bill = bills[index];
-          return ListTile(
-            title: Text('Bill for \${bill.billingPeriod.month}/\${bill.billingPeriod.year}'),
-            subtitle: Text('\${bill.status.displayName} - ₱\${bill.balance.toStringAsFixed(2)} remaining'),
-            trailing: bill.isPaid 
-              ? Icon(Icons.check_circle, color: Colors.green)
-              : bill.isPartiallyPaid
-                ? Icon(Icons.pending, color: Colors.orange)
-                : Icon(Icons.payment, color: Colors.red),
-          );
-        },
-      ),
-      loading: () => Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(child: Text('Error: \$error')),
-    );
-  }
-}
-\`\`\`
-
-#### Submit partial payment:
-\`\`\`dart
-Future<void> payRentOnly(WidgetRef ref, String billId, String userId) async {
-  final repository = ref.read(billingRepositoryProvider);
-  
-  try {
-    await repository.submitPartialPayment(
-      billId: billId,
-      userId: userId,
-      amount: 25000.00,
-      payFor: [PaymentCategory.rent],
-      paymentMethod: PaymentMethod.gcash,
-      paymentDetails: {
-        'provider': 'GCash',
-        'accountNumber': '09171234567',
-        'referenceNumber': 'GCASH-REF-123456',
-      },
-      proofOfPaymentUrl: 'https://storage.../proof.jpg',
-      notes: 'Payment for rent only',
-    );
-    
-    // Show success message
-    Loaders.successSnackBar(
-      title: 'Payment Submitted',
-      message: 'Your payment is pending verification',
-    );
-  } catch (e) {
-    Loaders.errorSnackBar(
-      title: 'Payment Failed',
-      message: e.toString(),
-    );
-  }
-}
-\`\`\`
-
-#### Show bill details with partial payment tracking:
-\`\`\`dart
-class BillDetailsScreen extends ConsumerWidget {
-  final String billId;
-  
-  const BillDetailsScreen({required this.billId});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final billAsync = ref.watch(billProvider(billId));
-    
-    return billAsync.when(
-      data: (bill) {
-        if (bill == null) return Center(child: Text('Bill not found'));
-        
-        return ListView(
-          children: [
-            // Rent
-            PaymentBreakdownTile(
-              title: 'Rent',
-              amount: bill.rentBreakdown.amount,
-              paid: bill.rentBreakdown.amountPaid,
-              balance: bill.rentBreakdown.balance,
-              isPaid: bill.rentBreakdown.isPaid,
-            ),
-            // Electricity
-            PaymentBreakdownTile(
-              title: 'Electricity',
-              amount: bill.electricityBreakdown.amount,
-              paid: bill.electricityBreakdown.amountPaid,
-              balance: bill.electricityBreakdown.balance,
-              isPaid: bill.electricityBreakdown.isPaid,
-            ),
-            // Water
-            PaymentBreakdownTile(
-              title: 'Water',
-              amount: bill.waterBreakdown.amount,
-              paid: bill.waterBreakdown.amountPaid,
-              balance: bill.waterBreakdown.balance,
-              isPaid: bill.waterBreakdown.isPaid,
-            ),
-            // Total
-            Divider(),
-            ListTile(
-              title: Text('Total', style: TextStyle(fontWeight: FontWeight.bold)),
-              trailing: Text(
-                '₱\${bill.total.toStringAsFixed(2)}',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
-            ListTile(
-              title: Text('Paid'),
-              trailing: Text('₱\${bill.amountPaid.toStringAsFixed(2)}'),
-            ),
-            ListTile(
-              title: Text('Balance', style: TextStyle(fontWeight: FontWeight.bold)),
-              trailing: Text(
-                '₱\${bill.balance.toStringAsFixed(2)}',
-                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
-              ),
-            ),
-          ],
-        );
-      },
-      loading: () => Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(child: Text('Error: \$error')),
-    );
-  }
-}
-\`\`\`
-
-#### Admin: Verify payments:
-\`\`\`dart
-Future<void> approvePayment(WidgetRef ref, String paymentId) async {
-  final repository = ref.read(billingRepositoryProvider);
-  final currentUser = FirebaseAuth.instance.currentUser!;
-  
-  try {
-    await repository.verifyPayment(
-      paymentId: paymentId,
-      adminUserId: currentUser.uid,
-      approve: true,
-      adminNotes: 'Payment verified and approved',
-    );
-    
-    Loaders.successSnackBar(
-      title: 'Payment Approved',
-      message: 'The payment has been verified and applied to the bill',
-    );
-  } catch (e) {
-    Loaders.errorSnackBar(
-      title: 'Verification Failed',
-      message: e.toString(),
-    );
-  }
-}
-\`\`\`
-
----
-
-**Last Updated:** September 30, 2025  
-**Version:** 1.1  
-**Status:** Models & Repository Implemented ✅
+**Last Updated:** October 7, 2025  
+**Version:** 1.2  
+**Status:** Database Schema Reference ✅
 
 **Changelog:**
-- v1.1: Added comprehensive partial payment support with payment breakdown tracking
-- v1.1: Implemented Dart models, repository, and Riverpod providers
-- v1.0: Initial database structure
-
-**Changelog:**
-- v1.1: Added comprehensive partial payment support with payment breakdown tracking
+- v1.2 (Oct 2025): Removed `additionalCharges` array, added description field, unified fixed charges at property level
+- v1.1 (Sep 2025): Added comprehensive partial payment support with payment breakdown tracking
 - v1.0: Initial database structure

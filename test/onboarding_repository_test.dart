@@ -1,14 +1,44 @@
+import 'dart:io';
+
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:untitled/src/features/onboarding/data/onboarding_repository.dart';
 
+const MethodChannel _pathProviderChannel = MethodChannel('plugins.flutter.io/path_provider');
+
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('OnboardingRepository', () {
     late OnboardingRepository repository;
+    late Directory tempDirectory;
 
     setUpAll(() async {
-      // Initialize GetStorage for testing
+      tempDirectory = await Directory.systemTemp.createTemp('onboarding_repo_test_');
+
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(_pathProviderChannel, (methodCall) async {
+        if (methodCall.method == 'getApplicationDocumentsDirectory') {
+          return tempDirectory.path;
+        }
+        return null;
+      });
+
+      // Initialize GetStorage for testing using the mocked path provider
       await GetStorage.init();
+    });
+
+    tearDownAll(() async {
+      await GetStorage().erase();
+
+      try {
+        if (await tempDirectory.exists()) {
+          await tempDirectory.delete(recursive: true);
+        }
+      } catch (_) {
+        // Ignore deletion failures on platforms that keep file handles open.
+      }
     });
 
     setUp(() {

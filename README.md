@@ -43,6 +43,15 @@ A comprehensive Flutter-based mobile application for residential property manage
 - Secure user registration and login
 - Password reset functionality
 - Session management with automatic logout
+- **Role-based access control (Admin/Tenant)**
+
+### 🔧 **Admin Management System**
+- **Admin Dashboard**: Visual property overview, stats, and quick actions
+- **Tenant Management**: Search, filter, and manage all tenant records
+- **Billing Management**: Track payment statuses and generate billing statements
+- **Reports & Analytics**: Financial and occupancy insights with filtering
+- **Announcements**: Create and manage property-wide communications
+- **Role-based Navigation**: Separate admin and tenant interfaces
 
 ## 🛠 Technical Architecture
 
@@ -174,9 +183,20 @@ Users/{userId}/
 - **Accessibility**: WCAG compliant with proper contrast ratios
 
 ### Responsive Design
-- Optimized for mobile devices (iOS and Android)
-- Adaptive layouts for different screen sizes
+- Optimized for Android devices
+- Adaptive layouts for different screen sizes (mobile, tablet, desktop)
 - Touch-friendly interactive elements
+- **Navigation System:**
+  - Side navigation rail for tablets in landscape mode
+  - Bottom navigation for mobile and portrait tablets
+  - Adaptive icons and labels with proper scaling
+- **Tablet Mode Optimizations:**
+  - Admin dashboard with responsive grid layouts
+  - Multi-column tenant management view  
+  - Adaptive content width and spacing
+  - Responsive navigation and component scaling
+  - Two-panel layouts for better space utilization
+  - **Font Scaling Fixes:** Prevents oversized text on tablets
 
 ## 🧪 Testing
 
@@ -193,8 +213,6 @@ flutter test
 ## 📱 Supported Platforms
 
 - **Android** (API level 21+)
-- **iOS** (iOS 12+)
-- Web support (limited features)
 
 ## 🔧 Development Tools
 
@@ -205,9 +223,27 @@ flutter test
 
 ## 📄 Documentation
 
-- [User Profile Implementation](USER_PROFILE_IMPLEMENTATION.md)
-- [Onboarding Documentation](ONBOARDING_DOCUMENTATION.md)
-- [API Documentation](docs/api.md) *(coming soon)*
+### 📚 Complete Documentation
+All documentation has been organized into a structured folder system. See **[Documentation Index](docs/README.md)** for complete navigation.
+
+### 🚀 Quick Access
+- **[Billing System](docs/features/billing/README.md)** - Complete billing implementation guide
+- **[Consumption Analytics](docs/features/consumption-analytics/README.md)** - Usage tracking and analysis
+- **[Database Structure](docs/database/billing-structure.md)** - Firestore schema reference
+- **[Quick References](docs/quick-references/README.md)** - Code snippets for rapid development
+- **[Implementation Checklist](docs/guides/implementation-checklist.md)** - Project status and roadmap
+
+### 📖 By Feature
+- [Billing Documentation](docs/features/billing/) - Payment processing and bill management
+- [Consumption Analytics](docs/features/consumption-analytics/) - Utility usage tracking
+- [User Profile](docs/features/user-profile/) - Profile management
+- [Onboarding](docs/features/onboarding/) - First-time user experience
+- [Reports](docs/features/reports/) - Reporting and analytics
+
+### 📋 Project Status
+- [Phase 1 Completion](docs/project-phases/phase-1-completion.md) - Foundation features ✅
+- [Phase 2 Completion](docs/project-phases/phase-2-completion.md) - Billing system ✅
+- [Implementation Checklist](docs/guides/implementation-checklist.md) - Current status and roadmap
 
 ## 🤝 Contributing
 

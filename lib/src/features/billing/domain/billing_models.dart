@@ -146,6 +146,7 @@ class PaymentBreakdownItem {
   final double balance;
   final bool isPaid;
   final DateTime? paidAt;
+  final String? description; // Optional description for additional charges
 
   const PaymentBreakdownItem({
     required this.amount,
@@ -153,6 +154,7 @@ class PaymentBreakdownItem {
     required this.balance,
     required this.isPaid,
     this.paidAt,
+    this.description,
   });
 
   Map<String, dynamic> toMap() {
@@ -162,6 +164,7 @@ class PaymentBreakdownItem {
       'balance': balance,
       'isPaid': isPaid,
       'paidAt': paidAt?.toIso8601String(),
+      if (description != null) 'description': description,
     };
   }
 
@@ -172,6 +175,7 @@ class PaymentBreakdownItem {
       balance: (map['balance'] as num).toDouble(),
       isPaid: map['isPaid'] as bool,
       paidAt: map['paidAt'] != null ? DateTime.parse(map['paidAt'] as String) : null,
+      description: map['description'] as String?,
     );
   }
 
@@ -181,6 +185,7 @@ class PaymentBreakdownItem {
     double? balance,
     bool? isPaid,
     DateTime? paidAt,
+    String? description,
   }) {
     return PaymentBreakdownItem(
       amount: amount ?? this.amount,
@@ -188,6 +193,7 @@ class PaymentBreakdownItem {
       balance: balance ?? this.balance,
       isPaid: isPaid ?? this.isPaid,
       paidAt: paidAt ?? this.paidAt,
+      description: description ?? this.description,
     );
   }
 }

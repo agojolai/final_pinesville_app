@@ -300,7 +300,7 @@ class AdminBillDetailScreen extends ConsumerWidget {
                 bill.additionalChargesBreakdown.amount,
                 bill.additionalChargesBreakdown.isPaid,
                 bill.additionalChargesBreakdown.amountPaid,
-                details: bill.additionalCharges.isNotEmpty ? bill.additionalCharges.first.description : null,
+                details: bill.additionalChargesBreakdown.description, // Show admin's description
               ),
             if (bill.lateFee > 0)
               _buildChargeRow(

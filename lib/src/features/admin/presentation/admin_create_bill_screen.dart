@@ -29,6 +29,7 @@ class _AdminCreateBillScreenState extends ConsumerState<AdminCreateBillScreen> {
   final _formKey = GlobalKey<FormState>();
   
   // Controllers for input fields
+  final _rentController = TextEditingController();
   final _electricityReadingController = TextEditingController();
   final _waterReadingController = TextEditingController();
   final _trashChargeController = TextEditingController();
@@ -37,7 +38,15 @@ class _AdminCreateBillScreenState extends ConsumerState<AdminCreateBillScreen> {
   final _additionalChargesController = TextEditingController();
   final _additionalChargesDescController = TextEditingController();
   
+  // Track if fields have been focused (for auto-clear behavior)
+  bool _electricityFocused = false;
+  bool _waterFocused = false;
+  
+  // Track if fixed charges have been initialized from property data
+  bool _fixedChargesInitialized = false;
+  
   // Calculated values
+  double _rentAmount = 0.0;
   double _electricityConsumption = 0.0;
   double _waterConsumption = 0.0;
   double _electricityCost = 0.0;
@@ -57,7 +66,11 @@ class _AdminCreateBillScreenState extends ConsumerState<AdminCreateBillScreen> {
   }
 
   void _initializeDefaultValues() {
-    // Set default values from unit info if available
+    // Set rent default
+    _rentController.text = widget.unit.monthlyRent.toStringAsFixed(2);
+    _rentAmount = widget.unit.monthlyRent;
+    
+    // Set previous readings as placeholders (will clear on first focus)
     if (widget.unit.lastElectricityReading != null) {
       _electricityReadingController.text = widget.unit.lastElectricityReading!.reading.toString();
     }
@@ -65,7 +78,10 @@ class _AdminCreateBillScreenState extends ConsumerState<AdminCreateBillScreen> {
       _waterReadingController.text = widget.unit.lastWaterReading!.reading.toString();
     }
     
+    // Note: Trash, WiFi, and Parking will be initialized from property fixedCharges in build()
+    
     // Add listeners to recalculate on changes
+    _rentController.addListener(_calculateTotal);
     _electricityReadingController.addListener(_calculateTotal);
     _waterReadingController.addListener(_calculateTotal);
     _trashChargeController.addListener(_calculateTotal);
@@ -76,6 +92,7 @@ class _AdminCreateBillScreenState extends ConsumerState<AdminCreateBillScreen> {
 
   @override
   void dispose() {
+    _rentController.dispose();
     _electricityReadingController.dispose();
     _waterReadingController.dispose();
     _trashChargeController.dispose();
@@ -93,6 +110,9 @@ class _AdminCreateBillScreenState extends ConsumerState<AdminCreateBillScreen> {
       if (rates == null) return;
       
       setState(() {
+        // Parse rent (now editable)
+        _rentAmount = double.tryParse(_rentController.text) ?? widget.unit.monthlyRent;
+        
         // Calculate electricity
         final currentElecReading = double.tryParse(_electricityReadingController.text) ?? 0.0;
         final lastElecReading = widget.unit.lastElectricityReading?.reading ?? 0.0;
@@ -105,14 +125,14 @@ class _AdminCreateBillScreenState extends ConsumerState<AdminCreateBillScreen> {
         _waterConsumption = currentWaterReading - lastWaterReading;
         _waterCost = _waterConsumption * rates.waterRatePerCubicMeter;
         
-        // Parse other charges
+        // Parse fixed charges
         _trashCharge = double.tryParse(_trashChargeController.text) ?? 0.0;
         _wifiCharge = double.tryParse(_wifiChargeController.text) ?? 0.0;
         _parkingCharge = double.tryParse(_parkingChargeController.text) ?? 0.0;
         _additionalCharges = double.tryParse(_additionalChargesController.text) ?? 0.0;
         
         // Calculate total
-        _totalAmount = widget.unit.monthlyRent + 
+        _totalAmount = _rentAmount + 
                        _electricityCost + 
                        _waterCost + 
                        _trashCharge + 
@@ -139,16 +159,15 @@ class _AdminCreateBillScreenState extends ConsumerState<AdminCreateBillScreen> {
       final currentElecReading = double.tryParse(_electricityReadingController.text) ?? 0.0;
       final currentWaterReading = double.tryParse(_waterReadingController.text) ?? 0.0;
       
-      // Build additional charges map
+      // Build additional charges map with correct keys for repository
       final Map<String, double> additionalChargesMap = {};
-      if (_trashCharge > 0) additionalChargesMap['Trash Collection'] = _trashCharge;
-      if (_wifiCharge > 0) additionalChargesMap['WiFi'] = _wifiCharge;
-      if (_parkingCharge > 0) additionalChargesMap['Parking'] = _parkingCharge;
+      // Fixed charges use lowercase keys to match repository expectations
+      if (_trashCharge > 0) additionalChargesMap['trash'] = _trashCharge;
+      if (_wifiCharge > 0) additionalChargesMap['wifi'] = _wifiCharge;
+      if (_parkingCharge > 0) additionalChargesMap['parking'] = _parkingCharge;
+      // Truly additional charges go under 'other' key
       if (_additionalCharges > 0) {
-        final desc = _additionalChargesDescController.text.isEmpty 
-            ? 'Additional Charge'
-            : _additionalChargesDescController.text;
-        additionalChargesMap[desc] = _additionalCharges;
+        additionalChargesMap['other'] = _additionalCharges;
       }
       
       await repository.createBillFromInput(
@@ -159,6 +178,10 @@ class _AdminCreateBillScreenState extends ConsumerState<AdminCreateBillScreen> {
         electricityCurrent: currentElecReading,
         waterCurrent: currentWaterReading,
         additionalCharges: additionalChargesMap,
+        additionalChargesDescription: _additionalChargesDescController.text.trim().isEmpty 
+            ? null 
+            : _additionalChargesDescController.text.trim(),
+        rentOverride: _rentAmount != widget.unit.monthlyRent ? _rentAmount : null,
       );
       
       if (mounted) {
@@ -224,6 +247,73 @@ class _AdminCreateBillScreenState extends ConsumerState<AdminCreateBillScreen> {
             );
           }
 
+          // Initialize fixed charges from property data (only once)
+          if (!_fixedChargesInitialized) {
+            print('🔍 TRACE UI: Fixed charges not initialized yet, scheduling callback');
+            print('🔍 TRACE UI: rates.fixedCharges = ${rates.fixedCharges}');
+            print('🔍 TRACE UI: rates.fixedCharges.keys = ${rates.fixedCharges.keys}');
+            
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              print('🔍 TRACE UI: PostFrameCallback executing');
+              if (mounted) {
+                print('✅ TRACE UI: Widget is mounted, proceeding with initialization');
+                
+                // Set trash charge if available and enabled
+                if (rates.fixedCharges.containsKey('trash')) {
+                  final trashCharge = rates.fixedCharges['trash']!;
+                  print('🔍 TRACE UI: Found trash charge - amount: ${trashCharge.amount}, enabled: ${trashCharge.enabled}');
+                  if (trashCharge.enabled) {
+                    _trashChargeController.text = trashCharge.amount.toStringAsFixed(2);
+                    _trashCharge = trashCharge.amount;
+                    print('✅ TRACE UI: Set trash charge to ${trashCharge.amount}');
+                  } else {
+                    print('⚠️ TRACE UI: Trash charge is disabled');
+                  }
+                } else {
+                  print('⚠️ TRACE UI: No trash charge found in fixedCharges');
+                }
+                
+                // Set WiFi charge if available and enabled
+                if (rates.fixedCharges.containsKey('wifi')) {
+                  final wifiCharge = rates.fixedCharges['wifi']!;
+                  print('🔍 TRACE UI: Found wifi charge - amount: ${wifiCharge.amount}, enabled: ${wifiCharge.enabled}');
+                  if (wifiCharge.enabled) {
+                    _wifiChargeController.text = wifiCharge.amount.toStringAsFixed(2);
+                    _wifiCharge = wifiCharge.amount;
+                    print('✅ TRACE UI: Set WiFi charge to ${wifiCharge.amount}');
+                  } else {
+                    print('⚠️ TRACE UI: WiFi charge is disabled');
+                  }
+                } else {
+                  print('⚠️ TRACE UI: No wifi charge found in fixedCharges');
+                }
+                
+                // Set parking charge if available and enabled
+                if (rates.fixedCharges.containsKey('parking')) {
+                  final parkingCharge = rates.fixedCharges['parking']!;
+                  print('🔍 TRACE UI: Found parking charge - amount: ${parkingCharge.amount}, enabled: ${parkingCharge.enabled}');
+                  if (parkingCharge.enabled) {
+                    _parkingChargeController.text = parkingCharge.amount.toStringAsFixed(2);
+                    _parkingCharge = parkingCharge.amount;
+                    print('✅ TRACE UI: Set parking charge to ${parkingCharge.amount}');
+                  } else {
+                    print('⚠️ TRACE UI: Parking charge is disabled');
+                  }
+                } else {
+                  print('⚠️ TRACE UI: No parking charge found in fixedCharges');
+                }
+                
+                _fixedChargesInitialized = true;
+                print('✅ TRACE UI: Fixed charges initialization complete, calling _calculateTotal()');
+                _calculateTotal();
+              } else {
+                print('⚠️ TRACE UI: Widget not mounted, skipping initialization');
+              }
+            });
+          } else {
+            print('ℹ️ TRACE UI: Fixed charges already initialized, skipping');
+          }
+
           return Form(
             key: _formKey,
             child: ListView(
@@ -233,10 +323,14 @@ class _AdminCreateBillScreenState extends ConsumerState<AdminCreateBillScreen> {
                 _buildInfoHeader(),
                 SizedBox(height: AppConstants.spacingLG),
                 
+                // Rent Input (now editable)
+                _buildRentSection(),
+                SizedBox(height: AppConstants.spacingLG),
+                
                 // Rates Info
                 _buildRatesInfo(rates),
                 SizedBox(height: AppConstants.spacingLG),
-                
+                 
                 // Previous Readings Section
                 _buildPreviousReadingsSection(),
                 SizedBox(height: AppConstants.spacingLG),
@@ -301,7 +395,6 @@ class _AdminCreateBillScreenState extends ConsumerState<AdminCreateBillScreen> {
             _buildInfoRow('Property', widget.propertyName),
             _buildInfoRow('Unit', widget.unit.unitNumber),
             _buildInfoRow('Tenant ID', widget.unit.tenantId ?? 'N/A'),
-            _buildInfoRow('Monthly Rent', '₱${widget.unit.monthlyRent.toStringAsFixed(2)}'),
             _buildInfoRow('Period', '${DateTime.now().month}/${DateTime.now().year}'),
           ],
         ),
@@ -328,6 +421,49 @@ class _AdminCreateBillScreenState extends ConsumerState<AdminCreateBillScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildRentSection() {
+    return Card(
+      child: Padding(
+        padding: EdgeInsets.all(AppConstants.spacingMD),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Monthly Rent',
+              style: context.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            SizedBox(height: AppConstants.spacingMD),
+            TextFormField(
+              controller: _rentController,
+              decoration: InputDecoration(
+                labelText: 'Rent Amount',
+                prefixIcon: const Icon(Iconsax.home),
+                prefixText: '₱ ',
+                helperText: 'Default: ₱${widget.unit.monthlyRent.toStringAsFixed(2)} (editable for prorated/adjusted rent)',
+              ),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+              ],
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter rent amount';
+                }
+                final amount = double.tryParse(value);
+                if (amount == null || amount < 0) {
+                  return 'Please enter a valid amount';
+                }
+                return null;
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -457,6 +593,13 @@ class _AdminCreateBillScreenState extends ConsumerState<AdminCreateBillScreen> {
             SizedBox(height: AppConstants.spacingMD),
             TextFormField(
               controller: _electricityReadingController,
+              onTap: () {
+                // Clear previous reading on first focus
+                if (!_electricityFocused) {
+                  _electricityReadingController.clear();
+                  _electricityFocused = true;
+                }
+              },
               decoration: InputDecoration(
                 labelText: 'Electricity Reading (kWh)',
                 prefixIcon: const Icon(Iconsax.flash),
@@ -495,6 +638,13 @@ class _AdminCreateBillScreenState extends ConsumerState<AdminCreateBillScreen> {
             SizedBox(height: AppConstants.spacingMD),
             TextFormField(
               controller: _waterReadingController,
+              onTap: () {
+                // Clear previous reading on first focus
+                if (!_waterFocused) {
+                  _waterReadingController.clear();
+                  _waterFocused = true;
+                }
+              },
               decoration: InputDecoration(
                 labelText: 'Water Reading (m³)',
                 prefixIcon: const Icon(Iconsax.drop),
@@ -652,7 +802,7 @@ class _AdminCreateBillScreenState extends ConsumerState<AdminCreateBillScreen> {
               ),
             ),
             SizedBox(height: AppConstants.spacingMD),
-            _buildSummaryRow('Rent', widget.unit.monthlyRent),
+            _buildSummaryRow('Rent', _rentAmount),
             _buildSummaryRow('⚡ Electricity', _electricityCost),
             _buildSummaryRow('💧 Water', _waterCost),
             _buildSummaryRow('🗑️ Trash', _trashCharge),

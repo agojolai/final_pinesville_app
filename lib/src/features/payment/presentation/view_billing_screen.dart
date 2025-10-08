@@ -73,6 +73,7 @@ class _ViewBillingScreenState extends State<ViewBillingScreen> with TickerProvid
       wifi: bill.wifiBreakdown.amount,
       parking: bill.parkingBreakdown.amount,
       extra: bill.additionalChargesBreakdown.amount,
+      extraDescription: bill.additionalChargesBreakdown.description,
       trash: bill.trashBreakdown.amount,
       discount: bill.discount,
       lateFee: bill.lateFee,
@@ -405,6 +406,7 @@ class _BillBreakdownCard extends StatelessWidget {
               icon: Iconsax.add_circle,
               label: 'Extra Charges',
               amount: billingData.extra,
+              description: billingData.extraDescription,
             ),
           if (billingData.discount > 0)
             _BillLineItem(
@@ -429,11 +431,13 @@ class _BillLineItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final double amount;
+  final String? description;
 
   const _BillLineItem({
     required this.icon,
     required this.label,
     required this.amount,
+    this.description,
   });
 
   @override
@@ -464,11 +468,26 @@ class _BillLineItem extends StatelessWidget {
           ),
           SizedBox(width: AppConstants.spacingSM),
           Expanded(
-            child: Text(
-              label,
-              style: context.textTheme.bodyLarge?.copyWith(
-                fontFamily: 'Montserrat',
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: context.textTheme.bodyLarge?.copyWith(
+                    fontFamily: 'Montserrat',
+                  ),
+                ),
+                if (description != null && description!.isNotEmpty) ...[
+                  SizedBox(height: AppConstants.spacingXS / 2),
+                  Text(
+                    description!,
+                    style: context.textTheme.bodySmall?.copyWith(
+                      color: context.colorScheme.onSurface.withValues(alpha: 0.6),
+                      fontFamily: 'Montserrat',
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
           Text(
@@ -766,6 +785,7 @@ class BillingData {
   final double wifi;
   final double parking;
   final double extra;
+  final String? extraDescription;
   final double trash;
   final double discount;
   final double lateFee;
@@ -785,6 +805,7 @@ class BillingData {
     required this.wifi,
     required this.parking,
     required this.extra,
+    this.extraDescription,
     required this.trash,
     required this.discount,
     required this.lateFee,

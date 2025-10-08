@@ -1,5 +1,7 @@
 ﻿import 'package:cloud_firestore/cloud_firestore.dart';
 
+//THIS FILE IS FOR UNIT MODEL SUBCOLLECTION INSIDE THE PROPERTY COLLECTION
+
 /// Represents the last meter reading for a utility
 class LastMeterReading {
   final double reading;
@@ -48,9 +50,6 @@ class UnitBillingInfo {
   final String propertyId;
   final double monthlyRent;
   final String? tenantId;
-  final bool hasParking;
-  final double parkingFee;
-  final String? parkingSlot;
   final LastMeterReading? lastElectricityReading;
   final LastMeterReading? lastWaterReading;
   final DateTime createdAt;
@@ -62,9 +61,6 @@ class UnitBillingInfo {
     required this.propertyId,
     required this.monthlyRent,
     this.tenantId,
-    this.hasParking = false,
-    this.parkingFee = 0.0,
-    this.parkingSlot,
     this.lastElectricityReading,
     this.lastWaterReading,
     required this.createdAt,
@@ -80,11 +76,6 @@ class UnitBillingInfo {
         'monthlyRent': monthlyRent,
         'status': tenantId != null ? 'occupied' : 'vacant',
         'tenantId': tenantId,
-      },
-      'parking': {
-        'hasParking': hasParking,
-        'parkingFee': parkingFee,
-        'parkingSlot': parkingSlot,
       },
       'lastReadings': {
         'electricity': lastElectricityReading?.toMap(),
@@ -105,7 +96,6 @@ class UnitBillingInfo {
     print('🔍 UnitBillingInfo.fromMap - Map data: $map');
     
     final rentalData = map['rental'] as Map<String, dynamic>?;
-    final parkingData = map['parking'] as Map<String, dynamic>?;
     final lastReadingsData = map['lastReadings'] as Map<String, dynamic>?;
 
     // Defensive null handling with debug info
@@ -121,9 +111,6 @@ class UnitBillingInfo {
       propertyId: propertyId,
       monthlyRent: (rentalData?['monthlyRent'] as num?)?.toDouble() ?? 0.0,
       tenantId: rentalData?['tenantId'] as String?,
-      hasParking: parkingData?['hasParking'] as bool? ?? false,
-      parkingFee: (parkingData?['parkingFee'] as num?)?.toDouble() ?? 0.0,
-      parkingSlot: parkingData?['parkingSlot'] as String?,
       lastElectricityReading: lastReadingsData?['electricity'] != null
           ? LastMeterReading.fromMap(lastReadingsData!['electricity'] as Map<String, dynamic>)
           : null,
@@ -141,9 +128,6 @@ class UnitBillingInfo {
     String? propertyId,
     double? monthlyRent,
     String? tenantId,
-    bool? hasParking,
-    double? parkingFee,
-    String? parkingSlot,
     LastMeterReading? lastElectricityReading,
     LastMeterReading? lastWaterReading,
     DateTime? createdAt,
@@ -155,9 +139,6 @@ class UnitBillingInfo {
       propertyId: propertyId ?? this.propertyId,
       monthlyRent: monthlyRent ?? this.monthlyRent,
       tenantId: tenantId ?? this.tenantId,
-      hasParking: hasParking ?? this.hasParking,
-      parkingFee: parkingFee ?? this.parkingFee,
-      parkingSlot: parkingSlot ?? this.parkingSlot,
       lastElectricityReading: lastElectricityReading ?? this.lastElectricityReading,
       lastWaterReading: lastWaterReading ?? this.lastWaterReading,
       createdAt: createdAt ?? this.createdAt,
@@ -167,7 +148,4 @@ class UnitBillingInfo {
 
   /// Check if unit is occupied
   bool get isOccupied => tenantId != null && tenantId!.isNotEmpty;
-
-  /// Get total monthly charges (rent + parking)
-  double get totalMonthlyCharges => monthlyRent + (hasParking ? parkingFee : 0.0);
 }

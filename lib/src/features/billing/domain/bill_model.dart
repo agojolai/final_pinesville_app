@@ -150,7 +150,7 @@ class BillModel {
         'electricity': electricity.toMap(),
         'water': water.toMap(),
       },
-      'additionalCharges': additionalCharges.map((c) => c.toMap()).toList(),
+      // 'additionalCharges': Removed - redundant with paymentBreakdown
       'summary': {
         'subtotal': subtotal,
         'discount': discount,
@@ -210,9 +210,9 @@ class BillModel {
       rentDescription: rentData['description'] as String,
       electricity: UtilityCharge.fromMap(utilitiesData['electricity'] as Map<String, dynamic>),
       water: UtilityCharge.fromMap(utilitiesData['water'] as Map<String, dynamic>),
-      additionalCharges: (map['additionalCharges'] as List<dynamic>)
-          .map((c) => AdditionalCharge.fromMap(c as Map<String, dynamic>))
-          .toList(),
+      additionalCharges: (map['additionalCharges'] as List<dynamic>?)
+          ?.map((c) => AdditionalCharge.fromMap(c as Map<String, dynamic>))
+          .toList() ?? const [], // Handle null case - field removed from storage
       subtotal: (summaryData['subtotal'] as num).toDouble(),
       discount: (summaryData['discount'] as num).toDouble(),
       discountReason: summaryData['discountReason'] as String? ?? '',
