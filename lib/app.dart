@@ -7,6 +7,7 @@ import 'src/common/widgets/role_based_navigation.dart';
 import 'src/features/auth/providers/auth_provider.dart';
 import 'src/features/onboarding/presentation/onboarding_screen.dart';
 import 'src/features/onboarding/data/onboarding_repository.dart';
+import 'src/core/utils/app_logger.dart';
 
 class App extends ConsumerWidget {
   const App({super.key});
@@ -90,7 +91,7 @@ class App extends ConsumerWidget {
       await Firebase.initializeApp();
     } catch (e) {
       // Firebase might already be initialized
-      print('Firebase initialization: $e');
+      AppLogger.debug('Firebase initialization: $e');
     }
   }
 }

@@ -10,6 +10,7 @@ import '../../billing/domain/unit_billing_model.dart';
 import '../../billing/data/billing_repository.dart';
 import '../../../core/repositories/auth_repository.dart';
 import '../../../core/snackbars/loaders.dart';
+import '../../../core/utils/app_logger.dart';
 import 'admin_create_bill_screen.dart';
 import 'admin_bill_detail_screen.dart';
 
@@ -110,7 +111,7 @@ class _BillingManagementScreenState extends ConsumerState<BillingManagementScree
                 Icon(
                   Iconsax.building,
                   size: 64,
-                  color: context.colorScheme.primary.withOpacity(0.5),
+                  color: context.colorScheme.primary.withValues(alpha: 0.5),
                 ),
                 SizedBox(height: AppConstants.spacingMD),
                 Text(
@@ -121,7 +122,7 @@ class _BillingManagementScreenState extends ConsumerState<BillingManagementScree
                 Text(
                   'Add properties to start creating bills',
                   style: context.textTheme.bodyMedium?.copyWith(
-                    color: context.colorScheme.onSurface.withOpacity(0.6),
+                    color: context.colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
                 ),
               ],
@@ -171,7 +172,7 @@ class _BillingManagementScreenState extends ConsumerState<BillingManagementScree
                   child: Text(
                     'No occupied units in this property',
                     style: context.textTheme.bodyMedium?.copyWith(
-                      color: context.colorScheme.onSurface.withOpacity(0.6),
+                      color: context.colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
                   ),
                 );
@@ -209,8 +210,8 @@ class _BillingManagementScreenState extends ConsumerState<BillingManagementScree
         return ListTile(
           leading: CircleAvatar(
             backgroundColor: isBilled 
-                ? Colors.green.withOpacity(0.2)
-                : Colors.orange.withOpacity(0.2),
+                ? Colors.green.withValues(alpha: 0.2)
+                : Colors.orange.withValues(alpha: 0.2),
             child: Icon(
               isBilled ? Iconsax.tick_circle5 : Iconsax.info_circle,
               color: isBilled ? Colors.green : Colors.orange,
@@ -292,7 +293,7 @@ class _BillingManagementScreenState extends ConsumerState<BillingManagementScree
                 Icon(
                   Iconsax.tick_circle,
                   size: 64,
-                  color: context.colorScheme.primary.withOpacity(0.5),
+                  color: context.colorScheme.primary.withValues(alpha: 0.5),
                 ),
                 SizedBox(height: AppConstants.spacingMD),
                 Text(
@@ -303,7 +304,7 @@ class _BillingManagementScreenState extends ConsumerState<BillingManagementScree
                 Text(
                   'All payments have been verified',
                   style: context.textTheme.bodyMedium?.copyWith(
-                    color: context.colorScheme.onSurface.withOpacity(0.6),
+                    color: context.colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
                 ),
               ],
@@ -322,8 +323,7 @@ class _BillingManagementScreenState extends ConsumerState<BillingManagementScree
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stack) {
-        print('❌ Error loading payments: $error');
-        print('📋 Stack trace: $stack');
+        AppLogger.error('Error loading payments', error, stack);
         return Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -728,7 +728,7 @@ class _BillingManagementScreenState extends ConsumerState<BillingManagementScree
       // Refresh the payments list
       ref.invalidate(pendingVerificationPaymentsProvider);
     } catch (e) {
-      print('❌ Error approving payment: $e');
+      AppLogger.error('Error approving payment', e);
       if (mounted) {
         Loaders.errorSnackBar(
           context,
@@ -822,7 +822,7 @@ class _BillingManagementScreenState extends ConsumerState<BillingManagementScree
       // Refresh the payments list
       ref.invalidate(pendingVerificationPaymentsProvider);
     } catch (e) {
-      print('❌ Error rejecting payment: $e');
+      AppLogger.error('Error rejecting payment', e);
       if (mounted) {
         Loaders.errorSnackBar(
           context,
@@ -853,7 +853,7 @@ class _BillingManagementScreenState extends ConsumerState<BillingManagementScree
         color: context.colorScheme.surface,
         border: Border(
           bottom: BorderSide(
-            color: context.colorScheme.outline.withOpacity(0.2),
+            color: context.colorScheme.outline.withValues(alpha: 0.2),
           ),
         ),
       ),
@@ -971,7 +971,7 @@ class _BillingManagementScreenState extends ConsumerState<BillingManagementScree
                 Icon(
                   Iconsax.document_text,
                   size: 64,
-                  color: context.colorScheme.primary.withOpacity(0.5),
+                  color: context.colorScheme.primary.withValues(alpha: 0.5),
                 ),
                 SizedBox(height: AppConstants.spacingMD),
                 Text(
@@ -1016,7 +1016,7 @@ class _BillingManagementScreenState extends ConsumerState<BillingManagementScree
                   // Property header row
                   DataRow(
                     color: WidgetStateProperty.all(
-                      context.colorScheme.primaryContainer.withOpacity(0.3),
+                      context.colorScheme.primaryContainer.withValues(alpha: 0.3),
                     ),
                     cells: [
                       DataCell(
@@ -1089,7 +1089,7 @@ class _BillingManagementScreenState extends ConsumerState<BillingManagementScree
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: statusColor.withOpacity(0.2),
+              color: statusColor.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(

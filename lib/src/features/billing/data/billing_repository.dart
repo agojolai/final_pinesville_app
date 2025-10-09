@@ -6,6 +6,7 @@ import '../domain/payment_model.dart';
 import '../domain/billing_models.dart';
 import '../domain/property_billing_model.dart';
 import '../domain/unit_billing_model.dart';
+import '../../../core/utils/app_logger.dart';
 
 final billingRepositoryProvider = Provider<BillingRepository>((ref) {
   return BillingRepository(
@@ -46,13 +47,13 @@ class BillingRepository {
 
   /// Get bill by ID as a stream (real-time updates)
   Stream<BillModel?> getBillByIdStream(String billId) {
-    print('🔍 BillingRepository.getBillByIdStream - billId: $billId');
+    AppLogger.debug('BillingRepository.getBillByIdStream - billId: $billId');
     return firestore
         .collection('Bills')
         .doc(billId)
         .snapshots()
         .map((doc) {
-          print('🔍 Bill snapshot - exists: ${doc.exists}, id: ${doc.id}');
+          AppLogger.debug('Bill snapshot - exists: ${doc.exists}, id: ${doc.id}');
           if (!doc.exists) return null;
           return BillModel.fromSnapshot(doc);
         });
@@ -375,7 +376,7 @@ class BillingRepository {
 
   /// Get units for a property
   Stream<List<UnitBillingInfo>> getUnitsForProperty(String propertyId) {
-    print('🔍 BillingRepository.getUnitsForProperty - propertyId: $propertyId');
+    AppLogger.debug('BillingRepository.getUnitsForProperty - propertyId: $propertyId');
     return firestore
         .collection('Property')
         .doc(propertyId)
@@ -383,9 +384,9 @@ class BillingRepository {
         .where('rental.status', isEqualTo: 'occupied')
         .snapshots()
         .map((snapshot) {
-          print('🔍 Units snapshot received: ${snapshot.docs.length} documents');
+          AppLogger.debug('Units snapshot received: ${snapshot.docs.length} documents');
           return snapshot.docs.map((doc) {
-            print('🔍 Processing unit doc ID: ${doc.id}');
+            AppLogger.trace('Processing unit doc ID: ${doc.id}');
             return UnitBillingInfo.fromSnapshot(doc);
           }).toList();
         });
@@ -409,41 +410,40 @@ class BillingRepository {
     try {
       final doc = await firestore.collection('Property').doc(propertyId).get();
       if (!doc.exists) {
-        print('❌ TRACE: Property document does not exist for ID: $propertyId');
+        AppLogger.warning('Property document does not exist for ID: $propertyId');
         return null;
       }
 
       final data = doc.data()!;
-      print('🔍 TRACE: Raw Firestore data for Property/$propertyId: $data');
-      print('🔍 TRACE: Property-level keys: ${data.keys}');
+      AppLogger.trace('Raw Firestore data for Property/$propertyId: $data');
+      AppLogger.trace('Property-level keys: ${data.keys}');
       
       if (!data.containsKey('utilityRates')) {
-        print('⚠️ TRACE: No utilityRates field found in property document');
+        AppLogger.warning('No utilityRates field found in property document');
         return null;
       }
 
       final utilityRatesData = data['utilityRates'] as Map<String, dynamic>;
-      print('🔍 TRACE: utilityRates data: $utilityRatesData');
+      AppLogger.trace('utilityRates data: $utilityRatesData');
       
       // CRITICAL FIX: fixedCharges is at property level, not in utilityRates!
       // Pass it separately to fromMap
       final combinedData = Map<String, dynamic>.from(utilityRatesData);
       if (data.containsKey('fixedCharges')) {
-        print('✅ TRACE: Found fixedCharges at property level!');
+        AppLogger.debug('Found fixedCharges at property level!');
         combinedData['fixedCharges'] = data['fixedCharges'];
-        print('🔍 TRACE: Property-level fixedCharges: ${data['fixedCharges']}');
+        AppLogger.trace('Property-level fixedCharges: ${data['fixedCharges']}');
       } else {
-        print('⚠️ TRACE: No fixedCharges found at property level');
+        AppLogger.warning('No fixedCharges found at property level');
       }
       
       final rates = PropertyUtilityRates.fromMap(combinedData);
-      print('🔍 TRACE: Parsed PropertyUtilityRates - fixedCharges count: ${rates.fixedCharges.length}');
-      print('🔍 TRACE: Fixed charges details: ${rates.fixedCharges}');
+      AppLogger.debug('Parsed PropertyUtilityRates - fixedCharges count: ${rates.fixedCharges.length}');
+      AppLogger.trace('Fixed charges details: ${rates.fixedCharges}');
       
       return rates;
     } catch (e, stackTrace) {
-      print('❌ ERROR in getPropertyRates: $e');
-      print('❌ Stack trace: $stackTrace');
+      AppLogger.error('ERROR in getPropertyRates', e, stackTrace);
       return null;
     }
   }
@@ -499,7 +499,10 @@ class BillingRepository {
     // Create billing period
     final startDate = DateTime(year, month, 1);
     final endDate = DateTime(year, month + 1, 0);
-    final dueDate = endDate.add(const Duration(days: 7));
+    final now = DateTime.now();
+    
+    // NEW LOGIC: Due date is 7 days after bill creation, not 7 days after month end
+    final dueDate = now.add(const Duration(days: 7));
 
     final billingPeriod = BillingPeriod(
       month: month,
@@ -510,17 +513,17 @@ class BillingRepository {
     );
 
     // Create late fee details (initially not late)
+    // NO GRACE PERIOD - Late fees apply immediately after due date
     final lateFeeDetails = LateFeeDetails(
       isLate: false,
       weeksOverdue: 0,
       lateFeePerWeek: 150.00,
       totalLateFee: 0.0,
-      gracePeriodEnd: dueDate.add(const Duration(days: 7)),
+      gracePeriodEnd: dueDate, // No grace period, same as due date
     );
 
     // Create bill
     final billId = 'BILL_${year}_${month.toString().padLeft(2, '0')}_${unit.tenantId}';
-    final now = DateTime.now();
 
     final bill = BillModel(
       billId: billId,

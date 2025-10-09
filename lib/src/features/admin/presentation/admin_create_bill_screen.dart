@@ -8,6 +8,7 @@ import '../../billing/domain/unit_billing_model.dart';
 import '../../billing/presentation/billing_providers.dart';
 import '../../billing/domain/property_billing_model.dart';
 import '../../billing/data/billing_repository.dart';
+import '../../../core/utils/app_logger.dart';
 
 class AdminCreateBillScreen extends ConsumerStatefulWidget {
   const AdminCreateBillScreen({
@@ -249,69 +250,69 @@ class _AdminCreateBillScreenState extends ConsumerState<AdminCreateBillScreen> {
 
           // Initialize fixed charges from property data (only once)
           if (!_fixedChargesInitialized) {
-            print('🔍 TRACE UI: Fixed charges not initialized yet, scheduling callback');
-            print('🔍 TRACE UI: rates.fixedCharges = ${rates.fixedCharges}');
-            print('🔍 TRACE UI: rates.fixedCharges.keys = ${rates.fixedCharges.keys}');
+            AppLogger.debug('TRACE UI: Fixed charges not initialized yet, scheduling callback');
+            AppLogger.trace('TRACE UI: rates.fixedCharges = ${rates.fixedCharges}');
+            AppLogger.trace('TRACE UI: rates.fixedCharges.keys = ${rates.fixedCharges.keys}');
             
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              print('🔍 TRACE UI: PostFrameCallback executing');
+              AppLogger.trace('TRACE UI: PostFrameCallback executing');
               if (mounted) {
-                print('✅ TRACE UI: Widget is mounted, proceeding with initialization');
+                AppLogger.debug('TRACE UI: Widget is mounted, proceeding with initialization');
                 
                 // Set trash charge if available and enabled
                 if (rates.fixedCharges.containsKey('trash')) {
                   final trashCharge = rates.fixedCharges['trash']!;
-                  print('🔍 TRACE UI: Found trash charge - amount: ${trashCharge.amount}, enabled: ${trashCharge.enabled}');
+                  AppLogger.trace('TRACE UI: Found trash charge - amount: ${trashCharge.amount}, enabled: ${trashCharge.enabled}');
                   if (trashCharge.enabled) {
                     _trashChargeController.text = trashCharge.amount.toStringAsFixed(2);
                     _trashCharge = trashCharge.amount;
-                    print('✅ TRACE UI: Set trash charge to ${trashCharge.amount}');
+                    AppLogger.debug('TRACE UI: Set trash charge to ${trashCharge.amount}');
                   } else {
-                    print('⚠️ TRACE UI: Trash charge is disabled');
+                    AppLogger.warning('TRACE UI: Trash charge is disabled');
                   }
                 } else {
-                  print('⚠️ TRACE UI: No trash charge found in fixedCharges');
+                  AppLogger.warning('TRACE UI: No trash charge found in fixedCharges');
                 }
                 
                 // Set WiFi charge if available and enabled
                 if (rates.fixedCharges.containsKey('wifi')) {
                   final wifiCharge = rates.fixedCharges['wifi']!;
-                  print('🔍 TRACE UI: Found wifi charge - amount: ${wifiCharge.amount}, enabled: ${wifiCharge.enabled}');
+                  AppLogger.trace('TRACE UI: Found wifi charge - amount: ${wifiCharge.amount}, enabled: ${wifiCharge.enabled}');
                   if (wifiCharge.enabled) {
                     _wifiChargeController.text = wifiCharge.amount.toStringAsFixed(2);
                     _wifiCharge = wifiCharge.amount;
-                    print('✅ TRACE UI: Set WiFi charge to ${wifiCharge.amount}');
+                    AppLogger.debug('TRACE UI: Set WiFi charge to ${wifiCharge.amount}');
                   } else {
-                    print('⚠️ TRACE UI: WiFi charge is disabled');
+                    AppLogger.warning('TRACE UI: WiFi charge is disabled');
                   }
                 } else {
-                  print('⚠️ TRACE UI: No wifi charge found in fixedCharges');
+                  AppLogger.warning('TRACE UI: No wifi charge found in fixedCharges');
                 }
                 
                 // Set parking charge if available and enabled
                 if (rates.fixedCharges.containsKey('parking')) {
                   final parkingCharge = rates.fixedCharges['parking']!;
-                  print('🔍 TRACE UI: Found parking charge - amount: ${parkingCharge.amount}, enabled: ${parkingCharge.enabled}');
+                  AppLogger.trace('TRACE UI: Found parking charge - amount: ${parkingCharge.amount}, enabled: ${parkingCharge.enabled}');
                   if (parkingCharge.enabled) {
                     _parkingChargeController.text = parkingCharge.amount.toStringAsFixed(2);
                     _parkingCharge = parkingCharge.amount;
-                    print('✅ TRACE UI: Set parking charge to ${parkingCharge.amount}');
+                    AppLogger.debug('TRACE UI: Set parking charge to ${parkingCharge.amount}');
                   } else {
-                    print('⚠️ TRACE UI: Parking charge is disabled');
+                    AppLogger.warning('TRACE UI: Parking charge is disabled');
                   }
                 } else {
-                  print('⚠️ TRACE UI: No parking charge found in fixedCharges');
+                  AppLogger.warning('TRACE UI: No parking charge found in fixedCharges');
                 }
                 
                 _fixedChargesInitialized = true;
-                print('✅ TRACE UI: Fixed charges initialization complete, calling _calculateTotal()');
+                AppLogger.debug('TRACE UI: Fixed charges initialization complete, calling _calculateTotal()');
                 _calculateTotal();
               } else {
-                print('⚠️ TRACE UI: Widget not mounted, skipping initialization');
+                AppLogger.warning('TRACE UI: Widget not mounted, skipping initialization');
               }
             });
           } else {
-            print('ℹ️ TRACE UI: Fixed charges already initialized, skipping');
+            AppLogger.info('TRACE UI: Fixed charges already initialized, skipping');
           }
 
           return Form(
@@ -411,7 +412,7 @@ class _AdminCreateBillScreenState extends ConsumerState<AdminCreateBillScreen> {
           Text(
             label,
             style: context.textTheme.bodyMedium?.copyWith(
-              color: context.colorScheme.onSurface.withOpacity(0.7),
+              color: context.colorScheme.onSurface.withValues(alpha: 0.7),
             ),
           ),
           Text(
@@ -470,7 +471,7 @@ class _AdminCreateBillScreenState extends ConsumerState<AdminCreateBillScreen> {
 
   Widget _buildRatesInfo(PropertyUtilityRates rates) {
     return Card(
-      color: context.colorScheme.primaryContainer.withOpacity(0.3),
+      color: context.colorScheme.primaryContainer.withValues(alpha: 0.3),
       child: Padding(
         padding: EdgeInsets.all(AppConstants.spacingMD),
         child: Column(
@@ -544,9 +545,9 @@ class _AdminCreateBillScreenState extends ConsumerState<AdminCreateBillScreen> {
     return Container(
       padding: EdgeInsets.all(AppConstants.spacingMD),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
         children: [
@@ -555,7 +556,7 @@ class _AdminCreateBillScreenState extends ConsumerState<AdminCreateBillScreen> {
           Text(
             label,
             style: context.textTheme.bodySmall?.copyWith(
-              color: context.colorScheme.onSurface.withOpacity(0.7),
+              color: context.colorScheme.onSurface.withValues(alpha: 0.7),
             ),
           ),
           SizedBox(height: AppConstants.spacingXS),
@@ -569,7 +570,7 @@ class _AdminCreateBillScreenState extends ConsumerState<AdminCreateBillScreen> {
           Text(
             unit,
             style: context.textTheme.bodySmall?.copyWith(
-              color: context.colorScheme.onSurface.withOpacity(0.7),
+              color: context.colorScheme.onSurface.withValues(alpha: 0.7),
             ),
           ),
         ],
@@ -789,7 +790,7 @@ class _AdminCreateBillScreenState extends ConsumerState<AdminCreateBillScreen> {
 
   Widget _buildCalculationPreview() {
     return Card(
-      color: context.colorScheme.tertiaryContainer.withOpacity(0.3),
+      color: context.colorScheme.tertiaryContainer.withValues(alpha: 0.3),
       child: Padding(
         padding: EdgeInsets.all(AppConstants.spacingMD),
         child: Column(

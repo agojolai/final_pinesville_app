@@ -161,7 +161,7 @@ class AdminBillDetailScreen extends ConsumerWidget {
           Text(
             label,
             style: context.textTheme.bodyMedium?.copyWith(
-              color: context.colorScheme.onSurface.withOpacity(0.7),
+              color: context.colorScheme.onSurface.withValues(alpha: 0.7),
             ),
           ),
           Text(
@@ -199,7 +199,7 @@ class AdminBillDetailScreen extends ConsumerWidget {
     }
 
     return Card(
-      color: statusColor.withOpacity(0.1),
+      color: statusColor.withValues(alpha: 0.1),
       child: Padding(
         padding: EdgeInsets.all(AppConstants.spacingMD),
         child: Row(
@@ -352,7 +352,7 @@ class AdminBillDetailScreen extends ConsumerWidget {
                       Text(
                         details,
                         style: context.textTheme.bodySmall?.copyWith(
-                          color: context.colorScheme.onSurface.withOpacity(0.6),
+                          color: context.colorScheme.onSurface.withValues(alpha: 0.6),
                         ),
                       ),
                     ],
@@ -440,7 +440,7 @@ class AdminBillDetailScreen extends ConsumerWidget {
                 Text(
                   'Last payment: ${DateFormat('MMM dd, yyyy').format(bill.paidAt!)}',
                   style: context.textTheme.bodySmall?.copyWith(
-                    color: context.colorScheme.onSurface.withOpacity(0.6),
+                    color: context.colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
                 ),
               ],
@@ -451,13 +451,13 @@ class AdminBillDetailScreen extends ConsumerWidget {
                     Icon(
                       Iconsax.wallet,
                       size: 48,
-                      color: context.colorScheme.onSurface.withOpacity(0.3),
+                      color: context.colorScheme.onSurface.withValues(alpha: 0.3),
                     ),
                     SizedBox(height: AppConstants.spacingSM),
                     Text(
                       'No payments recorded yet',
                       style: context.textTheme.bodyMedium?.copyWith(
-                        color: context.colorScheme.onSurface.withOpacity(0.6),
+                        color: context.colorScheme.onSurface.withValues(alpha: 0.6),
                       ),
                     ),
                   ],
@@ -472,7 +472,7 @@ class AdminBillDetailScreen extends ConsumerWidget {
 
   Widget _buildTotalCard(BuildContext context, BillModel bill) {
     return Card(
-      color: context.colorScheme.tertiaryContainer.withOpacity(0.3),
+      color: context.colorScheme.tertiaryContainer.withValues(alpha: 0.3),
       child: Padding(
         padding: EdgeInsets.all(AppConstants.spacingMD),
         child: Column(

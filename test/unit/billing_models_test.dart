@@ -35,24 +35,24 @@ void main() {
       expect(map['totalLateFee'], 0.0);
     });
 
-    test('should calculate late fee correctly when overdue', () {
+    test('should calculate late fee correctly when overdue (NO GRACE PERIOD)', () {
       final dueDate = DateTime.now().subtract(const Duration(days: 21)); // 3 weeks ago
       final lateFee = LateFeeDetails.calculate(
         dueDate: dueDate,
-        gracePeriodDays: 7,
+        gracePeriodDays: 0, // No grace period anymore
         lateFeePerWeek: 150.0,
       );
 
       expect(lateFee.isLate, true);
-      expect(lateFee.weeksOverdue, 2); // 21 days - 7 grace = 14 days = 2 weeks
-      expect(lateFee.totalLateFee, 300.0); // 2 weeks * 150
+      expect(lateFee.weeksOverdue, 3); // 21 days = 3 weeks (no grace period)
+      expect(lateFee.totalLateFee, 450.0); // 3 weeks * 150
     });
 
-    test('should not charge late fee during grace period', () {
-      final dueDate = DateTime.now().subtract(const Duration(days: 3));
+    test('should not charge late fee before due date', () {
+      final dueDate = DateTime.now().add(const Duration(days: 3)); // 3 days in future
       final lateFee = LateFeeDetails.calculate(
         dueDate: dueDate,
-        gracePeriodDays: 7,
+        gracePeriodDays: 0,
         lateFeePerWeek: 150.0,
       );
 
@@ -453,30 +453,28 @@ void main() {
     });
   });
 
-  group('Late Fee Calculation Edge Cases', () {
-    test('should not be late one day before grace period ends', () {
-      final dueDate = DateTime.now().subtract(const Duration(days: 6));
+  group('Late Fee Calculation Edge Cases (NO GRACE PERIOD)', () {
+    test('should not be late on the due date', () {
+      final dueDate = DateTime.now(); // Exactly now
       final lateFee = LateFeeDetails.calculate(
         dueDate: dueDate,
-        gracePeriodDays: 7,
+        gracePeriodDays: 0, // No grace period
         lateFeePerWeek: 150.0,
       );
 
-      // Still within grace period (6 days overdue, 7 day grace = 1 day left)
       expect(lateFee.isLate, false);
       expect(lateFee.weeksOverdue, 0);
       expect(lateFee.totalLateFee, 0.0);
     });
 
-    test('should be late one day after grace period ends', () {
-      final dueDate = DateTime.now().subtract(const Duration(days: 8));
+    test('should be late one day after due date', () {
+      final dueDate = DateTime.now().subtract(const Duration(days: 1));
       final lateFee = LateFeeDetails.calculate(
         dueDate: dueDate,
-        gracePeriodDays: 7,
+        gracePeriodDays: 0, // No grace period
         lateFeePerWeek: 150.0,
       );
 
-      // Grace period ended yesterday, now 1 day overdue
       expect(lateFee.isLate, true);
       expect(lateFee.weeksOverdue, 1); // ceil(1/7) = 1 week
       expect(lateFee.totalLateFee, 150.0); // 1 week * 150
@@ -486,26 +484,26 @@ void main() {
       final dueDate = DateTime.now().subtract(const Duration(days: 35)); // 5 weeks ago
       final lateFee = LateFeeDetails.calculate(
         dueDate: dueDate,
-        gracePeriodDays: 7,
+        gracePeriodDays: 0, // No grace period
         lateFeePerWeek: 150.0,
       );
 
       expect(lateFee.isLate, true);
-      expect(lateFee.weeksOverdue, 4); // 35 - 7 = 28 days = 4 weeks
-      expect(lateFee.totalLateFee, 600.0); // 4 weeks * 150
+      expect(lateFee.weeksOverdue, 5); // 35 days = 5 weeks (no grace period)
+      expect(lateFee.totalLateFee, 750.0); // 5 weeks * 150
     });
 
     test('should round up partial weeks', () {
-      final dueDate = DateTime.now().subtract(const Duration(days: 18)); // 11 days overdue
+      final dueDate = DateTime.now().subtract(const Duration(days: 18)); // 18 days overdue
       final lateFee = LateFeeDetails.calculate(
         dueDate: dueDate,
-        gracePeriodDays: 7,
+        gracePeriodDays: 0, // No grace period
         lateFeePerWeek: 150.0,
       );
 
       expect(lateFee.isLate, true);
-      expect(lateFee.weeksOverdue, 2); // 11 days = ceil(11/7) = 2 weeks
-      expect(lateFee.totalLateFee, 300.0);
+      expect(lateFee.weeksOverdue, 3); // 18 days = ceil(18/7) = 3 weeks
+      expect(lateFee.totalLateFee, 450.0);
     });
   });
 }

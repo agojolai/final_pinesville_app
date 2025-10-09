@@ -366,17 +366,19 @@ class BillModel {
     return billingPeriod.dueDate.difference(DateTime.now()).inDays;
   }
 
-  /// Get days overdue
+  /// Get days overdue (NO GRACE PERIOD - counts from due date)
   int get daysOverdue {
     if (!isOverdue) return 0;
+    // Removed grace period - counts immediately after due date
     return DateTime.now().difference(billingPeriod.dueDate).inDays;
   }
 
   /// Check if tenant should be evicted (2 consecutive months unpaid)
+  /// Eviction notice triggered when both current and previous month bills are overdue
   bool shouldEvict(List<BillModel> allBills) {
     if (isPaid) return false;
 
-    // Sort bills by date descending
+    // Get all unpaid bills for this tenant sorted by date (newest first)
     final sortedBills = allBills
         .where((b) => b.userId == userId && !b.isPaid)
         .toList()
@@ -386,11 +388,19 @@ class BillModel {
 
     if (sortedBills.length < 2) return false;
 
-    // Check if current and previous month are both unpaid and overdue
+    // Check if current and previous month are CONSECUTIVE and both overdue
     final currentBill = sortedBills[0];
     final previousBill = sortedBills[1];
+    
+    // Verify they are consecutive months
+    final isConsecutive = (currentBill.billingPeriod.month == previousBill.billingPeriod.month + 1 &&
+                           currentBill.billingPeriod.year == previousBill.billingPeriod.year) ||
+                          (currentBill.billingPeriod.month == 1 &&
+                           previousBill.billingPeriod.month == 12 &&
+                           currentBill.billingPeriod.year == previousBill.billingPeriod.year + 1);
 
-    return currentBill.isOverdue &&
+    return isConsecutive &&
+           currentBill.isOverdue &&
            previousBill.isOverdue &&
            currentBill.daysOverdue > 0 &&
            previousBill.daysOverdue > 0;

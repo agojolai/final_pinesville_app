@@ -7,6 +7,7 @@ import '../exceptions/firebase_exceptions.dart' as custom_firebase;
 import '../exceptions/format_exceptions.dart' as custom_format;
 import '../exceptions/platform_exceptions.dart' as custom_platform;
 import '../../features/auth/data/models/user_model.dart';
+import '../utils/app_logger.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepository.instance;
@@ -31,10 +32,10 @@ class AuthRepository {
     try {
       // Test Firebase Auth access
       final auth = _auth;
-      print('AuthRepository: Firebase Auth initialized successfully');
-      print('AuthRepository: Current user: ${auth.currentUser?.email ?? 'No user'}');
+      AppLogger.info('AuthRepository: Firebase Auth initialized successfully');
+      AppLogger.debug('AuthRepository: Current user: ${auth.currentUser?.email ?? 'No user'}');
     } catch (e) {
-      print('AuthRepository: Error accessing Firebase Auth: $e');
+      AppLogger.error('AuthRepository: Error accessing Firebase Auth', e);
     }
     
   }

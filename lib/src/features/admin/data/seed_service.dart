@@ -1,5 +1,6 @@
 ﻿import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
+import '../../../core/utils/app_logger.dart';
 
 /// Service to seed test data for billing management
 class SeedService {
@@ -52,7 +53,7 @@ class SeedService {
 
   /// Delete all existing seed data (Properties, Units, Users, Bills, Payments)
   Future<void> _deleteAllData() async {
-    print('🗑️ Deleting all existing seed data...');
+    AppLogger.info('Deleting all existing seed data...');
     
     // Delete all Properties and their Units subcollection
     final properties = await _firestore.collection('Property').get();
@@ -90,12 +91,12 @@ class SeedService {
       await payment.reference.delete();
     }
     
-    print('✅ All existing seed data deleted');
+    AppLogger.info('All existing seed data deleted');
   }
 
   /// Create Firebase Auth accounts for test tenants
   Future<List<Map<String, String>>> _seedAuthAccounts() async {
-    print('🔐 Creating Firebase Auth accounts...');
+    AppLogger.info('Creating Firebase Auth accounts...');
     
     final testPassword = 'Test123!'; // Standard password for all test accounts
     final authResults = <Map<String, String>>[];

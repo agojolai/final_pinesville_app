@@ -1,4 +1,5 @@
 ﻿import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../core/utils/app_logger.dart';
 
 //THIS FILE IS FOR UNIT MODEL SUBCOLLECTION INSIDE THE PROPERTY COLLECTION
 
@@ -92,8 +93,8 @@ class UnitBillingInfo {
   }
 
   factory UnitBillingInfo.fromMap(Map<String, dynamic> map) {
-    print('🔍 UnitBillingInfo.fromMap - Raw map keys: ${map.keys.toList()}');
-    print('🔍 UnitBillingInfo.fromMap - Map data: $map');
+    AppLogger.trace('UnitBillingInfo.fromMap - Raw map keys: ${map.keys.toList()}');
+    AppLogger.trace('UnitBillingInfo.fromMap - Map data: $map');
     
     final rentalData = map['rental'] as Map<String, dynamic>?;
     final lastReadingsData = map['lastReadings'] as Map<String, dynamic>?;
@@ -103,7 +104,7 @@ class UnitBillingInfo {
     final unitNumber = map['unitNumber'] as String? ?? 'UNKNOWN';
     final propertyId = map['propertyId'] as String? ?? 'UNKNOWN';
     
-    print('🔍 Parsed - unitId: $unitId, unitNumber: $unitNumber, propertyId: $propertyId');
+    AppLogger.trace('Parsed - unitId: $unitId, unitNumber: $unitNumber, propertyId: $propertyId');
 
     return UnitBillingInfo(
       unitId: unitId,

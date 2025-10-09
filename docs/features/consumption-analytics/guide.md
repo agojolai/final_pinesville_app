@@ -761,7 +761,7 @@ class _TenantConsumptionScreenState extends ConsumerState<TenantConsumptionScree
               dotData: FlDotData(show: true),
               belowBarData: BarAreaData(
                 show: true,
-                color: Colors.orange.withOpacity(0.3),
+                color: Colors.orange.withValues(alpha: 0.3),
               ),
             ),
           ],
@@ -815,7 +815,7 @@ class _TenantConsumptionScreenState extends ConsumerState<TenantConsumptionScree
               dotData: FlDotData(show: true),
               belowBarData: BarAreaData(
                 show: true,
-                color: Colors.blue.withOpacity(0.3),
+                color: Colors.blue.withValues(alpha: 0.3),
               ),
             ),
           ],
