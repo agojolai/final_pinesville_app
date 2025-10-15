@@ -3,13 +3,17 @@ import '../../features/home/presentation/home_screen.dart';
 import '../../features/chat/presentation/chat_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../theme/theme_extensions.dart';
+import '../../core/utils/app_logger.dart';
 import 'package:iconsax/iconsax.dart';
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({Key? key}) : super(key: key);
 
   @override
-  State<MainNavigation> createState() => _MainNavigationState();
+  State<MainNavigation> createState() {
+    AppLogger.debug('🏗️ MainNavigation: Creating new state instance');
+    return _MainNavigationState();
+  }
 }
 
 class _MainNavigationState extends State<MainNavigation> {
@@ -20,6 +24,12 @@ class _MainNavigationState extends State<MainNavigation> {
     ChatScreen(),
     ProfileScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    AppLogger.debug('🚀 MainNavigation: initState called - Tenant UI is initializing');
+  }
 
   final List<NavigationDestination> _destinations = [
     const NavigationDestination(

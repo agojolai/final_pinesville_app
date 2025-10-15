@@ -1,8 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import '../../auth/data/models/user_model.dart';
 import '../../auth/data/models/occupant_model.dart';
 import '../../../core/repositories/user_repository.dart';
-import '../../../core/repositories/auth_repository.dart';
+import '../../../core/utils/app_logger.dart';
 
 // User Repository Provider
 final userRepositoryProvider = Provider<UserRepository>((ref) {
@@ -10,20 +11,35 @@ final userRepositoryProvider = Provider<UserRepository>((ref) {
 });
 
 // Current User Profile Provider - Streams the current user's profile data
+// This provider listens to auth state changes and automatically refreshes when user changes
 final userProfileProvider = StreamProvider<UserModel>((ref) async* {
   final userRepository = ref.watch(userRepositoryProvider);
-  final authUser = AuthRepository.instance.authUser;
   
-  if (authUser == null) {
-    yield UserModel.empty();
-    return;
-  }
+  AppLogger.debug('🔄 userProfileProvider: Starting to listen to auth state changes');
+  
+  // Listen to Firebase auth state changes directly
+  await for (final authUser in firebase_auth.FirebaseAuth.instance.authStateChanges()) {
+    if (authUser == null) {
+      AppLogger.debug('🚪 AUTH STATE CHANGED: User logged out - yielding empty UserModel');
+      yield UserModel.empty();
+      continue;
+    }
 
-  try {
-    final userModel = await userRepository.fetchUserDetails();
-    yield userModel;
-  } catch (e) {
-    yield UserModel.empty();
+    AppLogger.debug('🔐 AUTH STATE CHANGED: User logged in');
+    AppLogger.debug('   ├─ Firebase UID: ${authUser.uid}');
+    AppLogger.debug('   └─ Email: ${authUser.email}');
+
+    try {
+      final userModel = await userRepository.fetchUserDetails();
+      AppLogger.debug('✅ User profile fetched successfully');
+      AppLogger.debug('   ├─ Name: ${userModel.fullName}');
+      AppLogger.debug('   ├─ Role: ${userModel.role.name}');
+      AppLogger.debug('   └─ User ID: ${userModel.id}');
+      yield userModel;
+    } catch (e) {
+      AppLogger.error('❌ Error fetching user profile: $e');
+      yield UserModel.empty();
+    }
   }
 });
 

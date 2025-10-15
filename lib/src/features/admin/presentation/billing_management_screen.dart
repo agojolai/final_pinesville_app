@@ -874,7 +874,7 @@ class _BillingManagementScreenState extends ConsumerState<BillingManagementScree
                       items: [
                         const DropdownMenuItem(
                           value: null,
-                          child: Text('All Properties'),
+                          child: Text('All'),
                         ),
                         ...properties.map((p) {
                           return DropdownMenuItem(

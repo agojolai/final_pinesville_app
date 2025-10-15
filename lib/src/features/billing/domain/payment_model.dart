@@ -156,6 +156,9 @@ enum PaymentCategory {
   rent,
   electricity,
   water,
+  trash,
+  wifi,
+  parking,
   additionalCharges;
 
   String toJson() {
@@ -166,6 +169,12 @@ enum PaymentCategory {
         return 'electricity';
       case PaymentCategory.water:
         return 'water';
+      case PaymentCategory.trash:
+        return 'trash';
+      case PaymentCategory.wifi:
+        return 'wifi';
+      case PaymentCategory.parking:
+        return 'parking';
       case PaymentCategory.additionalCharges:
         return 'additionalCharges';
     }
@@ -179,6 +188,12 @@ enum PaymentCategory {
         return PaymentCategory.electricity;
       case 'water':
         return PaymentCategory.water;
+      case 'trash':
+        return PaymentCategory.trash;
+      case 'wifi':
+        return PaymentCategory.wifi;
+      case 'parking':
+        return PaymentCategory.parking;
       case 'additionalCharges':
         return PaymentCategory.additionalCharges;
       default:
@@ -194,6 +209,12 @@ enum PaymentCategory {
         return 'Electricity';
       case PaymentCategory.water:
         return 'Water';
+      case PaymentCategory.trash:
+        return 'Trash';
+      case PaymentCategory.wifi:
+        return 'WiFi';
+      case PaymentCategory.parking:
+        return 'Parking';
       case PaymentCategory.additionalCharges:
         return 'Additional Charges';
     }
@@ -240,6 +261,9 @@ class PaymentModel {
   final PaymentAllocationItem rentAllocation;
   final PaymentAllocationItem electricityAllocation;
   final PaymentAllocationItem waterAllocation;
+  final PaymentAllocationItem trashAllocation;
+  final PaymentAllocationItem wifiAllocation;
+  final PaymentAllocationItem parkingAllocation;
   final PaymentAllocationItem additionalChargesAllocation;
   final List<PaymentCategory> paidFor;
   final DateTime transactionDate;
@@ -270,6 +294,9 @@ class PaymentModel {
     required this.rentAllocation,
     required this.electricityAllocation,
     required this.waterAllocation,
+    required this.trashAllocation,
+    required this.wifiAllocation,
+    required this.parkingAllocation,
     required this.additionalChargesAllocation,
     required this.paidFor,
     required this.transactionDate,
@@ -303,6 +330,9 @@ class PaymentModel {
         'rent': rentAllocation.toMap(),
         'electricity': electricityAllocation.toMap(),
         'water': waterAllocation.toMap(),
+        'trash': trashAllocation.toMap(),
+        'wifi': wifiAllocation.toMap(),
+        'parking': parkingAllocation.toMap(),
         'additionalCharges': additionalChargesAllocation.toMap(),
       },
       'paidFor': paidFor.map((c) => c.toJson()).toList(),
@@ -349,6 +379,15 @@ class PaymentModel {
       rentAllocation: PaymentAllocationItem.fromMap(allocationData['rent'] as Map<String, dynamic>),
       electricityAllocation: PaymentAllocationItem.fromMap(allocationData['electricity'] as Map<String, dynamic>),
       waterAllocation: PaymentAllocationItem.fromMap(allocationData['water'] as Map<String, dynamic>),
+      trashAllocation: allocationData.containsKey('trash') 
+          ? PaymentAllocationItem.fromMap(allocationData['trash'] as Map<String, dynamic>)
+          : const PaymentAllocationItem(amount: 0.0),
+      wifiAllocation: allocationData.containsKey('wifi')
+          ? PaymentAllocationItem.fromMap(allocationData['wifi'] as Map<String, dynamic>)
+          : const PaymentAllocationItem(amount: 0.0),
+      parkingAllocation: allocationData.containsKey('parking')
+          ? PaymentAllocationItem.fromMap(allocationData['parking'] as Map<String, dynamic>)
+          : const PaymentAllocationItem(amount: 0.0),
       additionalChargesAllocation: PaymentAllocationItem.fromMap(allocationData['additionalCharges'] as Map<String, dynamic>),
       paidFor: (map['paidFor'] as List<dynamic>)
           .map((c) => PaymentCategory.fromJson(c as String))
@@ -383,6 +422,9 @@ class PaymentModel {
     PaymentAllocationItem? rentAllocation,
     PaymentAllocationItem? electricityAllocation,
     PaymentAllocationItem? waterAllocation,
+    PaymentAllocationItem? trashAllocation,
+    PaymentAllocationItem? wifiAllocation,
+    PaymentAllocationItem? parkingAllocation,
     PaymentAllocationItem? additionalChargesAllocation,
     List<PaymentCategory>? paidFor,
     DateTime? transactionDate,
@@ -413,6 +455,9 @@ class PaymentModel {
       rentAllocation: rentAllocation ?? this.rentAllocation,
       electricityAllocation: electricityAllocation ?? this.electricityAllocation,
       waterAllocation: waterAllocation ?? this.waterAllocation,
+      trashAllocation: trashAllocation ?? this.trashAllocation,
+      wifiAllocation: wifiAllocation ?? this.wifiAllocation,
+      parkingAllocation: parkingAllocation ?? this.parkingAllocation,
       additionalChargesAllocation: additionalChargesAllocation ?? this.additionalChargesAllocation,
       paidFor: paidFor ?? this.paidFor,
       transactionDate: transactionDate ?? this.transactionDate,

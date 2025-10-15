@@ -11,6 +11,7 @@ import 'announcements_management_screen.dart';
 import '../../../features/auth/presentation/login_screen.dart';
 import '../../../core/repositories/auth_repository.dart';
 import '../../../core/snackbars/loaders.dart';
+import '../../../core/utils/app_logger.dart';
 
 class _DrawerEntry {
   const _DrawerEntry({
@@ -26,7 +27,10 @@ class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
 
   @override
-  State<AdminShell> createState() => _AdminShellState();
+  State<AdminShell> createState() {
+    AppLogger.debug('🏗️ AdminShell: Creating new state instance');
+    return _AdminShellState();
+  }
 }
 
 class _AdminShellState extends State<AdminShell> {
@@ -73,6 +77,7 @@ class _AdminShellState extends State<AdminShell> {
   @override
   void initState() {
     super.initState();
+    AppLogger.debug('🚀 AdminShell: initState called - Admin UI is initializing');
     _screens = [
   AdminDashboardScreen(onMenuTap: () => _scaffoldKey.currentState?.openDrawer()),
   TenantManagementScreen(onMenuTap: () => _scaffoldKey.currentState?.openDrawer()),

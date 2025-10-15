@@ -36,6 +36,9 @@ class _PayRentScreenState extends ConsumerState<PayRentScreen> with TickerProvid
     PaymentCategory.rent: false,
     PaymentCategory.electricity: false,
     PaymentCategory.water: false,
+    PaymentCategory.trash: false,
+    PaymentCategory.wifi: false,
+    PaymentCategory.parking: false,
     PaymentCategory.additionalCharges: false,
   };
   
@@ -85,6 +88,12 @@ class _PayRentScreenState extends ConsumerState<PayRentScreen> with TickerProvid
         return widget.bill!.electricityBreakdown.balance;
       case PaymentCategory.water:
         return widget.bill!.waterBreakdown.balance;
+      case PaymentCategory.trash:
+        return widget.bill!.trashBreakdown.balance;
+      case PaymentCategory.wifi:
+        return widget.bill!.wifiBreakdown.balance;
+      case PaymentCategory.parking:
+        return widget.bill!.parkingBreakdown.balance;
       case PaymentCategory.additionalCharges:
         return widget.bill!.additionalChargesBreakdown.balance;
     }

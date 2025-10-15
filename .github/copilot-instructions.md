@@ -101,9 +101,11 @@ factory Model.fromJson(Map<String, dynamic> json) // For nested objects
 Example: `lib/src/features/billing/domain/bill_model.dart`
 
 ### Billing System Logic
-- **Due date**: 7 days after month end (e.g., Oct bill due Nov 7)
-- **Grace period**: 7 days after due date
-- **Late fees**: ₱150/week after grace period (calculated via `LateFeeDetails.calculate()`)
+- **Due date**: 7 days after **bill creation date** (e.g., bill created Oct 15 → due Oct 22)
+- **Grace period**: **REMOVED** - No grace period
+- **Late fees**: ₱150/week **immediately after due date** (calculated via `LateFeeDetails.calculate()`)
+- **Late fee freezing**: ⚠️ **CRITICAL** - Late fees STOP incrementing when next bill is created. The `nextBillCreatedAt` parameter freezes the late fee calculation at that timestamp, preventing compound penalties.
+- **Eviction trigger**: 2 consecutive months unpaid (both bills past their respective due dates)
 - **Partial payments**: Use `allocations` array to track which categories are paid
 - **Bill creation workflow**: Admin selects property → unit → enters meter readings → system auto-calculates using property rates
 
@@ -137,6 +139,7 @@ Custom exceptions in `lib/src/core/exceptions/`:
 - `platform_exceptions.dart` - Platform-specific errors
 Always catch specific exceptions in repositories, re-throw with user-friendly messages.
 - Use `lib/src/core/snackbars/loaders.dart` for handling snackbars
+- Use logger for debugging: 'app_logger.dart' with `logger.i()`, `logger.e()`
 
 ## Integration Points
 
@@ -209,13 +212,14 @@ Used for:
 7. **Update last readings** - After creating a bill, always update unit's `lastReadings` for next cycle
 8. **Fixed charges source** - Always read trash/wifi/parking from `Property/{id}/fixedCharges`, NOT from unit or utilityRates
 9. **additionalCharges field** - BillModel has `additionalCharges` list for backward compatibility but it's always empty - use `paymentBreakdown` instead
+10. **Late fee freezing** - ⚠️ CRITICAL: When calculating late fees, always pass `nextBillCreatedAt` parameter to prevent compound penalties. Late fees must freeze when the next billing period starts.
 
 ## Current Development Phase
 **Phase 2 Complete**:
 - ✅ Billing repository with 15+ methods
 - ✅ Property/unit queries for admin bill creation
 - ✅ Partial payment tracking with allocations
-- ✅ Late fee auto-calculation system
+- ✅ Late fee auto-calculation system with freezing logic
 
 **October 2025 Optimizations**:
 - ✅ Fixed charges unified at property level (trash, wifi, parking)
@@ -224,6 +228,9 @@ Used for:
 - ✅ Added `description` field to `PaymentBreakdownItem` for additional charges context
 - ✅ Fixed null safety handling for legacy bills with `additionalCharges` field
 - ✅ Updated admin and tenant UI to display additional charges description
+- ✅ Removed grace period logic (due date = creation + 7 days, late fees immediate)
+- ✅ Implemented late fee freezing when next bill is created
+- ✅ Enhanced eviction logic to verify consecutive unpaid months
 
 **Next Steps**: Additional features planned (see IMPLEMENTATION_CHECKLIST.md for details). When implementing new features, check documentation first and follow existing patterns from `billing` or `auth` features. Prefer inline documentation for new features rather than separate guides.
 

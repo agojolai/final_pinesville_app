@@ -55,8 +55,14 @@ class App extends ConsumerWidget {
                 data: (user) {
                   // If user is logged in, go to role-based navigation
                   if (user != null) {
-                    return const RoleBasedNavigation();
+                    AppLogger.debug('🏠 APP NAVIGATION: User authenticated, showing RoleBasedNavigation');
+                    AppLogger.debug('   ├─ UID: ${user.uid}');
+                    AppLogger.debug('   └─ Email: ${user.email}');
+                    // Use key based on user ID to force widget recreation on user change
+                    return RoleBasedNavigation(key: ValueKey(user.uid));
                   }
+                  
+                  AppLogger.debug('🏠 APP NAVIGATION: No user authenticated, showing login/onboarding');
                   
                   // If not logged in, check onboarding status
                   if (!onboardingRepository.isOnboardingCompleted) {

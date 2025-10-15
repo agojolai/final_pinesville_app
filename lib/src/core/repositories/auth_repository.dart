@@ -202,9 +202,13 @@ class AuthRepository {
   Future<firebase_auth.UserCredential> logInWithEmailAndPassword(
       String email, String password) async {
     try {
+      AppLogger.debug('🔐 LOGIN ATTEMPT: $email');
+      
       // First authenticate with Firebase Auth
       final userCredential = await _auth.signInWithEmailAndPassword(
           email: email, password: password);
+      
+      AppLogger.debug('✅ Firebase Auth successful for: ${userCredential.user!.uid}');
       
       // Check user status in Firestore
       final userDoc = await firebaseStore
@@ -213,6 +217,7 @@ class AuthRepository {
           .get();
       
       if (!userDoc.exists) {
+        AppLogger.error('❌ LOGIN FAILED: User not found in Firestore');
         // User doesn't exist in Users collection - sign out and throw error
         await _auth.signOut();
         throw 'Invalid email or password. Please check your credentials.';
@@ -221,18 +226,28 @@ class AuthRepository {
       // Get user data
       final userData = userDoc.data()!;
       final userStatus = userData['account']?['status'] ?? 'pending';
+      final userRole = userData['profile']?['role'] ?? 'tenant';
+      
+      AppLogger.debug('📋 User found in Firestore:');
+      AppLogger.debug('   ├─ Status: $userStatus');
+      AppLogger.debug('   └─ Role: $userRole');
       
       if (userStatus == 'pending') {
+        AppLogger.debug('⏳ LOGIN BLOCKED: Account pending approval');
         // User account is still pending approval - sign out and throw specific error
         await _auth.signOut();
         throw 'Your application is still pending approval. Please wait for administrator confirmation.';
       }
       
       if (userStatus == 'suspended' || userStatus == 'terminated') {
+        AppLogger.debug('🚫 LOGIN BLOCKED: Account $userStatus');
         // User account is suspended or terminated - sign out and throw error
         await _auth.signOut();
         throw 'Your account has been ${userStatus}. Please contact support for assistance.';
       }
+      
+      AppLogger.debug('✅ LOGIN SUCCESSFUL: User authenticated and authorized');
+      AppLogger.debug('   └─ Auth state change will trigger provider updates');
       
       // User is active - return the credentials
       return userCredential;
@@ -301,8 +316,22 @@ class AuthRepository {
 //log out
   Future<void> logout() async {
     try {
+      final currentUser = _auth.currentUser;
+      if (currentUser != null) {
+        AppLogger.debug('🚪 LOGOUT: Logging out user');
+        AppLogger.debug('   ├─ UID: ${currentUser.uid}');
+        AppLogger.debug('   └─ Email: ${currentUser.email}');
+      }
+      
       await _auth.signOut();
+      
+      AppLogger.debug('✅ LOGOUT: User successfully logged out');
+      AppLogger.debug('   └─ Auth state will now trigger provider updates');
+      
+      // Note: Riverpod provider invalidation should be handled at the app level
+      // by listening to auth state changes in main.dart or app.dart
     } on firebase_auth.FirebaseAuthException catch (e) {
+      AppLogger.error('❌ LOGOUT ERROR: ${e.message}');
       throw custom_auth.FirebaseAuthException(e.code).message;
     } on custom_format.FormatException catch (_) {
       throw const custom_format.FormatException();
@@ -311,6 +340,7 @@ class AuthRepository {
     } on FirebaseException catch (e) {
       throw custom_firebase.FirebaseException(e.code.toString()).message;
     } catch (e) {
+      AppLogger.error('❌ LOGOUT ERROR: $e');
       throw 'Something went wrong. Please try again';
     }
   }

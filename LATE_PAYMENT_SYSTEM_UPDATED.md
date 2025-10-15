@@ -39,6 +39,30 @@ Oct 23+  LATE FEES START IMMEDIATELY
 
 ##  Late Fee Calculation
 
+### ⚠️ CRITICAL: Late Fee Freezing When Next Bill Created
+
+**Late fees STOP incrementing when the next billing period starts.**
+
+```
+Example Timeline:
+
+Oct 15: Bill 1 created (covers Oct-Nov, due Oct 22)
+Oct 23-Nov 14: Late fees increment weekly
+Nov 15: Bill 2 created (covers Nov-Dec, due Nov 22)
+        → Bill 1 late fee FREEZES at current amount
+Nov 16+: Bill 1 late fee stays frozen (no more weekly increments)
+Nov 23: If Bill 2 also unpaid → Eviction notice triggered
+```
+
+### Why Late Fees Freeze
+
+Once the next billing period starts, the tenant faces a **new bill with a new due date**. To avoid compounding penalties, the previous bill's late fees stop growing and become a fixed amount.
+
+This ensures:
+1. ✅ Tenant isn't penalized twice for the same time period
+2. ✅ Late fees are capped at reasonable amounts
+3. ✅ Eviction logic focuses on consecutive unpaid months, not accumulated fees
+
 ### Immediate Application
 ```
 Due Date: Oct 22, 2025 (bill created Oct 15)
@@ -72,13 +96,61 @@ Nov 14 (23 days late):
  Days overdue: 23
  Weeks overdue: ceil(23/7) = 4 weeks
  Late Fee: 600
+
+Nov 15: NEXT BILL CREATED → Late fee FREEZES at 600
+Nov 20: Late fee stays 600 (frozen, no increment)
+Nov 22: Bill 2 due date
+Nov 23: Bill 2 overdue + Bill 1 still unpaid = EVICTION
+```
+
+### Real-World Example
+```
+📅 October 15, 2025
+Admin creates Bill 1 (Oct-Nov period)
+├─ Due: Oct 22
+├─ Amount: 29,753.13
+└─ Status: Pending
+
+📅 October 23-November 14
+Late fees accumulate weekly:
+├─ Week 1 (Oct 23-29): +150 = 150
+├─ Week 2 (Oct 30-Nov 5): +150 = 300
+├─ Week 3 (Nov 6-12): +150 = 450
+└─ Week 4 (Nov 13-14): +150 = 600
+
+📅 November 15, 2025
+Admin creates Bill 2 (Nov-Dec period)
+├─ Due: Nov 22
+├─ Amount: 30,200.00
+└─ ⚠️ Bill 1 late fee FREEZES at 600
+
+📅 November 16-22
+Bill 1 status:
+├─ Original: 29,753.13
+├─ Late Fee: 600.00 (FROZEN)
+├─ Total: 30,353.13
+└─ Status: Overdue + Frozen Late Fee
+
+📅 November 23, 2025
+If Bill 2 also unpaid:
+🚨 EVICTION NOTICE TRIGGERED
+├─ Reason: 2 consecutive months unpaid
+├─ Bill 1 Total: 30,353.13 (frozen)
+├─ Bill 2 Total: 30,200.00 (now overdue)
+└─ Combined: 60,553.13
 ```
 
 ### Formula
 ```dart
+// Without next bill (late fees continue growing)
 daysOverdue = currentDate - dueDate
 weeksOverdue = ceil(daysOverdue / 7)  // Always rounds up
 lateFee = weeksOverdue × 150
+
+// With next bill (late fees freeze)
+daysOverdue = nextBillCreatedDate - dueDate  // Capped at next bill
+weeksOverdue = ceil(daysOverdue / 7)
+lateFee = weeksOverdue × 150  // Frozen amount
 ```
 
 ---
@@ -118,19 +190,51 @@ Eviction Notice Issued When:
 1. TWO consecutive months unpaid
 2. Both bills are past due date
 3. Both bills have daysOverdue > 0
+4. Previous bill's late fee is FROZEN (next bill exists)
+```
+
+### Complete Workflow Timeline
+```
+Month 1 (October):
+├─ Oct 15: Bill 1 created (due Oct 22)
+├─ Oct 23: Bill 1 overdue, late fees start
+├─ Oct 30: Late fee = 300 (2 weeks)
+├─ Nov 6: Late fee = 450 (3 weeks)
+└─ Nov 14: Late fee = 600 (4 weeks)
+
+Month 2 (November):
+├─ Nov 15: Bill 2 created (due Nov 22)
+│           → Bill 1 late fee FREEZES at 600
+├─ Nov 16-21: Bill 2 still within due date
+│             Bill 1 late fee stays 600 (frozen)
+├─ Nov 22: Last day to pay Bill 2
+└─ Nov 23: Bill 2 becomes overdue
+            
+🚨 EVICTION TRIGGERED (Nov 23):
+├─ Condition 1: Two consecutive months (Oct + Nov) ✓
+├─ Condition 2: Both bills past due date ✓
+├─ Condition 3: Bill 1 overdue 32 days, Bill 2 overdue 1 day ✓
+└─ Condition 4: Bill 1 frozen at 600, Bill 2 starts at 0 ✓
+
+Result: Eviction notice issued to tenant
 ```
 
 ### Example Scenario
 ```
 October Bill (created Oct 15, due Oct 22):
- Status: Overdue (unpaid as of Nov 10)
+├─ Status: Overdue (unpaid as of Nov 23)
+├─ Late Fee: 600 (FROZEN at Nov 15)
+└─ Total Due: 30,353.13
 
 November Bill (created Nov 15, due Nov 22):
- October bill still unpaid
- November bill reaches due date (Nov 22)
+├─ Status: Overdue (as of Nov 23)
+├─ Late Fee: 0 (just became overdue)
+└─ Total Due: 30,200.00
     
 Nov 23: EVICTION NOTICE TRIGGERED 
- Reason: 2 consecutive months unpaid
+├─ Reason: 2 consecutive months unpaid
+├─ Combined Outstanding: 60,553.13
+└─ Days to resolve: Varies by property policy
 ```
 
 ### Code Logic
@@ -335,21 +439,26 @@ bool get isOverdue {
 
 #### 1. billing_models.dart
 ```dart
-//  UPDATED: Removed grace period logic
+//  UPDATED: Removed grace period logic + Added late fee freezing
 static LateFeeDetails calculate({
   required DateTime dueDate,
   required int gracePeriodDays, // Ignored, kept for compatibility
   required double lateFeePerWeek,
+  DateTime? nextBillCreatedAt, // NEW: Freeze late fees when next bill created
 }) {
   final now = DateTime.now();
   
+  // Determine end date for calculation
+  // If next bill exists, freeze at that creation date
+  final calculationEndDate = nextBillCreatedAt ?? now;
+  
   // NO GRACE PERIOD - immediate late fee after due date
-  if (now.isBefore(dueDate) || now.isAtSameMomentAs(dueDate)) {
+  if (calculationEndDate.isBefore(dueDate) || calculationEndDate.isAtSameMomentAs(dueDate)) {
     return LateFeeDetails(isLate: false, ...);
   }
   
-  // Calculate weeks from due date (not grace period end)
-  final daysOverdue = now.difference(dueDate).inDays;
+  // Calculate weeks from due date to freeze date (or now)
+  final daysOverdue = calculationEndDate.difference(dueDate).inDays;
   final weeksOverdue = (daysOverdue / 7).ceil();
   
   return LateFeeDetails(
@@ -357,36 +466,63 @@ static LateFeeDetails calculate({
     weeksOverdue: weeksOverdue,
     totalLateFee: weeksOverdue * lateFeePerWeek,
     gracePeriodEnd: dueDate, // No grace period
+    lateFeeAppliedAt: calculationEndDate, // Frozen at this date
   );
 }
 ```
 
 #### 2. billing_repository.dart
 ```dart
-//  UPDATED: Due date from creation date
-Future<String> createBillFromInput({...}) async {
-  final now = DateTime.now();
-  
-  // NEW: Due date = 7 days after bill creation
-  final dueDate = now.add(const Duration(days: 7));
-  
-  final billingPeriod = BillingPeriod(
-    month: month,
-    year: year,
-    startDate: DateTime(year, month, 1),
-    endDate: DateTime(year, month + 1, 0),
-    dueDate: dueDate, // 7 days from NOW
-  );
-  
-  final lateFeeDetails = LateFeeDetails(
-    isLate: false,
-    weeksOverdue: 0,
-    lateFeePerWeek: 150.00,
-    totalLateFee: 0.0,
-    gracePeriodEnd: dueDate, // Same as due date
-  );
-  
-  // ... rest of bill creation
+//  UPDATED: Due date from creation date + Late fee freezing logic
+Future<void> updateLateFees() async {
+  final overdueBills = await firestore
+      .collection('Bills')
+      .where('isPaid', isEqualTo: false)
+      .where('isOverdue', isEqualTo: true)
+      .get();
+
+  for (final doc in overdueBills.docs) {
+    final bill = BillModel.fromSnapshot(doc);
+
+    // NEW: Check if next bill exists for this user
+    DateTime? nextBillCreatedAt;
+    final nextMonth = bill.billingPeriod.month + 1;
+    final nextYear = nextMonth > 12 ? bill.billingPeriod.year + 1 : bill.billingPeriod.year;
+    final adjustedNextMonth = nextMonth > 12 ? 1 : nextMonth;
+    
+    final nextBillQuery = await firestore
+        .collection('Bills')
+        .where('userId', isEqualTo: bill.userId)
+        .where('propertyId', isEqualTo: bill.propertyId)
+        .where('unitId', isEqualTo: bill.unitId)
+        .where('billingPeriod.month', isEqualTo: adjustedNextMonth)
+        .where('billingPeriod.year', isEqualTo: nextYear)
+        .limit(1)
+        .get();
+    
+    if (nextBillQuery.docs.isNotEmpty) {
+      final nextBill = BillModel.fromSnapshot(nextBillQuery.docs.first);
+      nextBillCreatedAt = nextBill.createdAt;
+      // Late fees will freeze at this date
+    }
+
+    // Recalculate with freeze date (if next bill exists)
+    final newLateFeeDetails = LateFeeDetails.calculate(
+      dueDate: bill.billingPeriod.dueDate,
+      gracePeriodDays: 0,
+      lateFeePerWeek: 150.00,
+      nextBillCreatedAt: nextBillCreatedAt, // Freeze here
+    );
+
+    // Update if changed
+    if (newLateFeeDetails.totalLateFee != bill.lateFeeDetails.totalLateFee) {
+      await doc.reference.update({
+        'lateFeeDetails': newLateFeeDetails.toMap(),
+        'summary.lateFee': newLateFeeDetails.totalLateFee,
+        ...
+      });
+    }
+  }
 }
 ```
 
@@ -422,7 +558,7 @@ bool shouldEvict(List<BillModel> allBills) {
 
 ##  Testing Results
 
-All 27 unit tests passing with updated logic:
+All 31 unit tests passing with updated logic (including late fee freezing):
 
 ```bash
 $ flutter test test/unit/billing_models_test.dart
@@ -436,7 +572,13 @@ $ flutter test test/unit/billing_models_test.dart
     should calculate multiple weeks late correctly
     should round up partial weeks
 
-All 27 tests passed!
+ Late Fee Freezing When Next Bill Created (NEW)
+    should freeze late fee when next bill is created
+    should continue growing if no next bill exists
+    should freeze at exactly the next bill creation date
+    should not charge late fee if next bill created before due date
+
+All 31 tests passed!
 ```
 
 ---
@@ -448,14 +590,35 @@ All 27 tests passed!
 2.  NO grace period
 3.  Late fees = 150/week (rounds up)
 4.  Late fees start day after due date
-5.  Eviction = 2 consecutive months unpaid
-6.  Payment priority: Rent first, late fees last
+5.  **Late fees FREEZE when next bill is created** 
+6.  Eviction = 2 consecutive months unpaid (both past due)
+7.  Payment priority: Rent first, late fees last
 
 ### Hard-Coded Values
 - Late fee per week: 150
 - Days until due: 7 days
 - Eviction threshold: 2 consecutive months
 - Week rounding: Always ceil (round up)
+- **Late fee freeze: When next billing period starts**
+
+### Late Fee Lifecycle
+```
+Phase 1: Active Growth
+├─ Bill created and becomes overdue
+├─ Late fees increment weekly
+└─ Duration: Until next bill is created
+
+Phase 2: Frozen
+├─ Next bill is created
+├─ Late fee stops incrementing
+├─ Amount becomes fixed
+└─ Duration: Until bill is paid or eviction
+
+Phase 3: Resolution
+├─ Option A: Tenant pays (bill closed)
+├─ Option B: Eviction process begins
+└─ Late fee remains part of total owed
+```
 
 ---
 
@@ -495,6 +658,14 @@ test/unit/
 
 ---
 
-**Status:**  Core logic updated and tested  
-**Next:** Update UI components to reflect new workflow
+**Status:**  Core logic updated and tested - ALL 31 TESTS PASSING  
+**Last Updated:** October 10, 2025  
+**Changes:**
+- ✅ Removed grace period (7 days → 0 days)
+- ✅ Due date based on bill creation (not month end)
+- ✅ Late fee freezing implemented (stops when next bill created)
+- ✅ Eviction logic updated (consecutive months check)
+- ✅ All tests updated and passing
+
+**Next:** Update UI components to reflect new workflow and freezing logic
 

@@ -506,4 +506,76 @@ void main() {
       expect(lateFee.totalLateFee, 450.0);
     });
   });
+
+  group('Late Fee Freezing When Next Bill Created', () {
+    test('should freeze late fee when next bill is created', () {
+      // Bill 1 due Oct 22, next bill created Nov 15 (24 days later)
+      final dueDate = DateTime(2025, 10, 22);
+      final nextBillCreatedAt = DateTime(2025, 11, 15);
+      
+      final lateFee = LateFeeDetails.calculate(
+        dueDate: dueDate,
+        gracePeriodDays: 0,
+        lateFeePerWeek: 150.0,
+        nextBillCreatedAt: nextBillCreatedAt,
+      );
+
+      // Should calculate based on 24 days (not current date)
+      final expectedWeeks = (24 / 7).ceil(); // ceil(3.43) = 4 weeks
+      expect(lateFee.isLate, true);
+      expect(lateFee.weeksOverdue, expectedWeeks);
+      expect(lateFee.totalLateFee, expectedWeeks * 150.0); // 4 * 150 = 600
+    });
+
+    test('should continue growing if no next bill exists', () {
+      // Bill due 21 days ago, no next bill created yet
+      final dueDate = DateTime.now().subtract(const Duration(days: 21));
+      
+      final lateFee = LateFeeDetails.calculate(
+        dueDate: dueDate,
+        gracePeriodDays: 0,
+        lateFeePerWeek: 150.0,
+        nextBillCreatedAt: null, // No next bill
+      );
+
+      expect(lateFee.isLate, true);
+      expect(lateFee.weeksOverdue, 3); // 21 days = 3 weeks
+      expect(lateFee.totalLateFee, 450.0);
+    });
+
+    test('should freeze at exactly the next bill creation date', () {
+      // Bill due Oct 22, next bill created Nov 6 (15 days later)
+      final dueDate = DateTime(2025, 10, 22);
+      final nextBillCreatedAt = DateTime(2025, 11, 6);
+      
+      final lateFee = LateFeeDetails.calculate(
+        dueDate: dueDate,
+        gracePeriodDays: 0,
+        lateFeePerWeek: 150.0,
+        nextBillCreatedAt: nextBillCreatedAt,
+      );
+
+      // 15 days overdue at freeze = ceil(15/7) = 3 weeks
+      expect(lateFee.isLate, true);
+      expect(lateFee.weeksOverdue, 3);
+      expect(lateFee.totalLateFee, 450.0);
+    });
+
+    test('should not charge late fee if next bill created before due date', () {
+      // Edge case: next bill created before current bill even due
+      final dueDate = DateTime(2025, 11, 22);
+      final nextBillCreatedAt = DateTime(2025, 11, 15); // Before due date
+      
+      final lateFee = LateFeeDetails.calculate(
+        dueDate: dueDate,
+        gracePeriodDays: 0,
+        lateFeePerWeek: 150.0,
+        nextBillCreatedAt: nextBillCreatedAt,
+      );
+
+      expect(lateFee.isLate, false);
+      expect(lateFee.weeksOverdue, 0);
+      expect(lateFee.totalLateFee, 0.0);
+    });
+  });
 }

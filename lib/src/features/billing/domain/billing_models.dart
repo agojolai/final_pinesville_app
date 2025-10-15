@@ -242,15 +242,21 @@ class LateFeeDetails {
 
   /// Calculate late fee based on current date
   /// NO GRACE PERIOD - Late fees apply immediately after due date
+  /// IMPORTANT: If nextBillCreatedAt is provided, late fee calculation stops at that date
   static LateFeeDetails calculate({
     required DateTime dueDate,
     required int gracePeriodDays, // Kept for backwards compatibility, but set to 0
     required double lateFeePerWeek,
+    DateTime? nextBillCreatedAt, // When next bill is created, late fees freeze
   }) {
     final now = DateTime.now();
     
+    // Determine the end date for late fee calculation
+    // If next bill exists, freeze late fees at that creation date
+    final calculationEndDate = nextBillCreatedAt ?? now;
+    
     // NO GRACE PERIOD - Due date is the cutoff
-    if (now.isBefore(dueDate) || now.isAtSameMomentAs(dueDate)) {
+    if (calculationEndDate.isBefore(dueDate) || calculationEndDate.isAtSameMomentAs(dueDate)) {
       // Still before or on due date - no late fees
       return LateFeeDetails(
         isLate: false,
@@ -262,7 +268,8 @@ class LateFeeDetails {
     }
 
     // Calculate weeks overdue - starts immediately after due date
-    final daysOverdue = now.difference(dueDate).inDays;
+    // Use calculationEndDate instead of now to allow freezing
+    final daysOverdue = calculationEndDate.difference(dueDate).inDays;
     final weeksOverdue = (daysOverdue / 7).ceil();
     final totalLateFee = weeksOverdue * lateFeePerWeek;
 
@@ -271,7 +278,7 @@ class LateFeeDetails {
       weeksOverdue: weeksOverdue,
       lateFeePerWeek: lateFeePerWeek,
       totalLateFee: totalLateFee,
-      lateFeeAppliedAt: now,
+      lateFeeAppliedAt: calculationEndDate,
       gracePeriodEnd: dueDate, // No grace period
     );
   }

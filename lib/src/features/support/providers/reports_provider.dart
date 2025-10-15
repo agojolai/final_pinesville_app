@@ -1,27 +1,40 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:image_picker/image_picker.dart';
 import '../data/models/report_model.dart';
 import '../data/repositories/report_repository.dart';
 import '../../../core/repositories/auth_repository.dart';
 import '../../auth/data/models/user_model.dart';
 import '../../profile/providers/profile_provider.dart';
+import '../../../core/utils/app_logger.dart';
 
 // Report Repository Provider
 final reportRepositoryProvider = Provider<ReportRepository>((ref) {
   return ReportRepository.instance;
 });
 
-// Current User's Reports Stream Provider
+// Current User's Reports Stream Provider - Reactive to auth changes
 final tenantReportsProvider = StreamProvider<List<ReportModel>>((ref) async* {
-  final authUser = AuthRepository.instance.authUser;
   final reportRepository = ref.watch(reportRepositoryProvider);
   
-  if (authUser == null) {
-    yield [];
-    return;
-  }
+  AppLogger.debug('📋 tenantReportsProvider: Starting to listen to auth state changes');
+  
+  // Listen to Firebase auth state changes to react to account switching
+  await for (final authUser in firebase_auth.FirebaseAuth.instance.authStateChanges()) {
+    if (authUser == null) {
+      AppLogger.debug('📋 tenantReportsProvider: User logged out - yielding empty reports list');
+      yield [];
+      continue;
+    }
 
-  yield* reportRepository.streamTenantReports(authUser.uid);
+    AppLogger.debug('📋 tenantReportsProvider: Fetching reports for user ${authUser.uid}');
+    
+    // Stream reports for the current authenticated user
+    await for (final reports in reportRepository.streamTenantReports(authUser.uid)) {
+      AppLogger.debug('📋 tenantReportsProvider: Yielding ${reports.length} reports for user ${authUser.uid}');
+      yield reports;
+    }
+  }
 });
 
 // All Reports Stream Provider (Admin function)

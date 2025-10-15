@@ -188,6 +188,15 @@ class BillingRepository {
         case PaymentCategory.water:
           balance = bill.waterBreakdown.balance;
           break;
+        case PaymentCategory.trash:
+          balance = bill.trashBreakdown.balance;
+          break;
+        case PaymentCategory.wifi:
+          balance = bill.wifiBreakdown.balance;
+          break;
+        case PaymentCategory.parking:
+          balance = bill.parkingBreakdown.balance;
+          break;
         case PaymentCategory.additionalCharges:
           balance = bill.additionalChargesBreakdown.balance;
           break;
@@ -227,6 +236,18 @@ class BillingRepository {
       waterAllocation: PaymentAllocationItem(
         amount: allocation[PaymentCategory.water] ?? 0.0,
         appliedAt: payFor.contains(PaymentCategory.water) ? now : null,
+      ),
+      trashAllocation: PaymentAllocationItem(
+        amount: allocation[PaymentCategory.trash] ?? 0.0,
+        appliedAt: payFor.contains(PaymentCategory.trash) ? now : null,
+      ),
+      wifiAllocation: PaymentAllocationItem(
+        amount: allocation[PaymentCategory.wifi] ?? 0.0,
+        appliedAt: payFor.contains(PaymentCategory.wifi) ? now : null,
+      ),
+      parkingAllocation: PaymentAllocationItem(
+        amount: allocation[PaymentCategory.parking] ?? 0.0,
+        appliedAt: payFor.contains(PaymentCategory.parking) ? now : null,
       ),
       additionalChargesAllocation: PaymentAllocationItem(
         amount: allocation[PaymentCategory.additionalCharges] ?? 0.0,
@@ -293,6 +314,15 @@ class BillingRepository {
             break;
           case PaymentCategory.water:
             categoryAmount = payment.waterAllocation.amount;
+            break;
+          case PaymentCategory.trash:
+            categoryAmount = payment.trashAllocation.amount;
+            break;
+          case PaymentCategory.wifi:
+            categoryAmount = payment.wifiAllocation.amount;
+            break;
+          case PaymentCategory.parking:
+            categoryAmount = payment.parkingAllocation.amount;
             break;
           case PaymentCategory.additionalCharges:
             categoryAmount = payment.additionalChargesAllocation.amount;
@@ -646,6 +676,7 @@ class BillingRepository {
   // ==================== LATE FEE MANAGEMENT ====================
 
   /// Update late fees for overdue bills (run daily via Cloud Function)
+  /// IMPORTANT: Late fees freeze when next billing period starts
   Future<void> updateLateFees() async {
     final now = DateTime.now();
 
@@ -658,17 +689,42 @@ class BillingRepository {
     for (final doc in overdueBills.docs) {
       final bill = BillModel.fromSnapshot(doc);
 
-      // Recalculate late fee
+      // Check if there's a next bill for this user (same property/unit, next month)
+      DateTime? nextBillCreatedAt;
+      final nextMonth = bill.billingPeriod.month + 1;
+      final nextYear = nextMonth > 12 ? bill.billingPeriod.year + 1 : bill.billingPeriod.year;
+      final adjustedNextMonth = nextMonth > 12 ? 1 : nextMonth;
+      
+      final nextBillQuery = await firestore
+          .collection('Bills')
+          .where('userId', isEqualTo: bill.userId)
+          .where('propertyId', isEqualTo: bill.propertyId)
+          .where('unitId', isEqualTo: bill.unitId)
+          .where('billingPeriod.month', isEqualTo: adjustedNextMonth)
+          .where('billingPeriod.year', isEqualTo: nextYear)
+          .limit(1)
+          .get();
+      
+      if (nextBillQuery.docs.isNotEmpty) {
+        final nextBill = BillModel.fromSnapshot(nextBillQuery.docs.first);
+        nextBillCreatedAt = nextBill.createdAt;
+        AppLogger.info('Found next bill for user ${bill.userId} - freezing late fees at $nextBillCreatedAt');
+      }
+
+      // Recalculate late fee (will freeze if nextBillCreatedAt is provided)
       final newLateFeeDetails = LateFeeDetails.calculate(
         dueDate: bill.billingPeriod.dueDate,
-        gracePeriodDays: 7,
+        gracePeriodDays: 0, // No grace period
         lateFeePerWeek: 150.00,
+        nextBillCreatedAt: nextBillCreatedAt, // Freeze at next bill creation
       );
 
       if (newLateFeeDetails.totalLateFee != bill.lateFeeDetails.totalLateFee) {
         final newTotal = bill.subtotal + newLateFeeDetails.totalLateFee;
         final newBalance = newTotal - bill.amountPaid;
 
+        AppLogger.info('Updating late fee for bill ${bill.billId}: ${bill.lateFeeDetails.totalLateFee} → ${newLateFeeDetails.totalLateFee}');
+        
         await doc.reference.update({
           'lateFeeDetails': newLateFeeDetails.toMap(),
           'summary.lateFee': newLateFeeDetails.totalLateFee,
