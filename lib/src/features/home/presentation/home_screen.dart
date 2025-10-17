@@ -14,6 +14,7 @@ import '../../billing/presentation/billing_providers.dart';
 import '../../billing/domain/bill_model.dart';
 import '../../profile/providers/profile_provider.dart';
 import '../../auth/data/models/user_model.dart';
+import '../../consumption/providers/consumption_providers.dart';
 
 
 
@@ -191,7 +192,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with TickerProviderStat
                         ),
                         _ImageCard(),
                         SizedBox(height: AppConstants.spacingSM),
-                        _ConsumptionSection(),
+                        _ConsumptionSection(userId: userId),
                         SizedBox(height: AppConstants.spacingXL),
                       ],
                     ),
@@ -883,8 +884,10 @@ class ConsumptionData {
 }
 
 // Consumption Section Widget
-class _ConsumptionSection extends StatelessWidget {
-  const _ConsumptionSection();
+class _ConsumptionSection extends ConsumerWidget {
+  final String userId;
+  
+  const _ConsumptionSection({required this.userId});
 
   // Sample electricity consumption data (kWh) - last 6 months
   static const List<ConsumptionData> electricityData = [
@@ -907,7 +910,11 @@ class _ConsumptionSection extends StatelessWidget {
   ];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Watch electricity and water consumption providers
+    final electricitySummaryAsync = ref.watch(tenantElectricityProvider(userId));
+    final waterSummaryAsync = ref.watch(tenantWaterProvider(userId));
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -921,23 +928,77 @@ class _ConsumptionSection extends StatelessWidget {
         SizedBox(height: AppConstants.spacingSM),
         
         // Electricity Consumption Chart
-        _ConsumptionChart(
-          title: 'Electricity Usage',
-          icon: Iconsax.flash_1,
-          iconColor: Colors.amber,
-          data: electricityData,
-          barColor: Colors.amber,
+        electricitySummaryAsync.when(
+          data: (summary) {
+            // Convert ConsumptionDataPoint to ConsumptionData for chart widget
+            final chartData = summary.dataPoints.map((point) =>
+              ConsumptionData(
+                month: point.month,
+                value: point.value,
+                unit: point.unit,
+              )
+            ).toList();
+            
+            return _ConsumptionChart(
+              title: 'Electricity Usage',
+              icon: Iconsax.flash_1,
+              iconColor: Colors.amber,
+              data: chartData.isNotEmpty ? chartData : electricityData,
+              barColor: Colors.amber,
+            );
+          },
+          loading: () => _ConsumptionChart(
+            title: 'Electricity Usage',
+            icon: Iconsax.flash_1,
+            iconColor: Colors.amber,
+            data: electricityData,
+            barColor: Colors.amber,
+          ),
+          error: (error, stack) => _ConsumptionChart(
+            title: 'Electricity Usage',
+            icon: Iconsax.flash_1,
+            iconColor: Colors.amber,
+            data: electricityData,
+            barColor: Colors.amber,
+          ),
         ),
         
         SizedBox(height: AppConstants.spacingMD),
         
         // Water Consumption Chart
-        _ConsumptionChart(
-          title: 'Water Usage',
-          icon: Iconsax.drop,
-          iconColor: Colors.blue,
-          data: waterData,
-          barColor: Colors.blue,
+        waterSummaryAsync.when(
+          data: (summary) {
+            // Convert ConsumptionDataPoint to ConsumptionData for chart widget
+            final chartData = summary.dataPoints.map((point) =>
+              ConsumptionData(
+                month: point.month,
+                value: point.value,
+                unit: point.unit,
+              )
+            ).toList();
+            
+            return _ConsumptionChart(
+              title: 'Water Usage',
+              icon: Iconsax.drop,
+              iconColor: Colors.blue,
+              data: chartData.isNotEmpty ? chartData : waterData,
+              barColor: Colors.blue,
+            );
+          },
+          loading: () => _ConsumptionChart(
+            title: 'Water Usage',
+            icon: Iconsax.drop,
+            iconColor: Colors.blue,
+            data: waterData,
+            barColor: Colors.blue,
+          ),
+          error: (error, stack) => _ConsumptionChart(
+            title: 'Water Usage',
+            icon: Iconsax.drop,
+            iconColor: Colors.blue,
+            data: waterData,
+            barColor: Colors.blue,
+          ),
         ),
       ],
     );
@@ -962,8 +1023,16 @@ class _ConsumptionChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Find max value for scaling bars
-    final maxValue = data.map((e) => e.value).reduce((a, b) => a > b ? a : b);
+    // Determine default max value based on utility type
+    final defaultMaxValue = _getDefaultMaxValue();
+    
+    // Find actual max value from data
+    final actualMaxValue = data.isEmpty 
+        ? defaultMaxValue 
+        : data.map((e) => e.value).reduce((a, b) => a > b ? a : b);
+    
+    // Use default max or actual max (whichever is higher)
+    final maxValue = actualMaxValue > defaultMaxValue ? actualMaxValue : defaultMaxValue;
     
     return Container(
       padding: EdgeInsets.all(AppConstants.spacingMD),
@@ -1011,7 +1080,10 @@ class _ConsumptionChart extends StatelessWidget {
           // Bar Chart
           Column(
             children: data.map((item) {
-              final barWidth = (item.value / maxValue) * 0.85; // Max 85% width
+              // Ensure barWidth is always between 0.0 and 0.85
+              final barWidth = maxValue > 0 
+                  ? ((item.value / maxValue) * 0.85).clamp(0.0, 0.85)
+                  : 0.0;
               return _BarChartRow(
                 month: item.month,
                 value: item.value,
@@ -1039,7 +1111,7 @@ class _ConsumptionChart extends StatelessWidget {
                 ),
                 SizedBox(width: AppConstants.spacingXS),
                 Text(
-                  'Avg: ${_calculateAverage().toStringAsFixed(1)} ${data.first.unit}',
+                  'Avg: ${_calculateAverage().toStringAsFixed(0)} ${data.first.unit}',
                   style: context.textTheme.bodySmall?.copyWith(
                     color: context.colorScheme.onSurface.withValues(alpha: 0.8),
                     fontWeight: FontWeight.w600,
@@ -1054,7 +1126,23 @@ class _ConsumptionChart extends StatelessWidget {
     );
   }
 
+  /// Get default max value based on utility type
+  /// Electricity: 200 kWh, Water: 10 m³
+  double _getDefaultMaxValue() {
+    // Check if this is electricity (kWh) or water (m³)
+    if (data.isEmpty) return 200.0; // Default to electricity
+    
+    final unit = data.first.unit;
+    if (unit == 'kWh') {
+      return 50.0; // Default max for electricity
+    } else if (unit == 'm³' || unit == 'm') {
+      return 15.0; // Default max for water
+    }
+    return 150.0; // Fallback
+  }
+
   double _calculateAverage() {
+    if (data.isEmpty) return 0.0;
     final sum = data.fold(0.0, (sum, item) => sum + item.value);
     return sum / data.length;
   }
@@ -1134,7 +1222,7 @@ class _BarChartRow extends StatelessWidget {
                     alignment: Alignment.centerRight,
                     padding: EdgeInsets.symmetric(horizontal: AppConstants.spacingXS),
                     child: Text(
-                      value.toStringAsFixed(1),
+                      value.toStringAsFixed(0),
                       style: context.textTheme.bodySmall?.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,

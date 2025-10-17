@@ -8,6 +8,7 @@ import 'tenant_management_screen.dart';
 import 'billing_management_screen.dart';
 import 'admin_reports_screen.dart';
 import 'announcements_management_screen.dart';
+import '../../data_import/presentation/import_data_screen.dart';
 import '../../../features/auth/presentation/login_screen.dart';
 import '../../../core/repositories/auth_repository.dart';
 import '../../../core/snackbars/loaders.dart';
@@ -154,6 +155,21 @@ class _AdminShellState extends State<AdminShell> {
                           Padding(
                             padding: EdgeInsets.symmetric(vertical: AppConstants.spacingXS),
                             child: Text(
+                              'UTILITIES',
+                              style: textTheme.labelSmall?.copyWith(
+                                fontFamily: 'Montserrat',
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.onSurface.withValues(alpha: 0.6),
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                          ),
+                          SizedBox(height: AppConstants.spacingSM),
+                          _buildImportDataTile(colorScheme, textTheme),
+                          SizedBox(height: AppConstants.spacingLG),
+                          Padding(
+                            padding: EdgeInsets.symmetric(vertical: AppConstants.spacingXS),
+                            child: Text(
                               'COMING SOON',
                               style: textTheme.labelSmall?.copyWith(
                                 fontFamily: 'Montserrat',
@@ -265,6 +281,44 @@ class _AdminShellState extends State<AdminShell> {
     }
 
     return tiles;
+  }
+
+  Widget _buildImportDataTile(
+    ColorScheme colorScheme,
+    TextTheme textTheme,
+  ) {
+    final Color iconColor = colorScheme.primary;
+    final Color labelColor = colorScheme.onSurface;
+
+    return ListTile(
+      dense: true,
+      leading: Icon(
+        Iconsax.import,
+        color: iconColor,
+        size: 24,
+      ),
+      title: Text(
+        'Import Historical Data',
+        style: textTheme.bodyLarge?.copyWith(
+          fontFamily: 'Montserrat',
+          fontWeight: FontWeight.w500,
+          color: labelColor,
+        ),
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppConstants.radiusMD),
+      ),
+      onTap: () {
+        Navigator.of(context).pop();
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => ImportDataScreen(
+              onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildComingSoonTile(
