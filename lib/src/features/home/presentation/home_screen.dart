@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +7,7 @@ import '../../../theme/theme_extensions.dart';
 import 'package:iconsax/iconsax.dart';
 import '../../payment/presentation/pay_rent_screen.dart';
 import '../../payment/presentation/view_billing_screen.dart';
+import '../../payment/presentation/transaction_history_screen.dart';
 import '../../../core/snackbars/loaders.dart';
 import '../../../core/repositories/auth_repository.dart';
 import '../../billing/presentation/billing_providers.dart';
@@ -15,8 +15,6 @@ import '../../billing/domain/bill_model.dart';
 import '../../profile/providers/profile_provider.dart';
 import '../../auth/data/models/user_model.dart';
 import '../../consumption/providers/consumption_providers.dart';
-
-
 
 // Transaction model for type safety
 class Transaction {
@@ -42,26 +40,33 @@ class HomeScreen extends ConsumerStatefulWidget {
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen> with TickerProviderStateMixin {
+
+
+
+
+class _HomeScreenState extends ConsumerState<HomeScreen>
+    with TickerProviderStateMixin {
   late PageController _pageController;
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
   int currentPage = 0;
-  
-  
+
   // Sample announcements
   static const List<Map<String, String>> announcements = [
     {
       'title': 'Welcome to Our Community!',
-      'content': 'Welcome to Pinesville! We\'re excited to have you as part of our community. Check out our amenities and don\'t hesitate to reach out if you need anything.',
+      'content':
+          'Welcome to Pinesville! We\'re excited to have you as part of our community. Check out our amenities and don\'t hesitate to reach out if you need anything.',
     },
     {
       'title': 'Monthly Community Meeting',
-      'content': 'Reminder: Monthly community meeting this Saturday at 2 PM in the clubhouse. We\'ll discuss upcoming improvements and address any concerns.',
+      'content':
+          'Reminder: Monthly community meeting this Saturday at 2 PM in the clubhouse. We\'ll discuss upcoming improvements and address any concerns.',
     },
     {
       'title': 'Pool Maintenance Notice',
-      'content': 'Pool maintenance scheduled for next Tuesday from 8 AM to 12 PM. The pool will be temporarily closed during this time. Thank you for your understanding.',
+      'content':
+          'Pool maintenance scheduled for next Tuesday from 8 AM to 12 PM. The pool will be temporarily closed during this time. Thank you for your understanding.',
     },
   ];
 
@@ -85,12 +90,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with TickerProviderStat
     _fadeController.dispose();
     super.dispose();
   }
-  
+
   List<Transaction> _convertBillsToTransactions(List<BillModel> bills) {
     return bills.take(6).map((bill) {
       final monthName = _getMonthName(bill.billingPeriod.month);
       final date = '$monthName ${bill.billingPeriod.year}';
-      
+
       return Transaction(
         date: date,
         reference: bill.billId,
@@ -99,11 +104,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with TickerProviderStat
       );
     }).toList();
   }
-  
+
   String _getMonthName(int month) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
     ];
     return months[month - 1];
   }
@@ -117,12 +132,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with TickerProviderStat
         body: Center(child: Text('Not logged in')),
       );
     }
-    
+
     final userId = currentUser.uid;
-    
+
     // Watch user profile provider
     final userProfileAsync = ref.watch(userProfileProvider);
-    
+
     // Watch bills provider
     final billsAsync = ref.watch(userBillsProvider(userId));
 
@@ -131,13 +146,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with TickerProviderStat
         title: Text(
           'Home',
           style: context.textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.bold,
-            fontFamily: 'Montserrat',
+        fontWeight: FontWeight.bold,
+        fontFamily: 'Montserrat',
           ),
         ),
         toolbarHeight: AppConstants.appBarHeight,
         elevation: 0,
         backgroundColor: context.colorScheme.surface,
+        actions: [
+          Padding(
+            padding: EdgeInsets.only(right: AppConstants.spacingSM),
+            child: IconButton(
+              icon: Icon(Iconsax.notification_bing, color: context.colorScheme.primary),
+              tooltip: 'Notifications',
+              onPressed: () {
+          // TODO: Implement notification screen navigation
+          Loaders.infoSnackBar(
+            context,
+            title: 'Coming Soon',
+            message: 'Notifications feature is coming soon!',
+          );
+              },
+            ),
+          ),
+        ],
       ),
       body: FadeTransition(
         opacity: _fadeAnimation,
@@ -156,10 +188,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with TickerProviderStat
                     // If no unpaid bills, use the latest bill (if any)
                     latestUnpaidBill = bills.isNotEmpty ? bills.first : null;
                   }
-                  
+
                   // Convert bills to transactions
                   final transactions = _convertBillsToTransactions(bills);
-                  
+
                   return SingleChildScrollView(
                     physics: const BouncingScrollPhysics(),
                     child: Column(
@@ -168,14 +200,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with TickerProviderStat
                         _BillingCard(
                           bill: latestUnpaidBill,
                           userModel: userModel,
-                          onComingSoon: _showComingSoon,
+                          onRentPaid: _showRentPaidMessage,
                         ),
                         SizedBox(height: AppConstants.spacingSM),
                         _AnnouncementSection(
                           announcements: announcements,
                           pageController: _pageController,
                           currentPage: currentPage,
-                          onPageChanged: (index) => setState(() => currentPage = index),
+                          onPageChanged: (index) =>
+                              setState(() => currentPage = index),
                         ),
                         SizedBox(height: AppConstants.spacingSM),
                         _TransactionSection(
@@ -183,11 +216,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with TickerProviderStat
                           onRequestHistory: _showTransactionHistoryDialog,
                           onTransactionTap: (transaction) {
                             HapticFeedback.lightImpact();
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) => ViewBillingScreen(bill: transaction.bill),
-                              ),
-                            );
+                            // Navigate to Transaction History for paid bills, View Billing for unpaid
+                            if (transaction.bill.isPaid) {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      TransactionHistoryScreen(
+                                          bill: transaction.bill),
+                                ),
+                              );
+                            } else {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      ViewBillingScreen(bill: transaction.bill),
+                                ),
+                              );
+                            }
                           },
                         ),
                         _ImageCard(),
@@ -238,14 +283,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with TickerProviderStat
     );
   }
 
-  void _showComingSoon(BuildContext context, String feature) {
+  void _showRentPaidMessage(BuildContext context) {
     HapticFeedback.lightImpact();
     Loaders.infoSnackBar(
       context,
-      title: 'Coming Soon',
-      message: '$feature will be available in a future update.',
+      title: 'Rent Paid',
+      message: 'You have no pending bills to pay at this time.',
     );
   }
+
 
   void _showTransactionHistoryDialog() {
     showDialog(
@@ -284,7 +330,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with TickerProviderStat
             Container(
               padding: EdgeInsets.all(AppConstants.spacingSM),
               decoration: BoxDecoration(
-                color: context.colorScheme.primaryContainer.withValues(alpha: 0.3),
+                color:
+                    context.colorScheme.primaryContainer.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
@@ -299,7 +346,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with TickerProviderStat
                     child: Text(
                       'Your full transaction history will be emailed to you within 24 hours.',
                       style: context.textTheme.bodySmall?.copyWith(
-                        color: context.colorScheme.onSurface.withValues(alpha: 0.8),
+                        color: context.colorScheme.onSurface
+                            .withValues(alpha: 0.8),
                       ),
                     ),
                   ),
@@ -363,12 +411,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with TickerProviderStat
 class _BillingCard extends StatelessWidget {
   final BillModel? bill;
   final UserModel userModel;
-  final Function(BuildContext, String) onComingSoon;
-  
+  final Function(BuildContext) onRentPaid;
+
   const _BillingCard({
     this.bill,
     required this.userModel,
-    required this.onComingSoon,
+    required this.onRentPaid,
   });
 
   @override
@@ -376,7 +424,7 @@ class _BillingCard extends StatelessWidget {
     // If no bill, show placeholder
     final displayAmount = bill != null ? bill!.balance : 0.0;
     final hasUnpaidBill = bill != null && !bill!.isPaid;
-    
+
     return Container(
       margin: EdgeInsets.symmetric(vertical: AppConstants.spacingSM),
       padding: EdgeInsets.all(AppConstants.spacingLG),
@@ -435,16 +483,22 @@ class _BillingCard extends StatelessWidget {
               Expanded(
                 child: _BillingButton(
                   label: 'Pay Rent',
-                  onPressed: hasUnpaidBill
-                      ? () {
-                          HapticFeedback.lightImpact();
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => PayRentScreen(bill: bill),
-                            ),
-                          );
-                        }
-                      : () => onComingSoon(context, 'Payment'),
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
+                    if (hasUnpaidBill) {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => PayRentScreen(bill: bill),
+                        ),
+                      );
+                    } else {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => PayRentScreen(bill: bill),
+                        ),
+                      );
+                    }
+                  },
                 ),
               ),
               SizedBox(width: AppConstants.spacingMD),
@@ -454,13 +508,20 @@ class _BillingCard extends StatelessWidget {
                   onPressed: bill != null
                       ? () {
                           HapticFeedback.lightImpact();
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => ViewBillingScreen(bill: bill),
-                            ),
-                          );
+                          if (!hasUnpaidBill) {
+                            // Show "Rent Paid" message if bill is already paid
+                            onRentPaid(context);
+                          } else {
+                            // Navigate to View Billing screen for unpaid bills
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    ViewBillingScreen(bill: bill),
+                              ),
+                            );
+                          }
                         }
-                      : () => onComingSoon(context, 'Billing'),
+                      : () => onRentPaid(context),
                 ),
               ),
             ],
@@ -539,7 +600,7 @@ class _AnnouncementSection extends StatelessWidget {
               Text(
                 '${currentPage + 1} of ${announcements.length}',
                 style: context.textTheme.bodySmall?.copyWith(
-                  color: context.colorScheme.onSurface.withValues(alpha:0.6),
+                  color: context.colorScheme.onSurface.withValues(alpha: 0.6),
                   fontFamily: 'Montserrat',
                 ),
               ),
@@ -557,7 +618,8 @@ class _AnnouncementSection extends StatelessWidget {
                 itemCount: announcements.length,
                 itemBuilder: (context, index) {
                   return Container(
-                    margin: EdgeInsets.symmetric(horizontal: AppConstants.spacingXS),
+                    margin: EdgeInsets.symmetric(
+                        horizontal: AppConstants.spacingXS),
                     decoration: BoxDecoration(
                       color: context.colorScheme.surface,
                       border: Border.all(
@@ -567,7 +629,8 @@ class _AnnouncementSection extends StatelessWidget {
                       borderRadius: context.radiusXL,
                       boxShadow: [
                         BoxShadow(
-                          color: context.colorScheme.primary.withValues(alpha: 0.1),
+                          color: context.colorScheme.primary
+                              .withValues(alpha: 0.1),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -621,7 +684,7 @@ class _AnnouncementSection extends StatelessWidget {
                       vertical: AppConstants.spacingXS,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha:0.1),
+                      color: Colors.black.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
@@ -631,12 +694,14 @@ class _AnnouncementSection extends StatelessWidget {
                           duration: AppConstants.durationFast,
                           width: currentPage == index ? 16 : 8,
                           height: 8,
-                          margin: EdgeInsets.symmetric(horizontal: AppConstants.spacingXS / 2),
+                          margin: EdgeInsets.symmetric(
+                              horizontal: AppConstants.spacingXS / 2),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(4),
                             color: currentPage == index
                                 ? context.colorScheme.primary
-                                : context.colorScheme.primary.withValues(alpha: .3),
+                                : context.colorScheme.primary
+                                    .withValues(alpha: .3),
                           ),
                         );
                       }),
@@ -683,7 +748,7 @@ class _TransactionSection extends StatelessWidget {
             borderRadius: context.radiusXL,
             boxShadow: [
               BoxShadow(
-                color: context.colorScheme.outline.withValues(alpha:0.1),
+                color: context.colorScheme.outline.withValues(alpha: 0.1),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
@@ -698,7 +763,8 @@ class _TransactionSection extends StatelessWidget {
                     child: Text(
                       'No transactions yet',
                       style: context.textTheme.bodyLarge?.copyWith(
-                        color: context.colorScheme.onSurface.withValues(alpha:0.6),
+                        color: context.colorScheme.onSurface
+                            .withValues(alpha: 0.6),
                       ),
                     ),
                   ),
@@ -773,12 +839,13 @@ class _TransactionItem extends StatelessWidget {
     Color statusColor;
     if (transaction.bill.isPaid) {
       statusColor = context.colorScheme.success; // Green
-    } else if (transaction.bill.isOverdue || transaction.bill.lateFeeDetails.isLate) {
+    } else if (transaction.bill.isOverdue ||
+        transaction.bill.lateFeeDetails.isLate) {
       statusColor = context.colorScheme.error; // Red
     } else {
       statusColor = context.colorScheme.warning; // Yellow/Orange
     }
-    
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -819,7 +886,8 @@ class _TransactionItem extends StatelessWidget {
                     Text(
                       transaction.reference,
                       style: context.textTheme.bodySmall?.copyWith(
-                        color: context.colorScheme.onSurface.withValues(alpha:0.7),
+                        color: context.colorScheme.onSurface
+                            .withValues(alpha: 0.7),
                       ),
                     ),
                   ],
@@ -886,7 +954,7 @@ class ConsumptionData {
 // Consumption Section Widget
 class _ConsumptionSection extends ConsumerWidget {
   final String userId;
-  
+
   const _ConsumptionSection({required this.userId});
 
   // Sample electricity consumption data (kWh) - last 6 months
@@ -912,9 +980,10 @@ class _ConsumptionSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // Watch electricity and water consumption providers
-    final electricitySummaryAsync = ref.watch(tenantElectricityProvider(userId));
+    final electricitySummaryAsync =
+        ref.watch(tenantElectricityProvider(userId));
     final waterSummaryAsync = ref.watch(tenantWaterProvider(userId));
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -926,19 +995,19 @@ class _ConsumptionSection extends ConsumerWidget {
           ),
         ),
         SizedBox(height: AppConstants.spacingSM),
-        
+
         // Electricity Consumption Chart
         electricitySummaryAsync.when(
           data: (summary) {
             // Convert ConsumptionDataPoint to ConsumptionData for chart widget
-            final chartData = summary.dataPoints.map((point) =>
-              ConsumptionData(
-                month: point.month,
-                value: point.value,
-                unit: point.unit,
-              )
-            ).toList();
-            
+            final chartData = summary.dataPoints
+                .map((point) => ConsumptionData(
+                      month: point.month,
+                      value: point.value,
+                      unit: point.unit,
+                    ))
+                .toList();
+
             return _ConsumptionChart(
               title: 'Electricity Usage',
               icon: Iconsax.flash_1,
@@ -962,21 +1031,21 @@ class _ConsumptionSection extends ConsumerWidget {
             barColor: Colors.amber,
           ),
         ),
-        
+
         SizedBox(height: AppConstants.spacingMD),
-        
+
         // Water Consumption Chart
         waterSummaryAsync.when(
           data: (summary) {
             // Convert ConsumptionDataPoint to ConsumptionData for chart widget
-            final chartData = summary.dataPoints.map((point) =>
-              ConsumptionData(
-                month: point.month,
-                value: point.value,
-                unit: point.unit,
-              )
-            ).toList();
-            
+            final chartData = summary.dataPoints
+                .map((point) => ConsumptionData(
+                      month: point.month,
+                      value: point.value,
+                      unit: point.unit,
+                    ))
+                .toList();
+
             return _ConsumptionChart(
               title: 'Water Usage',
               icon: Iconsax.drop,
@@ -1025,15 +1094,16 @@ class _ConsumptionChart extends StatelessWidget {
   Widget build(BuildContext context) {
     // Determine default max value based on utility type
     final defaultMaxValue = _getDefaultMaxValue();
-    
+
     // Find actual max value from data
-    final actualMaxValue = data.isEmpty 
-        ? defaultMaxValue 
+    final actualMaxValue = data.isEmpty
+        ? defaultMaxValue
         : data.map((e) => e.value).reduce((a, b) => a > b ? a : b);
-    
+
     // Use default max or actual max (whichever is higher)
-    final maxValue = actualMaxValue > defaultMaxValue ? actualMaxValue : defaultMaxValue;
-    
+    final maxValue =
+        actualMaxValue > defaultMaxValue ? actualMaxValue : defaultMaxValue;
+
     return Container(
       padding: EdgeInsets.all(AppConstants.spacingMD),
       decoration: BoxDecoration(
@@ -1076,12 +1146,12 @@ class _ConsumptionChart extends StatelessWidget {
             ],
           ),
           SizedBox(height: AppConstants.spacingMD),
-          
+
           // Bar Chart
           Column(
             children: data.map((item) {
               // Ensure barWidth is always between 0.0 and 0.85
-              final barWidth = maxValue > 0 
+              final barWidth = maxValue > 0
                   ? ((item.value / maxValue) * 0.85).clamp(0.0, 0.85)
                   : 0.0;
               return _BarChartRow(
@@ -1093,7 +1163,7 @@ class _ConsumptionChart extends StatelessWidget {
               );
             }).toList(),
           ),
-          
+
           // Average Info
           SizedBox(height: AppConstants.spacingSM),
           Container(
@@ -1131,7 +1201,7 @@ class _ConsumptionChart extends StatelessWidget {
   double _getDefaultMaxValue() {
     // Check if this is electricity (kWh) or water (m³)
     if (data.isEmpty) return 200.0; // Default to electricity
-    
+
     final unit = data.first.unit;
     if (unit == 'kWh') {
       return 50.0; // Default max for electricity
@@ -1183,7 +1253,7 @@ class _BarChartRow extends StatelessWidget {
             ),
           ),
           SizedBox(width: AppConstants.spacingXS),
-          
+
           // Bar
           Expanded(
             child: Stack(
@@ -1220,7 +1290,8 @@ class _BarChartRow extends StatelessWidget {
                       ],
                     ),
                     alignment: Alignment.centerRight,
-                    padding: EdgeInsets.symmetric(horizontal: AppConstants.spacingXS),
+                    padding: EdgeInsets.symmetric(
+                        horizontal: AppConstants.spacingXS),
                     child: Text(
                       value.toStringAsFixed(0),
                       style: context.textTheme.bodySmall?.copyWith(
@@ -1236,7 +1307,7 @@ class _BarChartRow extends StatelessWidget {
             ),
           ),
           SizedBox(width: AppConstants.spacingXS),
-          
+
           // Unit label
           SizedBox(
             width: 35,
