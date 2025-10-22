@@ -507,6 +507,37 @@ class BillingRepository {
     final tenantData = tenantDoc.data()!;
     final profile = tenantData['profile'] as Map<String, dynamic>;
 
+    // Get admin details for generatedBy field
+    String adminName = 'Unknown Admin';
+    try {
+      final currentUserId = auth.currentUser?.uid;
+      if (currentUserId != null) {
+        // Query admin collection to get admin name
+        final adminQuery = await firestore
+            .collection('admin')
+            .where('userId', isEqualTo: currentUserId)
+            .limit(1)
+            .get();
+        
+        if (adminQuery.docs.isNotEmpty) {
+          final adminData = adminQuery.docs.first.data();
+          final adminProfile = adminData['profile'] as Map<String, dynamic>?;
+          if (adminProfile != null) {
+            final firstName = adminProfile['firstName'] as String? ?? '';
+            final lastName = adminProfile['lastName'] as String? ?? '';
+            adminName = '$firstName $lastName'.trim();
+            if (adminName.isEmpty) {
+              adminName = adminData['email'] as String? ?? 'Unknown Admin';
+            }
+          } else {
+            adminName = adminData['email'] as String? ?? 'Unknown Admin';
+          }
+        }
+      }
+    } catch (e) {
+      AppLogger.warning('Could not fetch admin name for generatedBy field: $e');
+    }
+
     // Calculate electricity
     final electricityPrevious = unit.lastElectricityReading?.reading ?? 0.0;
     final electricityConsumption = electricityCurrent - electricityPrevious;
@@ -644,7 +675,7 @@ class BillingRepository {
       isPartiallyPaid: false,
       createdAt: now,
       updatedAt: now,
-      generatedBy: auth.currentUser!.uid,
+      generatedBy: adminName,
       receiptGenerated: false,
     );
 

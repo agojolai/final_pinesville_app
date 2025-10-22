@@ -274,6 +274,97 @@ class AuthRepository {
     }
   }
 
+  /// Admin login with Firebase Auth and admin collection verification
+  Future<firebase_auth.UserCredential> logInAsAdmin(
+      String email, String password) async {
+    try {
+      AppLogger.debug('🔐 ADMIN LOGIN ATTEMPT: $email');
+      
+      // First authenticate with Firebase Auth
+      final userCredential = await _auth.signInWithEmailAndPassword(
+          email: email, password: password);
+      
+      final userId = userCredential.user!.uid;
+      AppLogger.debug('✅ Firebase Auth successful');
+      AppLogger.debug('   ├─ User ID: $userId');
+      AppLogger.debug('   └─ Email: ${userCredential.user!.email}');
+      
+      // Check if user exists in admin collection
+      AppLogger.debug('🔍 Querying admin collection...');
+      AppLogger.debug('   ├─ Collection: admin');
+      AppLogger.debug('   ├─ Query field: userId');
+      AppLogger.debug('   └─ Looking for: $userId');
+      
+      final adminQuery = await firebaseStore
+          .collection('admin')
+          .where('userId', isEqualTo: userId)
+          .limit(1)
+          .get();
+      
+      AppLogger.debug('📊 Query results:');
+      AppLogger.debug('   ├─ Documents found: ${adminQuery.docs.length}');
+      AppLogger.debug('   └─ Query completed successfully: ${!adminQuery.metadata.isFromCache}');
+      
+      if (adminQuery.docs.isEmpty) {
+        // Let's check if there are ANY documents in admin collection
+        AppLogger.debug('🔍 Checking all documents in admin collection...');
+        final allAdmins = await firebaseStore.collection('admin').get();
+        AppLogger.debug('   └─ Total admin documents: ${allAdmins.docs.length}');
+        
+        if (allAdmins.docs.isNotEmpty) {
+          AppLogger.debug('📋 Existing admin documents:');
+          for (var doc in allAdmins.docs) {
+            final data = doc.data();
+            AppLogger.debug('   ├─ Doc ID: ${doc.id}');
+            AppLogger.debug('   │  ├─ Email: ${data['email']}');
+            AppLogger.debug('   │  ├─ Has userId field: ${data.containsKey('userId')}');
+            AppLogger.debug('   │  └─ userId value: ${data['userId'] ?? 'NULL'}');
+          }
+        }
+        
+        AppLogger.error('❌ ADMIN LOGIN FAILED: User not found in admin collection');
+        AppLogger.error('   ├─ Firebase Auth UID: $userId');
+        AppLogger.error('   └─ No matching userId in admin collection');
+        // User is not an admin - sign out and throw error
+        await _auth.signOut();
+        throw 'Invalid admin credentials. This account is not authorized for admin access.';
+      }
+      
+      // Get admin data
+      final adminDoc = adminQuery.docs.first;
+      final adminData = adminDoc.data();
+      final adminEmail = adminData['email'] as String?;
+      
+      AppLogger.debug('📋 Admin found in admin collection:');
+      AppLogger.debug('   ├─ Email: $adminEmail');
+      AppLogger.debug('   ├─ Admin ID: ${adminDoc.id}');
+      AppLogger.debug('   └─ User ID: ${userCredential.user!.uid}');
+      
+      AppLogger.debug('✅ ADMIN LOGIN SUCCESSFUL: User authenticated and authorized');
+      
+      // Return the credentials
+      return userCredential;
+      
+    } on firebase_auth.FirebaseAuthException catch (e) {
+      if (e.code == 'user-not-found' || e.code == 'wrong-password' || e.code == 'invalid-credential') {
+        throw 'Invalid admin credentials. Please check your email and password.';
+      }
+      throw custom_auth.FirebaseAuthException(e.code).message;
+    } on custom_format.FormatException catch (_) {
+      throw const custom_format.FormatException();
+    } on custom_platform.PlatformException catch (e) {
+      throw custom_platform.PlatformException(e.code).message;
+    } on FirebaseException catch (e) {
+      throw custom_firebase.FirebaseException(e.code.toString()).message;
+    } catch (e) {
+      if (e.toString().contains('Invalid admin credentials') || 
+          e.toString().contains('not authorized')) {
+        rethrow; // Re-throw our custom messages
+      }
+      throw 'Something went wrong. Please try again';
+    }
+  }
+
 //put email in firebase auth
   Future<firebase_auth.UserCredential> registerWithEmailAndPassword(
       String email, String password) async {

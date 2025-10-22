@@ -3,11 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'src/theme/app_theme.dart';
 import 'src/features/auth/presentation/login_screen.dart';
-import 'src/common/widgets/role_based_navigation.dart';
 import 'src/features/auth/providers/auth_provider.dart';
 import 'src/features/onboarding/presentation/onboarding_screen.dart';
 import 'src/features/onboarding/data/onboarding_repository.dart';
 import 'src/core/utils/app_logger.dart';
+import 'src/common/widgets/main_navigation.dart';
+import 'src/features/admin/presentation/admin_navigation.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class App extends ConsumerWidget {
   const App({super.key});
@@ -53,13 +55,50 @@ class App extends ConsumerWidget {
               
               return currentUser.when(
                 data: (user) {
-                  // If user is logged in, go to role-based navigation
+                  // If user is logged in, determine if admin or tenant
                   if (user != null) {
-                    AppLogger.debug('🏠 APP NAVIGATION: User authenticated, showing RoleBasedNavigation');
+                    AppLogger.debug('🏠 APP NAVIGATION: User authenticated');
                     AppLogger.debug('   ├─ UID: ${user.uid}');
                     AppLogger.debug('   └─ Email: ${user.email}');
-                    // Use key based on user ID to force widget recreation on user change
-                    return RoleBasedNavigation(key: ValueKey(user.uid));
+                    
+                    // Check if user is in admin collection or Users collection
+                    return FutureBuilder<String>(
+                      future: _determineUserRole(user.uid),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return const Scaffold(
+                            body: Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  CircularProgressIndicator(),
+                                  SizedBox(height: 16),
+                                  Text(
+                                    'Loading...',
+                                    style: TextStyle(fontFamily: 'Montserrat'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }
+                        
+                        if (snapshot.hasError || !snapshot.hasData) {
+                          // On error, default to login screen
+                          AppLogger.error('Error determining user role: ${snapshot.error}');
+                          return const LoginScreen();
+                        }
+                        
+                        final role = snapshot.data!;
+                        AppLogger.debug('   🎯 User role determined: $role');
+                        
+                        if (role == 'admin') {
+                          return AdminNavigation(key: ValueKey('admin_${user.uid}'));
+                        } else {
+                          return MainNavigation(key: ValueKey('tenant_${user.uid}'));
+                        }
+                      },
+                    );
                   }
                   
                   AppLogger.debug('🏠 APP NAVIGATION: No user authenticated, showing login/onboarding');
@@ -98,6 +137,38 @@ class App extends ConsumerWidget {
     } catch (e) {
       // Firebase might already be initialized
       AppLogger.debug('Firebase initialization: $e');
+    }
+  }
+  
+  /// Determine if the authenticated user is an admin or tenant
+  /// by checking which collection they belong to
+  Future<String> _determineUserRole(String uid) async {
+    try {
+      // First check if user exists in admin collection
+      final adminDoc = await FirebaseFirestore.instance
+          .collection('admin')
+          .doc(uid)
+          .get();
+
+      if (adminDoc.exists) {
+        return 'admin';
+      }
+      
+      // If not in admin, check Users collection
+      final userDoc = await FirebaseFirestore.instance
+          .collection('Users')
+          .doc(uid)
+          .get();
+      
+      if (userDoc.exists) {
+        return 'tenant';
+      }
+      
+      // If not found in either, throw error
+      throw Exception('User not found in admin or Users collection');
+    } catch (e) {
+      AppLogger.error('Error determining user role: $e');
+      rethrow;
     }
   }
 }

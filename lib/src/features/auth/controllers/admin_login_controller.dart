@@ -1,10 +1,10 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/services/network_service.dart';
 import '../../../core/snackbars/loaders.dart';
 import '../../admin/presentation/admin_navigation.dart';
 import '../../../core/utils/app_logger.dart';
+import '../../../core/repositories/auth_repository.dart';
 
 class AdminLoginState {
   final bool isLoading;
@@ -49,33 +49,15 @@ class AdminLoginController extends StateNotifier<AdminLoginState> {
       AppLogger.debug('ADMIN LOGIN ATTEMPT: $email');
 
       final networkService = ref.read(networkServiceProvider);
+      final authRepository = ref.read(authRepositoryProvider);
 
       final result = await networkService.executeWithNetworkHandling(
         context,
         () async {
-          // Query the admin collection to verify credentials
-          final adminSnapshot = await FirebaseFirestore.instance
-              .collection('admin')
-              .where('email', isEqualTo: email.trim())
-              .limit(1)
-              .get();
+          // Use AuthRepository's admin login method which uses Firebase Auth
+          await authRepository.logInAsAdmin(email.trim(), password.trim());
           
-          if (adminSnapshot.docs.isEmpty) {
-            AppLogger.error('ADMIN LOGIN FAILED: Admin not found in admin collection');
-            throw Exception('Invalid admin credentials');
-          }
-          
-          // Get the admin document
-          final adminDoc = adminSnapshot.docs.first;
-          final adminData = adminDoc.data();
-          final storedPassword = adminData['password'] as String?;
-          
-          if (storedPassword == null || storedPassword != password.trim()) {
-            AppLogger.error('ADMIN LOGIN FAILED: Invalid password');
-            throw Exception('Invalid admin credentials');
-          }
-          
-          AppLogger.debug('ADMIN LOGIN SUCCESSFUL: Credentials verified from admin collection');
+          AppLogger.debug('ADMIN LOGIN SUCCESSFUL: Firebase Auth + admin collection verified');
           return true;
         },
         noConnectionMessage: 'Please check your internet connection to sign in as admin.',
