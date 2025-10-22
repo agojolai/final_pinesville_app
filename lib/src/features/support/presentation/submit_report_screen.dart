@@ -10,6 +10,7 @@ import '../../../core/snackbars/loaders.dart';
 import '../providers/reports_provider.dart';
 import '../../profile/providers/profile_provider.dart';
 
+///TODO: DI MAKAUPLOAD NG PICTURE
 class SubmitReportScreen extends ConsumerStatefulWidget {
   final Function(dynamic)? onReportSubmitted;
   

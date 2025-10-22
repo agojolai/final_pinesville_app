@@ -6,7 +6,7 @@ import '../../../theme/theme_extensions.dart';
 import 'admin_dashboard_screen.dart';
 import 'tenant_management_screen.dart';
 import 'billing_management_screen.dart';
-import 'admin_reports_screen.dart';
+import 'admin_reports_management_screen.dart';
 import 'announcements_management_screen.dart';
 import '../../data_import/presentation/import_data_screen.dart';
 import '../../../features/auth/presentation/login_screen.dart';
@@ -24,17 +24,17 @@ class _DrawerEntry {
   final IconData icon;
 }
 
-class AdminShell extends StatefulWidget {
-  const AdminShell({super.key});
+class AdminNavigation extends StatefulWidget {
+  const AdminNavigation({super.key});
 
   @override
-  State<AdminShell> createState() {
-    AppLogger.debug('🏗️ AdminShell: Creating new state instance');
-    return _AdminShellState();
+  State<AdminNavigation> createState() {
+    AppLogger.debug('🏗️ AdminNavigation: Creating new state instance');
+    return _AdminNavigationState();
   }
 }
 
-class _AdminShellState extends State<AdminShell> {
+class _AdminNavigationState extends State<AdminNavigation> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   int _currentIndex = 0;
 
@@ -71,19 +71,18 @@ class _AdminShellState extends State<AdminShell> {
   final List<_DrawerEntry> _upcomingEntries = const [
     _DrawerEntry(label: 'Units', icon: Icons.apartment_outlined),
     _DrawerEntry(label: 'Chats', icon: Icons.chat_bubble_outline),
-    _DrawerEntry(label: 'Reports & Ticketing', icon: Icons.assignment_outlined),
     _DrawerEntry(label: 'Settings', icon: Icons.settings_outlined),
   ];
 
   @override
   void initState() {
     super.initState();
-    AppLogger.debug('🚀 AdminShell: initState called - Admin UI is initializing');
+  AppLogger.debug('🚀 AdminNavigation: initState called - Admin UI is initializing');
     _screens = [
   AdminDashboardScreen(onMenuTap: () => _scaffoldKey.currentState?.openDrawer()),
   TenantManagementScreen(onMenuTap: () => _scaffoldKey.currentState?.openDrawer()),
   BillingManagementScreen(onMenuTap: () => _scaffoldKey.currentState?.openDrawer()),
-  AdminReportsScreen(onMenuTap: () => _scaffoldKey.currentState?.openDrawer()),
+  AdminReportsManagementScreen(onMenuTap: () => _scaffoldKey.currentState?.openDrawer()),
   AnnouncementsManagementScreen(onMenuTap: () => _scaffoldKey.currentState?.openDrawer()),
     ];
   }

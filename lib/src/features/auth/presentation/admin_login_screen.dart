@@ -1,22 +1,21 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax/iconsax.dart';
 import '../../../theme/app_constants.dart';
 import '../../../theme/theme_extensions.dart';
 import '../../../core/constants/validators.dart';
-import '../controllers/login_controller.dart';
+import '../controllers/admin_login_controller.dart';
 import '../providers/auth_provider.dart';
-import 'admin_login_screen.dart';
 
-class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({super.key});
+class AdminLoginScreen extends ConsumerStatefulWidget {
+  const AdminLoginScreen({super.key});
 
   @override
-  ConsumerState<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<AdminLoginScreen> createState() => _AdminLoginScreenState();
 }
 
-class _LoginScreenState extends ConsumerState<LoginScreen>
+class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen>
     with TickerProviderStateMixin {
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
@@ -69,8 +68,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   // UI-only method - delegates to controller
-  Future<void> _handleLogin() async {
-    final controller = ref.read(loginControllerProvider.notifier);
+  Future<void> _handleAdminLogin() async {
+    final controller = ref.read(adminLoginControllerProvider.notifier);
     
     if (!controller.validateForm(_formKey)) {
       return;
@@ -78,37 +77,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
     controller.dismissKeyboard(context);
     
-    await controller.login(
+    await controller.loginAsAdmin(
       email: _emailController.text,
       password: _passwordController.text,
       context: context,
     );
   }
 
-  // UI-only navigation methods - delegate to controller
-  void _navigateToRegister() {
+  // Navigate back to tenant login
+  void _navigateBackToTenantLogin() {
     HapticFeedback.lightImpact();
-    final controller = ref.read(loginControllerProvider.notifier);
-    controller.navigateToRegister(context);
-  }
-
-  void _navigateToForgotPassword() {
-    HapticFeedback.lightImpact();
-    final controller = ref.read(loginControllerProvider.notifier);
-    controller.navigateToForgotPassword(context);
-  }
-
-  void _navigateToAdminLogin() {
-    HapticFeedback.lightImpact();
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (context) => const AdminLoginScreen()),
-    );
+    Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
     // Watch controller state and auth state
-    final loginState = ref.watch(loginControllerProvider);
+    final adminLoginState = ref.watch(adminLoginControllerProvider);
     final authState = ref.watch(authStateProvider);
     final isLoading = authState.status == AuthStatus.loading;
 
@@ -129,51 +114,41 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                   children: [
                     SizedBox(height: AppConstants.spacingXL),
                     
-                    // Logo Section
-                    const _LogoSection(),
+                    // Admin Logo Section
+                    const _AdminLogoSection(),
                     
                     SizedBox(height: AppConstants.spacingXL),
                     
-                    // Welcome Section
-                    const _WelcomeSection(),
+                    // Admin Welcome Section
+                    const _AdminWelcomeSection(),
                     
                     SizedBox(height: AppConstants.spacingXL),
                     
                     // Login Form
-                    _LoginForm(
+                    _AdminLoginForm(
                       emailController: _emailController,
                       passwordController: _passwordController,
                       emailFocusNode: _emailFocusNode,
                       passwordFocusNode: _passwordFocusNode,
-                      obscurePassword: loginState.obscurePassword,
+                      obscurePassword: adminLoginState.obscurePassword,
                       onTogglePassword: () {
-                        final controller = ref.read(loginControllerProvider.notifier);
+                        final controller = ref.read(adminLoginControllerProvider.notifier);
                         controller.togglePasswordVisibility();
                       },
                     ),
                     
-                    SizedBox(height: AppConstants.spacingMD),
-                    
-                    // Forgot Password Link
-                    _ForgotPasswordLink(onTap: _navigateToForgotPassword),
-                    
                     SizedBox(height: AppConstants.spacingXL),
                     
-                    // Login Button
-                    _LoginButton(
+                    // Admin Login Button
+                    _AdminLoginButton(
                       isLoading: isLoading,
-                      onPressed: _handleLogin,
+                      onPressed: _handleAdminLogin,
                     ),
                     
                     SizedBox(height: AppConstants.spacingLG),
                     
-                    // Create Account Section
-                    _CreateAccountSection(onTap: _navigateToRegister),
-                    
-                    SizedBox(height: AppConstants.spacingXXL),
-                    
-                    // Admin Login Button
-                    _AdminLoginButton(onTap: _navigateToAdminLogin),
+                    // Back to Tenant Login Section
+                    _BackToTenantLoginSection(onTap: _navigateBackToTenantLogin),
                     
                     SizedBox(height: AppConstants.spacingXL),
                   ],
@@ -187,74 +162,99 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 }
 
-// Logo Section Widget
-class _LogoSection extends StatelessWidget {
-  const _LogoSection();
+// Admin Logo Section Widget
+class _AdminLogoSection extends StatelessWidget {
+  const _AdminLogoSection();
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // Logo Container
+        // Admin Logo Container with gradient
         Container(
           width: 120,
           height: 120,
           decoration: BoxDecoration(
-            color: context.colorScheme.primary.withValues(alpha:0.1),
-            borderRadius: BorderRadius.circular(30),
-            border: Border.all(
-              color: context.colorScheme.primary.withValues(alpha:0.2),
-              width: 1,
+            gradient: LinearGradient(
+              colors: [
+                context.colorScheme.primary,
+                context.colorScheme.primaryContainer,
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
+            borderRadius: BorderRadius.circular(30),
+            boxShadow: [
+              BoxShadow(
+                color: context.colorScheme.primary.withValues(alpha:0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(30),
-            child: Image.asset(
-              'assets/images/pinesville_logo.png',
-              fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        context.colorScheme.primary,
-                        context.colorScheme.primaryContainer,
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  ),
-                  child: Icon(
-                    Iconsax.home_2,
-                    size: 60,
-                    color: Colors.white,
-                  ),
-                );
-              },
-            ),
+          child: Icon(
+            Iconsax.shield_tick5,
+            size: 60,
+            color: Colors.white,
           ),
         ),
         
         SizedBox(height: AppConstants.spacingMD),
         
-        // App Name
-        Text(
-          'Pinesville',
-          style: context.textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-            fontFamily: 'Montserrat',
-            color: context.colorScheme.primary,
-          ),
+        // Admin Panel Text
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Iconsax.security,
+              color: context.colorScheme.primary,
+              size: 24,
+            ),
+            SizedBox(width: AppConstants.spacingSM),
+            Text(
+              'Admin Panel',
+              style: context.textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                fontFamily: 'Montserrat',
+                color: context.colorScheme.primary,
+              ),
+            ),
+          ],
         ),
         
         SizedBox(height: AppConstants.spacingXS),
         
-        // Tagline
-        Text(
-          'Your Digital Home',
-          style: context.textTheme.bodyLarge?.copyWith(
-            color: context.colorScheme.onSurface.withValues(alpha:0.6),
-            fontFamily: 'Montserrat',
+        // Security Badge
+        Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: AppConstants.spacingMD,
+            vertical: AppConstants.spacingXS,
+          ),
+          decoration: BoxDecoration(
+            color: context.colorScheme.primary.withValues(alpha:0.1),
+            borderRadius: BorderRadius.circular(AppConstants.radiusMD),
+            border: Border.all(
+              color: context.colorScheme.primary.withValues(alpha:0.3),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Iconsax.lock_1,
+                size: 14,
+                color: context.colorScheme.primary,
+              ),
+              SizedBox(width: AppConstants.spacingXS),
+              Text(
+                'Secure Access',
+                style: context.textTheme.bodySmall?.copyWith(
+                  color: context.colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                  fontFamily: 'Montserrat',
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -262,16 +262,16 @@ class _LogoSection extends StatelessWidget {
   }
 }
 
-// Welcome Section Widget
-class _WelcomeSection extends StatelessWidget {
-  const _WelcomeSection();
+// Admin Welcome Section Widget
+class _AdminWelcomeSection extends StatelessWidget {
+  const _AdminWelcomeSection();
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
         Text(
-          'Welcome Back',
+          'Administrative Access',
           style: context.textTheme.headlineLarge?.copyWith(
             fontWeight: FontWeight.bold,
             fontFamily: 'Montserrat',
@@ -281,7 +281,7 @@ class _WelcomeSection extends StatelessWidget {
         SizedBox(height: AppConstants.spacingSM),
         
         Text(
-          'Sign in to access your account and manage your unit',
+          'Sign in with your admin credentials to access the management dashboard',
           style: context.textTheme.bodyLarge?.copyWith(
             color: context.colorScheme.onSurface.withValues(alpha:0.7),
             height: 1.5,
@@ -293,8 +293,8 @@ class _WelcomeSection extends StatelessWidget {
   }
 }
 
-// Login Form Widget
-class _LoginForm extends StatelessWidget {
+// Admin Login Form Widget
+class _AdminLoginForm extends StatelessWidget {
   final TextEditingController emailController;
   final TextEditingController passwordController;
   final FocusNode emailFocusNode;
@@ -302,7 +302,7 @@ class _LoginForm extends StatelessWidget {
   final bool obscurePassword;
   final VoidCallback onTogglePassword;
 
-  const _LoginForm({
+  const _AdminLoginForm({
     required this.emailController,
     required this.passwordController,
     required this.emailFocusNode,
@@ -327,15 +327,15 @@ class _LoginForm extends StatelessWidget {
                 fontFamily: 'Montserrat',
               ),
           decoration: InputDecoration(
-            labelText: 'Email Address',
-            hintText: 'Enter your email',
+            labelText: 'Admin Email',
+            hintText: 'Enter your admin email',
             labelStyle: TextStyle(
               fontSize: context.textTheme.bodyMedium?.fontSize,
               fontFamily: 'Montserrat',
             ),
             prefixIcon: Icon(
-              Iconsax.sms,
-              color: context.colorScheme.onSurface.withValues(alpha:0.6),
+              Iconsax.shield_tick,
+              color: context.colorScheme.primary,
             ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppConstants.radiusMD),
@@ -393,15 +393,15 @@ class _LoginForm extends StatelessWidget {
                 fontFamily: 'Montserrat',
               ),
           decoration: InputDecoration(
-            labelText: 'Password',
-            hintText: 'Enter your password',
+            labelText: 'Admin Password',
+            hintText: 'Enter your admin password',
             labelStyle: TextStyle(
               fontSize: context.textTheme.bodyMedium?.fontSize,
               fontFamily: 'Montserrat',
             ),
             prefixIcon: Icon(
               Iconsax.lock,
-              color: context.colorScheme.onSurface.withValues(alpha:0.6),
+              color: context.colorScheme.primary,
             ),
             suffixIcon: IconButton(
               icon: Icon(
@@ -456,43 +456,12 @@ class _LoginForm extends StatelessWidget {
   }
 }
 
-// Forgot Password Link Widget
-class _ForgotPasswordLink extends StatelessWidget {
-  final VoidCallback onTap;
-
-  const _ForgotPasswordLink({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerRight,
-      child: TextButton(
-        onPressed: onTap,
-        style: TextButton.styleFrom(
-          foregroundColor: context.colorScheme.primary,
-          padding: EdgeInsets.symmetric(
-            horizontal: AppConstants.spacingMD,
-            vertical: AppConstants.spacingSM,
-          ),
-        ),
-        child: Text(
-          'Forgot Password?',
-          style: context.textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-            fontFamily: 'Montserrat',
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// Login Button Widget
-class _LoginButton extends StatelessWidget {
+// Admin Login Button Widget
+class _AdminLoginButton extends StatelessWidget {
   final bool isLoading;
   final VoidCallback onPressed;
 
-  const _LoginButton({
+  const _AdminLoginButton({
     required this.isLoading,
     required this.onPressed,
   });
@@ -508,7 +477,7 @@ class _LoginButton extends StatelessWidget {
           foregroundColor: context.colorScheme.onPrimary,
           disabledBackgroundColor: context.colorScheme.onSurface.withValues(alpha:0.12),
           disabledForegroundColor: context.colorScheme.onSurface.withValues(alpha:0.38),
-          elevation: 0,
+          elevation: 2,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppConstants.radiusMD),
           ),
@@ -531,12 +500,12 @@ class _LoginButton extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    Iconsax.login,
+                    Iconsax.shield_tick,
                     size: 20,
                   ),
                   SizedBox(width: AppConstants.spacingSM),
                   Text(
-                    'Sign In',
+                    'Sign In as Admin',
                     style: context.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                       fontFamily: 'Montserrat',
@@ -549,79 +518,50 @@ class _LoginButton extends StatelessWidget {
   }
 }
 
-// Create Account Section Widget
-class _CreateAccountSection extends StatelessWidget {
+// Back to Tenant Login Section Widget
+class _BackToTenantLoginSection extends StatelessWidget {
   final VoidCallback onTap;
 
-  const _CreateAccountSection({required this.onTap});
+  const _BackToTenantLoginSection({required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.all(AppConstants.spacingSM),
       decoration: BoxDecoration(
-        color: context.colorScheme.primaryContainer.withValues(alpha:0.1),
+        color: context.colorScheme.surfaceContainer.withValues(alpha:0.3),
         borderRadius: BorderRadius.circular(AppConstants.radiusMD),
         border: Border.all(
-          color: context.colorScheme.primary.withValues(alpha:0.2),
+          color: context.colorScheme.outline.withValues(alpha:0.2),
         ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
-            'Don\'t have an account? ',
-            style: context.textTheme.bodySmall?.copyWith(
-              color: context.colorScheme.onSurface.withValues(alpha:0.7),
-            ),
+          Icon(
+            Iconsax.arrow_left_2,
+            size: 16,
+            color: context.colorScheme.onSurface.withValues(alpha:0.7),
           ),
+          SizedBox(width: AppConstants.spacingXS),
           TextButton(
             onPressed: onTap,
             style: TextButton.styleFrom(
-              foregroundColor: context.colorScheme.primary,
+              foregroundColor: context.colorScheme.onSurface,
               padding: EdgeInsets.symmetric(
                 horizontal: AppConstants.spacingSM,
                 vertical: AppConstants.spacingXS,
               ),
             ),
             child: Text(
-              'Create Account',
+              'Back to Tenant Login',
               style: context.textTheme.bodySmall?.copyWith(
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w600,
                 fontFamily: 'Montserrat',
               ),
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// Admin Login Button Widget
-class _AdminLoginButton extends StatelessWidget {
-  final VoidCallback onTap;
-
-  const _AdminLoginButton({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return TextButton(
-      onPressed: onTap,
-      style: TextButton.styleFrom(
-        foregroundColor: context.colorScheme.primary,
-        padding: EdgeInsets.symmetric(
-          horizontal: AppConstants.spacingMD,
-          vertical: AppConstants.spacingSM,
-        ),
-      ),
-      child: Text(
-        'Log in as Admin',
-        style: context.textTheme.bodySmall?.copyWith(
-          fontWeight: FontWeight.w600,
-          fontFamily: 'Montserrat',
-          color: context.colorScheme.primary,
-        ),
       ),
     );
   }

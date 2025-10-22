@@ -4,17 +4,31 @@ import 'package:iconsax/iconsax.dart';
 import '../../../theme/app_constants.dart';
 import '../../../theme/theme_extensions.dart';
 import '../../../core/snackbars/loaders.dart';
-import '../data/models/report_model.dart';
-import '../data/repositories/report_repository.dart';
+import '../../support/data/models/report_model.dart';
+import '../../support/data/repositories/report_repository.dart';
 
-class AdminReportTestingScreen extends StatefulWidget {
-  const AdminReportTestingScreen({super.key});
+/// Admin Reports & Ticketing Management Screen
+/// 
+/// Features:
+/// - View all tenant reports/tickets across all properties
+/// - Filter reports by status (Pending, In Progress, Resolved, Closed)
+/// - Update report status with automatic notifications
+/// - Add updates/comments to reports
+/// - Real-time statistics dashboard
+/// - Admin utilities (create samples, bulk delete)
+class AdminReportsManagementScreen extends StatefulWidget {
+  const AdminReportsManagementScreen({
+    super.key,
+    required this.onMenuTap,
+  });
+
+  final VoidCallback onMenuTap;
 
   @override
-  State<AdminReportTestingScreen> createState() => _AdminReportTestingScreenState();
+  State<AdminReportsManagementScreen> createState() => _AdminReportsManagementScreenState();
 }
 
-class _AdminReportTestingScreenState extends State<AdminReportTestingScreen> with TickerProviderStateMixin {
+class _AdminReportsManagementScreenState extends State<AdminReportsManagementScreen> with TickerProviderStateMixin {
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
 
@@ -53,7 +67,7 @@ class _AdminReportTestingScreenState extends State<AdminReportTestingScreen> wit
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Admin Report Testing',
+          'Reports & Ticketing',
           style: context.textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.bold,
             fontFamily: 'Montserrat',
@@ -62,23 +76,18 @@ class _AdminReportTestingScreenState extends State<AdminReportTestingScreen> wit
         leading: IconButton(
           onPressed: () {
             HapticFeedback.lightImpact();
-            Navigator.of(context).pop();
+            widget.onMenuTap();
           },
           icon: Icon(
-            Iconsax.arrow_left,
+            Iconsax.menu,
             color: context.colorScheme.onSurface,
           ),
+          tooltip: 'Open navigation menu',
         ),
         toolbarHeight: AppConstants.appBarHeight,
         elevation: 0,
         backgroundColor: context.colorScheme.surface,
-        actions: [
-          IconButton(
-            onPressed: _loadAllReports,
-            icon: Icon(Iconsax.refresh),
-            tooltip: 'Refresh',
-          ),
-        ],
+        automaticallyImplyLeading: false,
       ),
       body: FadeTransition(
         opacity: _fadeAnimation,
@@ -121,15 +130,44 @@ class _AdminReportTestingScreenState extends State<AdminReportTestingScreen> wit
             ],
             Expanded(
               child: _isLoading
-                  ? _LoadingState()
+                  ? RefreshIndicator(
+                      onRefresh: _loadAllReports,
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        child: SizedBox(
+                          height: MediaQuery.of(context).size.height - 400,
+                          child: _LoadingState(),
+                        ),
+                      ),
+                    )
                   : _reports.isEmpty
-                      ? _EmptyState()
+                      ? RefreshIndicator(
+                          onRefresh: _loadAllReports,
+                          child: SingleChildScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            child: SizedBox(
+                              height: MediaQuery.of(context).size.height - 400,
+                              child: _EmptyState(),
+                            ),
+                          ),
+                        )
                       : _filteredReports.isEmpty
-                          ? _EmptyFilterState()
+                          ? RefreshIndicator(
+                              onRefresh: _loadAllReports,
+                              child: SingleChildScrollView(
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                child: SizedBox(
+                                  height: MediaQuery.of(context).size.height - 400,
+                                  child: _EmptyFilterState(),
+                                ),
+                              ),
+                            )
                           : RefreshIndicator(
                               onRefresh: _loadAllReports,
                               child: ListView.builder(
-                                physics: const BouncingScrollPhysics(),
+                                physics: const AlwaysScrollableScrollPhysics(
+                                  parent: BouncingScrollPhysics(),
+                                ),
                                 padding: EdgeInsets.all(AppConstants.spacingMD),
                                 itemCount: _filteredReports.length,
                                 itemBuilder: (context, index) {
@@ -366,7 +404,7 @@ class _AdminReportTestingScreenState extends State<AdminReportTestingScreen> wit
             ),
             SizedBox(height: AppConstants.spacingSM),
             Text(
-              'Create sample reports to test the system.',
+              'No tenant reports have been submitted yet.',
               style: context.textTheme.bodyMedium?.copyWith(
                 color: context.colorScheme.onSurface.withValues(alpha: 0.5),
                 fontFamily: 'Montserrat',
@@ -394,29 +432,35 @@ class _AdminReportTestingScreenState extends State<AdminReportTestingScreen> wit
       setState(() {
         _isLoading = false;
       });
-      Loaders.errorSnackBar(
-        context,
-        title: 'Error Loading Reports',
-        message: e.toString(),
-      );
+      if (mounted) {
+        Loaders.errorSnackBar(
+          context,
+          title: 'Error Loading Reports',
+          message: e.toString(),
+        );
+      }
     }
   }
 
   Future<void> _createSampleReports() async {
     try {
       await ReportRepository.instance.createSampleReports();
-      Loaders.successSnackBar(
-        context,
-        title: 'Success',
-        message: 'Sample reports created successfully',
-      );
+      if (mounted) {
+        Loaders.successSnackBar(
+          context,
+          title: 'Success',
+          message: 'Sample reports created successfully',
+        );
+      }
       _loadAllReports();
     } catch (e) {
-      Loaders.errorSnackBar(
-        context,
-        title: 'Error',
-        message: 'Failed to create sample reports: ${e.toString()}',
-      );
+      if (mounted) {
+        Loaders.errorSnackBar(
+          context,
+          title: 'Error',
+          message: 'Failed to create sample reports: ${e.toString()}',
+        );
+      }
     }
   }
 
@@ -456,18 +500,22 @@ class _AdminReportTestingScreenState extends State<AdminReportTestingScreen> wit
     if (confirmed == true) {
       try {
         await ReportRepository.instance.deleteAllReports();
-        Loaders.successSnackBar(
-          context,
-          title: 'Success',
-          message: 'All reports deleted successfully',
-        );
+        if (mounted) {
+          Loaders.successSnackBar(
+            context,
+            title: 'Success',
+            message: 'All reports deleted successfully',
+          );
+        }
         _loadAllReports();
       } catch (e) {
-        Loaders.errorSnackBar(
-          context,
-          title: 'Error',
-          message: 'Failed to delete reports: ${e.toString()}',
-        );
+        if (mounted) {
+          Loaders.errorSnackBar(
+            context,
+            title: 'Error',
+            message: 'Failed to delete reports: ${e.toString()}',
+          );
+        }
       }
     }
   }
@@ -495,18 +543,22 @@ class _AdminReportTestingScreenState extends State<AdminReportTestingScreen> wit
         message: message,
       );
 
-      Loaders.successSnackBar(
-        context,
-        title: 'Status Updated',
-        message: 'Report status updated to ${newStatus.name}',
-      );
+      if (mounted) {
+        Loaders.successSnackBar(
+          context,
+          title: 'Status Updated',
+          message: 'Report status updated to ${newStatus.name}',
+        );
+      }
       _loadAllReports();
     } catch (e) {
-      Loaders.errorSnackBar(
-        context,
-        title: 'Error',
-        message: 'Failed to update status: ${e.toString()}',
-      );
+      if (mounted) {
+        Loaders.errorSnackBar(
+          context,
+          title: 'Error',
+          message: 'Failed to update status: ${e.toString()}',
+        );
+      }
     }
   }
 
@@ -552,18 +604,22 @@ class _AdminReportTestingScreenState extends State<AdminReportTestingScreen> wit
           message: message,
         );
 
-        Loaders.successSnackBar(
-          context,
-          title: 'Update Added',
-          message: 'Report update added successfully',
-        );
+        if (mounted) {
+          Loaders.successSnackBar(
+            context,
+            title: 'Update Added',
+            message: 'Report update added successfully',
+          );
+        }
         _loadAllReports();
       } catch (e) {
-        Loaders.errorSnackBar(
-          context,
-          title: 'Error',
-          message: 'Failed to add update: ${e.toString()}',
-        );
+        if (mounted) {
+          Loaders.errorSnackBar(
+            context,
+            title: 'Error',
+            message: 'Failed to add update: ${e.toString()}',
+          );
+        }
       }
     }
   }

@@ -34,10 +34,15 @@ lib/src/features/{feature}/
   - Admins → `AdminShell` (side/bottom nav with dashboard, tenant management, billing)
   - Tenants → `MainNavigation` (bottom nav with home, billing, profile, support)
 - Always check user role when implementing features - never expose admin functions to tenant UI
+- **Separate Authentication Systems**: 
+  - Tenants authenticate via Firebase Auth and `Users` collection
+  - Admins authenticate ONLY via `admin` collection (no Firebase Auth)
+  - Admin login navigates directly to AdminShell after credentials verification
 
 ### 4. **Firebase Structure**
 Critical collections (see `BILLING_DATABASE_STRUCTURE.md`):
 - `Users/{userId}/` - Nested structure with `profile`, `property`, `account` subcollections
+- `admin/` - Admin credentials collection with `email` and `password` fields (Oct 2025)
 - `Bills/{billId}/` - Contains `billingPeriod`, `utilities`, `paymentBreakdown`, `lateFeeDetails`
   - **Note**: `additionalCharges` array removed (Oct 2025) - data now only in `paymentBreakdown`
 - `Payments/{paymentId}/` - Tracks partial payments with `allocations[]` array
@@ -231,6 +236,8 @@ Used for:
 - ✅ Removed grace period logic (due date = creation + 7 days, late fees immediate)
 - ✅ Implemented late fee freezing when next bill is created
 - ✅ Enhanced eviction logic to verify consecutive unpaid months
+- ✅ Cleaned auth codebase - removed unused `auth_test_screen.dart` file
+- ✅ Removed admin features from tenant support screen - deleted `feedback_test_screen.dart`, `admin_report_testing_screen.dart`, `report_system_demo_screen.dart`
 
 **Next Steps**: Additional features planned (see IMPLEMENTATION_CHECKLIST.md for details). When implementing new features, check documentation first and follow existing patterns from `billing` or `auth` features. Prefer inline documentation for new features rather than separate guides.
 

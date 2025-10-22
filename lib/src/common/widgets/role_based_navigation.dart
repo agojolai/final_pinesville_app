@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../features/auth/data/models/user_model.dart';
 import '../../features/profile/providers/profile_provider.dart';
-import '../../features/admin/presentation/admin_shell.dart';
+import '../../features/admin/presentation/admin_navigation.dart';
 import '../../core/utils/app_logger.dart';
 import 'main_navigation.dart';
 
@@ -22,13 +22,13 @@ class RoleBasedNavigation extends ConsumerWidget {
         AppLogger.debug('🎭 ROLE-BASED NAVIGATION: Determining UI based on user role');
         AppLogger.debug('   ├─ User: ${user.fullName}');
         AppLogger.debug('   ├─ Role: ${user.role.name}');
-        AppLogger.debug('   └─ Navigation: ${user.role == UserRole.admin ? "AdminShell" : "MainNavigation (Tenant)"}');
+  AppLogger.debug('   └─ Navigation: ${user.role == UserRole.admin ? "AdminNavigation" : "MainNavigation (Tenant)"}');
         
         // Route based on user role
         switch (user.role) {
           case UserRole.admin:
-            AppLogger.debug('   🎯 Returning AdminShell widget');
-            return AdminShell(key: ValueKey('admin_${user.id}'));
+            AppLogger.debug('   🎯 Returning AdminNavigation widget');
+            return AdminNavigation(key: ValueKey('admin_${user.id}'));
           case UserRole.tenant:
             AppLogger.debug('   🎯 Returning MainNavigation widget');
             return MainNavigation(key: ValueKey('tenant_${user.id}'));
