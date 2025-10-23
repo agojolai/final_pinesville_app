@@ -64,6 +64,13 @@ dev_dependencies:
 
   flutter_launcher_icons: ^0.14.3
 
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/pinesville_logo.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/images/pinesville_logo.png"
+
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
   # activated in the `analysis_options.yaml` file located at the root of your
@@ -142,31 +149,7 @@ flutter:
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
 
-# App launcher icon configuration
-flutter_launcher_icons:
-  android: true
-  ios: true
+flutter_icons:
   image_path: "assets/images/pinesville_logo.png"
-  adaptive_icon_background: "#FFFFFF"
-  adaptive_icon_foreground: "assets/images/pinesville_logo.png"
-
-# Splash screen configuration
-flutter_native_splash:
-  color: "#FFFFFF"
-  image: assets/images/pinesville_logo.png
-  android: true
-  ios: true
-  web: false
-  
-  # Image fill to make logo appear larger (true = fills more space)
-  android_gravity: center
-  ios_content_mode: center
-  
-  # Android 12+ splash screen - remove icon_background_color to avoid container effect
-  android_12:
-    image: assets/images/pinesville_logo.png
-    color: "#FFFFFF"
-  
-  # Set to true to use a fullscreen splash screen
-  fullscreen: false
+  android : true
 
