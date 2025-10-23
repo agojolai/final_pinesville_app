@@ -206,7 +206,7 @@ class _AdminReportsManagementScreenState extends State<AdminReportsManagementScr
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Admin Testing Utilities',
+            'Developer Utilities',
             style: context.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.bold,
               fontFamily: 'Montserrat',

@@ -7,7 +7,7 @@ import '../../../theme/theme_extensions.dart';
 import '../../../core/constants/validators.dart';
 import '../controllers/login_controller.dart';
 import '../providers/auth_provider.dart';
-import 'admin_login_screen.dart';
+import '../../admin/auth/presentation/admin_login_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:image_cropper/image_cropper.dart';
 import '../../../theme/app_constants.dart';
 import '../../../theme/theme_extensions.dart';
 import 'package:iconsax/iconsax.dart';
@@ -11,6 +13,7 @@ import '../../support/presentation/reports_tickets_screen.dart';
 import '../../auth/presentation/login_screen.dart';
 import '../../onboarding/presentation/onboarding_test_screen.dart';
 import '../../../core/repositories/auth_repository.dart';
+import '../../../core/repositories/user_repository.dart';
 import '../providers/profile_provider.dart';
 import '../../auth/data/models/user_model.dart';
 
@@ -25,9 +28,6 @@ class ProfileScreen extends ConsumerStatefulWidget {
 class _ProfileScreenState extends ConsumerState<ProfileScreen> with TickerProviderStateMixin {
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
-  
-  // Track active reports count for badge
-  int _activeReportsCount = 0;
 
   @override
   void initState() {
@@ -40,72 +40,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with TickerProvid
       CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
     );
     _fadeController.forward();
-    
-    // Load active reports count
-    _loadActiveReportsCount();
-  }
-
-  void _loadActiveReportsCount() {
-    // Get sample reports data to calculate badge count
-    final sampleReports = _getSampleReports();
-    final activeCount = sampleReports.where((report) => 
-      report.status == ReportStatus.pending || 
-      report.status == ReportStatus.inProgress ||
-      report.status == ReportStatus.resolved
-    ).length;
-    
-    setState(() {
-      _activeReportsCount = activeCount;
-    });
-  }
-
-  List<Report> _getSampleReports() {
-    // This mirrors the data from reports_tickets_screen.dart
-    return [
-      Report(
-        id: 'R001',
-        unitNumber: '204-B',
-        category: 'Maintenance / Repairs',
-        subCategory: 'Plumbing (leaks, clogs, water issues)',
-        description: 'Kitchen sink is clogged and water is backing up',
-        status: ReportStatus.inProgress,
-        submittedAt: DateTime.now().subtract(const Duration(days: 2)),
-        tenantName: 'Caleb Anderson',
-        updates: [],
-      ),
-      Report(
-        id: 'R002',
-        unitNumber: '204-B',
-        category: 'Billing & Payment',
-        subCategory: 'Incorrect billing amount',
-        description: 'Monthly rent charged includes utilities but I handle my own utilities',
-        status: ReportStatus.resolved,
-        submittedAt: DateTime.now().subtract(const Duration(days: 7)),
-        resolvedAt: DateTime.now().subtract(const Duration(days: 3)),
-        tenantName: 'Caleb Anderson',
-        updates: [],
-      ),
-      Report(
-        id: 'R003',
-        unitNumber: '204-B',
-        category: 'Complaints / Concerns',
-        subCategory: 'Noise disturbance',
-        description: 'Upstairs neighbor playing loud music past midnight on weekdays',
-        status: ReportStatus.pending,
-        submittedAt: DateTime.now().subtract(const Duration(hours: 3)),
-        tenantName: 'Caleb Anderson',
-        updates: [],
-      ),
-    ];
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Refresh badge count whenever the screen becomes visible
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadActiveReportsCount();
-    });
   }
 
   @override
@@ -148,10 +82,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with TickerProvid
                 },
               ),
               SizedBox(height: AppConstants.spacingLG),
-              _ProfileSections(
-                activeReportsCount: _activeReportsCount,
-                onRefreshBadge: _loadActiveReportsCount,
-              ),
+              const _ProfileSections(),
               SizedBox(height: AppConstants.spacingXL),
             ],
           ),
@@ -160,13 +91,136 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with TickerProvid
     );
   }
 }
-//TODO: REMOVE POPULATED DATA
 
 // Profile Header Widget
-class _ProfileHeader extends StatelessWidget {
+class _ProfileHeader extends ConsumerStatefulWidget {
   final UserModel userModel;
   
   const _ProfileHeader({required this.userModel});
+
+  @override
+  ConsumerState<_ProfileHeader> createState() => _ProfileHeaderState();
+}
+
+class _ProfileHeaderState extends ConsumerState<_ProfileHeader> {
+  bool _isUploadingImage = false;
+
+  Future<void> _changeProfilePicture() async {
+    // Store theme before any async operations
+    final theme = Theme.of(context);
+    
+    try {
+      // Show image source selection bottom sheet
+      final ImageSource? source = await showModalBottomSheet<ImageSource>(
+        context: context,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(AppConstants.radiusMD),
+          ),
+        ),
+        builder: (context) => SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: Icon(Iconsax.gallery, color: Theme.of(context).colorScheme.primary),
+                title: const Text('Choose from Gallery'),
+                onTap: () => Navigator.pop(context, ImageSource.gallery),
+              ),
+            ],
+          ),
+        ),
+      );
+
+      if (source == null || !mounted) return;
+
+      // Pick image
+      final ImagePicker picker = ImagePicker();
+      final XFile? pickedFile = await picker.pickImage(
+        source: source,
+        maxWidth: 1080,
+        maxHeight: 1080,
+        imageQuality: 85,
+      );
+
+      if (pickedFile == null || !mounted) return;
+
+      // Crop image - use stored theme instead of context
+      final CroppedFile? croppedFile = await ImageCropper().cropImage(
+        sourcePath: pickedFile.path,
+        aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+        uiSettings: [
+          AndroidUiSettings(
+            toolbarTitle: 'Crop Profile Picture',
+            toolbarColor: theme.colorScheme.primary,
+            toolbarWidgetColor: Colors.white,
+            initAspectRatio: CropAspectRatioPreset.square,
+            lockAspectRatio: true,
+            hideBottomControls: false,
+          ),
+          IOSUiSettings(
+            title: 'Crop Profile Picture',
+            aspectRatioLockEnabled: true,
+            resetAspectRatioEnabled: false,
+          ),
+        ],
+      );
+
+      if (croppedFile == null || !mounted) return;
+
+      // Show loading state
+      setState(() {
+        _isUploadingImage = true;
+      });
+
+      // Upload to Firebase Storage
+      final userId = AuthRepository.instance.authUser?.uid;
+      if (userId == null) {
+        throw Exception('User not authenticated');
+      }
+
+      final String storagePath = 'users/$userId';
+      final XFile imageFile = XFile(croppedFile.path);
+      final String downloadUrl = await UserRepository.instance.uploadImage(
+        storagePath,
+        imageFile,
+      );
+
+      // Update Firestore with new profile picture URL
+      await UserRepository.instance.updateProfilePicture(downloadUrl);
+
+      if (!mounted) return;
+
+      // Hide loading state
+      setState(() {
+        _isUploadingImage = false;
+      });
+
+      // Invalidate profile provider to refresh UI
+      ref.invalidate(userProfileProvider);
+
+      if (mounted) {
+        Loaders.successSnackBar(
+          context,
+          title: 'Success',
+          message: 'Profile picture updated successfully',
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      
+      setState(() {
+        _isUploadingImage = false;
+      });
+
+      if (mounted) {
+        Loaders.errorSnackBar(
+          context,
+          title: 'Error',
+          message: 'Failed to update profile picture: ${e.toString()}',
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -196,80 +250,93 @@ class _ProfileHeader extends StatelessWidget {
       child: Column(
         children: [
           // Profile Picture
-          Stack(
-            children: [
-              Hero(
-                tag: 'profile_picture',
-                child: Container(
-                  width: 100,
-                  height: 100,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white,
-                      width: 4,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
-                        blurRadius: 15,
-                        offset: const Offset(0, 8),
+          GestureDetector(
+            onTap: _isUploadingImage ? null : _changeProfilePicture,
+            child: Stack(
+              children: [
+                Hero(
+                  tag: 'profile_picture',
+                  child: Container(
+                    width: 100,
+                    height: 100,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white,
+                        width: 4,
                       ),
-                    ],
-                  ),
-                  child: ClipOval(
-                    child: userModel.profilePicture.isNotEmpty
-                        ? Image.network(
-                            userModel.profilePicture,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Image.asset(
-                                'assets/images/default_profile.png',
-                                fit: BoxFit.cover,
-                              );
-                            },
-                          )
-                        : Image.asset(
-                            'assets/images/default_profile.png',
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
-                                color: context.colorScheme.surfaceContainerHighest,
-                                child: Icon(
-                                  Iconsax.user,
-                                  size: 40,
-                                  color: context.colorScheme.onSurface.withValues(alpha: 0.6),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.1),
+                          blurRadius: 15,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: ClipOval(
+                      child: _isUploadingImage
+                          ? Container(
+                              color: context.colorScheme.surfaceContainerHighest,
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  color: context.colorScheme.primary,
                                 ),
-                              );
-                            },
-                          ),
+                              ),
+                            )
+                          : widget.userModel.profilePicture.isNotEmpty
+                              ? Image.network(
+                                  widget.userModel.profilePicture,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Image.asset(
+                                      'assets/images/default_profile.png',
+                                      fit: BoxFit.cover,
+                                    );
+                                  },
+                                )
+                              : Image.asset(
+                                  'assets/images/default_profile.png',
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      color: context.colorScheme.surfaceContainerHighest,
+                                      child: Icon(
+                                        Iconsax.user,
+                                        size: 40,
+                                        color: context.colorScheme.onSurface.withValues(alpha: 0.6),
+                                      ),
+                                    );
+                                  },
+                                ),
+                    ),
                   ),
                 ),
-              ),
-              Positioned(
-                bottom: 0,
-                right: 0,
-                child: Container(
-                  padding: EdgeInsets.all(AppConstants.spacingXS),
-                  decoration: BoxDecoration(
-                    color: context.colorScheme.secondary,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
+                if (!_isUploadingImage)
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Container(
+                      padding: EdgeInsets.all(AppConstants.spacingXS),
+                      decoration: BoxDecoration(
+                        color: context.colorScheme.secondary,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
+                      child: Icon(
+                        Iconsax.camera,
+                        size: 16,
+                        color: context.colorScheme.onSecondary,
+                      ),
+                    ),
                   ),
-                  child: Icon(
-                    Iconsax.camera,
-                    size: 16,
-                    color: context.colorScheme.onSecondary,
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
           SizedBox(height: AppConstants.spacingMD),
           
           // Name and Unit
           Text(
-            userModel.fullName,
+            widget.userModel.fullName,
             style: context.textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.bold,
               color: Colors.white,
@@ -287,7 +354,7 @@ class _ProfileHeader extends StatelessWidget {
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
-              userModel.unitId.isNotEmpty ? 'Unit ${userModel.unitId}' : 'No Unit Assigned',
+              widget.userModel.unitId.isNotEmpty ? 'Unit ${widget.userModel.unitId}' : 'No Unit Assigned',
               style: context.textTheme.titleMedium?.copyWith(
                 color: Colors.white,
                 fontWeight: FontWeight.w600,
@@ -297,7 +364,7 @@ class _ProfileHeader extends StatelessWidget {
           SizedBox(height: AppConstants.spacingMD),
           
           // Quick Info
-          _QuickInfoRow(userModel: userModel),
+          _QuickInfoRow(userModel: widget.userModel),
         ],
       ),
     );
@@ -385,13 +452,7 @@ class _QuickInfoRow extends StatelessWidget {
 
 // Profile Sections Widget
 class _ProfileSections extends StatelessWidget {
-  final int activeReportsCount;
-  final VoidCallback onRefreshBadge;
-  
-  const _ProfileSections({
-    required this.activeReportsCount,
-    required this.onRefreshBadge,
-  });
+  const _ProfileSections();
 
   @override
   Widget build(BuildContext context) {
@@ -964,47 +1025,4 @@ class _ProfileHeaderError extends StatelessWidget {
       ),
     );
   }
-}
-
-// Data Models for Reports
-enum ReportStatus { pending, inProgress, resolved, closed }
-
-class Report {
-  final String id;
-  final String unitNumber;
-  final String category;
-  final String subCategory;
-  final String description;
-  final ReportStatus status;
-  final DateTime submittedAt;
-  final DateTime? resolvedAt;
-  final String tenantName;
-  final List<String> attachments;
-  final List<ReportUpdate> updates;
-
-  Report({
-    required this.id,
-    required this.unitNumber,
-    required this.category,
-    required this.subCategory,
-    required this.description,
-    required this.status,
-    required this.submittedAt,
-    this.resolvedAt,
-    required this.tenantName,
-    this.attachments = const [],
-    this.updates = const [],
-  });
-}
-
-class ReportUpdate {
-  final String message;
-  final DateTime timestamp;
-  final bool isAdmin;
-
-  ReportUpdate({
-    required this.message,
-    required this.timestamp,
-    required this.isAdmin,
-  });
 }

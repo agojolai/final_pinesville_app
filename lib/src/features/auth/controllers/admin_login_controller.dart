@@ -2,7 +2,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/network_service.dart';
 import '../../../core/snackbars/loaders.dart';
-import '../../admin/presentation/admin_navigation.dart';
+import '../../admin/navigation/presentation/admin_navigation.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../core/repositories/auth_repository.dart';
 

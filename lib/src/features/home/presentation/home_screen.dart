@@ -957,26 +957,6 @@ class _ConsumptionSection extends ConsumerWidget {
 
   const _ConsumptionSection({required this.userId});
 
-  // Sample electricity consumption data (kWh) - last 6 months
-  static const List<ConsumptionData> electricityData = [
-    ConsumptionData(month: 'Apr', value: 285.5, unit: 'kWh'),
-    ConsumptionData(month: 'May', value: 312.8, unit: 'kWh'),
-    ConsumptionData(month: 'Jun', value: 298.2, unit: 'kWh'),
-    ConsumptionData(month: 'Jul', value: 325.6, unit: 'kWh'),
-    ConsumptionData(month: 'Aug', value: 301.4, unit: 'kWh'),
-    ConsumptionData(month: 'Sep', value: 318.9, unit: 'kWh'),
-  ];
-
-  // Sample water consumption data (m³) - last 6 months
-  static const List<ConsumptionData> waterData = [
-    ConsumptionData(month: 'Apr', value: 18.5, unit: 'm³'),
-    ConsumptionData(month: 'May', value: 21.2, unit: 'm³'),
-    ConsumptionData(month: 'Jun', value: 19.8, unit: 'm³'),
-    ConsumptionData(month: 'Jul', value: 23.4, unit: 'm³'),
-    ConsumptionData(month: 'Aug', value: 20.1, unit: 'm³'),
-    ConsumptionData(month: 'Sep', value: 22.6, unit: 'm³'),
-  ];
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // Watch electricity and water consumption providers
@@ -1012,23 +992,20 @@ class _ConsumptionSection extends ConsumerWidget {
               title: 'Electricity Usage',
               icon: Iconsax.flash_1,
               iconColor: Colors.amber,
-              data: chartData.isNotEmpty ? chartData : electricityData,
+              data: chartData,
               barColor: Colors.amber,
             );
           },
-          loading: () => _ConsumptionChart(
-            title: 'Electricity Usage',
-            icon: Iconsax.flash_1,
-            iconColor: Colors.amber,
-            data: electricityData,
-            barColor: Colors.amber,
+          loading: () => Center(
+            child: Padding(
+              padding: EdgeInsets.all(AppConstants.spacingMD),
+              child: CircularProgressIndicator(),
+            ),
           ),
-          error: (error, stack) => _ConsumptionChart(
+          error: (error, stack) => _NoDataCard(
             title: 'Electricity Usage',
             icon: Iconsax.flash_1,
             iconColor: Colors.amber,
-            data: electricityData,
-            barColor: Colors.amber,
           ),
         ),
 
@@ -1050,26 +1027,118 @@ class _ConsumptionSection extends ConsumerWidget {
               title: 'Water Usage',
               icon: Iconsax.drop,
               iconColor: Colors.blue,
-              data: chartData.isNotEmpty ? chartData : waterData,
+              data: chartData,
               barColor: Colors.blue,
             );
           },
-          loading: () => _ConsumptionChart(
-            title: 'Water Usage',
-            icon: Iconsax.drop,
-            iconColor: Colors.blue,
-            data: waterData,
-            barColor: Colors.blue,
+          loading: () => Center(
+            child: Padding(
+              padding: EdgeInsets.all(AppConstants.spacingMD),
+              child: CircularProgressIndicator(),
+            ),
           ),
-          error: (error, stack) => _ConsumptionChart(
+          error: (error, stack) => _NoDataCard(
             title: 'Water Usage',
             icon: Iconsax.drop,
             iconColor: Colors.blue,
-            data: waterData,
-            barColor: Colors.blue,
           ),
         ),
       ],
+    );
+  }
+}
+
+// No Data Card Widget - Shows when there's no consumption data
+class _NoDataCard extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final Color iconColor;
+
+  const _NoDataCard({
+    required this.title,
+    required this.icon,
+    required this.iconColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(AppConstants.spacingMD),
+      decoration: BoxDecoration(
+        color: context.colorScheme.surface,
+        borderRadius: context.radiusXL,
+        boxShadow: [
+          BoxShadow(
+            color: context.colorScheme.outline.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(AppConstants.spacingXS),
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  icon,
+                  color: iconColor,
+                  size: 20,
+                ),
+              ),
+              SizedBox(width: AppConstants.spacingSM),
+              Text(
+                title,
+                style: context.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Montserrat',
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: AppConstants.spacingMD),
+          
+          // No data message
+          Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: AppConstants.spacingXL),
+              child: Column(
+                children: [
+                  Icon(
+                    Iconsax.chart,
+                    size: 48,
+                    color: context.colorScheme.onSurface.withValues(alpha: 0.3),
+                  ),
+                  SizedBox(height: AppConstants.spacingSM),
+                  Text(
+                    'No consumption data yet',
+                    style: context.textTheme.bodyMedium?.copyWith(
+                      color: context.colorScheme.onSurface.withValues(alpha: 0.6),
+                      fontFamily: 'Montserrat',
+                    ),
+                  ),
+                  SizedBox(height: AppConstants.spacingXS),
+                  Text(
+                    'Data will appear after your first billing cycle',
+                    style: context.textTheme.bodySmall?.copyWith(
+                      color: context.colorScheme.onSurface.withValues(alpha: 0.5),
+                      fontFamily: 'Montserrat',
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1092,6 +1161,15 @@ class _ConsumptionChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // If no data, show no data card
+    if (data.isEmpty) {
+      return _NoDataCard(
+        title: title,
+        icon: icon,
+        iconColor: iconColor,
+      );
+    }
+
     // Determine default max value based on utility type
     final defaultMaxValue = _getDefaultMaxValue();
 

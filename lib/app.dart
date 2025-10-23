@@ -8,7 +8,7 @@ import 'src/features/onboarding/presentation/onboarding_screen.dart';
 import 'src/features/onboarding/data/onboarding_repository.dart';
 import 'src/core/utils/app_logger.dart';
 import 'src/common/widgets/main_navigation.dart';
-import 'src/features/admin/presentation/admin_navigation.dart';
+import 'src/features/admin/navigation/presentation/admin_navigation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class App extends ConsumerWidget {
