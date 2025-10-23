@@ -7,7 +7,7 @@ import '../../dashboard/presentation/admin_dashboard_screen.dart';
 import '../../tenant_management/presentation/tenant_management_screen.dart';
 import '../../billing_management/presentation/billing_management_screen.dart';
 import '../../reports/presentation/admin_reports_management_screen.dart';
-import '../../announcements/presentation/announcements_management_screen.dart';
+import '../../announcements/presentations/announcements_management_screen.dart';
 import '../../chats/presentation/admin_chats_screen.dart';
 import '../../../data_import/presentation/import_data_screen.dart';
 import '../../../auth/presentation/login_screen.dart';

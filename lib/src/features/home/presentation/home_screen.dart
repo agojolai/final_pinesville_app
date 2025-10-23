@@ -15,6 +15,8 @@ import '../../billing/domain/bill_model.dart';
 import '../../profile/providers/profile_provider.dart';
 import '../../auth/data/models/user_model.dart';
 import '../../consumption/providers/consumption_providers.dart';
+import '../../admin/announcements/providers/announcements_providers.dart';
+import '../../admin/announcements/data/models/announcement_model.dart';
 
 // Transaction model for type safety
 class Transaction {
@@ -50,25 +52,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
   int currentPage = 0;
-
-  // Sample announcements
-  static const List<Map<String, String>> announcements = [
-    {
-      'title': 'Welcome to Our Community!',
-      'content':
-          'Welcome to Pinesville! We\'re excited to have you as part of our community. Check out our amenities and don\'t hesitate to reach out if you need anything.',
-    },
-    {
-      'title': 'Monthly Community Meeting',
-      'content':
-          'Reminder: Monthly community meeting this Saturday at 2 PM in the clubhouse. We\'ll discuss upcoming improvements and address any concerns.',
-    },
-    {
-      'title': 'Pool Maintenance Notice',
-      'content':
-          'Pool maintenance scheduled for next Tuesday from 8 AM to 12 PM. The pool will be temporarily closed during this time. Thank you for your understanding.',
-    },
-  ];
 
   @override
   void initState() {
@@ -180,6 +163,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               // Get user profile data
               return userProfileAsync.when(
                 data: (userModel) {
+                  // Watch announcements stream
+                  final announcementsAsync = ref.watch(activeAnnouncementsStreamProvider);
+
                   // Find latest unpaid bill for the billing card
                   BillModel? latestUnpaidBill;
                   try {
@@ -203,12 +189,86 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           onRentPaid: _showRentPaidMessage,
                         ),
                         SizedBox(height: AppConstants.spacingSM),
-                        _AnnouncementSection(
-                          announcements: announcements,
-                          pageController: _pageController,
-                          currentPage: currentPage,
-                          onPageChanged: (index) =>
-                              setState(() => currentPage = index),
+                        announcementsAsync.when(
+                          data: (allAnnouncements) {
+                            // Debug: Print all announcements and their recipients
+                            print('📢 DEBUG: Total announcements: ${allAnnouncements.length}');
+                            for (var ann in allAnnouncements) {
+                              print('  - Title: "${ann.title}"');
+                              print('    Recipients: ${ann.recipients}');
+                              print('    Recipients length: ${ann.recipients.length}');
+                            }
+                            
+                            // Filter announcements for this user's property
+                            final userPropertyId = userModel.propertyId;
+                            final userPropertyName = userModel.propertyName;
+                            print('🏠 DEBUG: User propertyId: "$userPropertyId"');
+                            print('🏠 DEBUG: User propertyName: "$userPropertyName"');
+                            print('🏠 DEBUG: User full name: "${userModel.fullName}"');
+                            
+                            final filteredAnnouncements = allAnnouncements.where((announcement) {
+                              // Check if recipients is empty
+                              if (announcement.recipients.isEmpty) {
+                                print('  ⚠️ ${announcement.title}: Empty recipients array!');
+                                return false;
+                              }
+                              
+                              // Case-insensitive check for "All Properties"
+                              final hasAllProperties = announcement.recipients.any(
+                                (recipient) => recipient.toLowerCase() == 'all properties'
+                              );
+                              
+                              // Check if user's property ID or name is in recipients
+                              final hasUserProperty = announcement.recipients.contains(userPropertyId) ||
+                                                     announcement.recipients.contains(userPropertyName);
+                              
+                              print('  🔍 Checking "${announcement.title}":');
+                              print('     - Has "All Properties": $hasAllProperties');
+                              print('     - Has User Property: $hasUserProperty');
+                              
+                              return hasAllProperties || hasUserProperty;
+                            }).toList();
+                            
+                            print('✅ DEBUG: Filtered announcements: ${filteredAnnouncements.length}');
+                            if (filteredAnnouncements.isEmpty && allAnnouncements.isNotEmpty) {
+                              print('⚠️ WARNING: Announcements exist but none match user property!');
+                            }
+
+                            return _AnnouncementSection(
+                              announcements: filteredAnnouncements,
+                              pageController: _pageController,
+                              currentPage: currentPage,
+                              onPageChanged: (index) =>
+                                  setState(() => currentPage = index),
+                            );
+                          },
+                          loading: () => Container(
+                            height: 250,
+                            margin: EdgeInsets.symmetric(vertical: AppConstants.spacingSM),
+                            decoration: BoxDecoration(
+                              color: context.colorScheme.surface,
+                              borderRadius: context.radiusXL,
+                            ),
+                            child: Center(
+                              child: CircularProgressIndicator(),
+                            ),
+                          ),
+                          error: (error, stack) => Container(
+                            height: 250,
+                            margin: EdgeInsets.symmetric(vertical: AppConstants.spacingSM),
+                            decoration: BoxDecoration(
+                              color: context.colorScheme.surface,
+                              borderRadius: context.radiusXL,
+                            ),
+                            child: Center(
+                              child: Text(
+                                'No announcements available',
+                                style: context.textTheme.bodyMedium?.copyWith(
+                                  color: context.colorScheme.onSurface.withValues(alpha: 0.6),
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
                         SizedBox(height: AppConstants.spacingSM),
                         _TransactionSection(
@@ -569,7 +629,7 @@ class _BillingButton extends StatelessWidget {
 
 // Announcement Section Widget
 class _AnnouncementSection extends StatelessWidget {
-  final List<Map<String, String>> announcements;
+  final List<AnnouncementModel> announcements;
   final PageController pageController;
   final int currentPage;
   final ValueChanged<int> onPageChanged;
@@ -583,6 +643,42 @@ class _AnnouncementSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // If no announcements, show a message
+    if (announcements.isEmpty) {
+      return Container(
+        height: 250,
+        margin: EdgeInsets.symmetric(vertical: AppConstants.spacingSM),
+        decoration: BoxDecoration(
+          color: context.colorScheme.surface,
+          border: Border.all(
+            color: context.colorScheme.primary.withValues(alpha: 0.3),
+            width: AppConstants.borderWidthMedium,
+          ),
+          borderRadius: context.radiusXL,
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Iconsax.message_text,
+                size: 48,
+                color: context.colorScheme.onSurface.withValues(alpha: 0.3),
+              ),
+              SizedBox(height: AppConstants.spacingSM),
+              Text(
+                'No announcements yet',
+                style: context.textTheme.bodyLarge?.copyWith(
+                  color: context.colorScheme.onSurface.withValues(alpha: 0.6),
+                  fontFamily: 'Montserrat',
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -642,7 +738,7 @@ class _AnnouncementSection extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            announcements[index]['title'] ?? 'Announcement',
+                            announcements[index].title,
                             style: context.textTheme.titleLarge?.copyWith(
                               color: context.colorScheme.primary,
                               fontFamily: 'Montserrat',
@@ -655,7 +751,7 @@ class _AnnouncementSection extends StatelessWidget {
                             child: SingleChildScrollView(
                               physics: const BouncingScrollPhysics(),
                               child: Text(
-                                announcements[index]['content'] ?? '',
+                                announcements[index].message,
                                 style: context.textTheme.bodyMedium?.copyWith(
                                   color: context.colorScheme.onSurface,
                                   fontFamily: 'Montserrat',
