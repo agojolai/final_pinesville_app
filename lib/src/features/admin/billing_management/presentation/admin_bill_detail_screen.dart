@@ -117,13 +117,19 @@ class AdminBillDetailScreen extends ConsumerWidget {
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Bill #${bill.billId}',
-                  style: context.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Text(
+                    'Bill #${bill.billId}',
+                    style: context.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                SizedBox(width: AppConstants.spacingSM),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
@@ -368,6 +374,7 @@ class AdminBillDetailScreen extends ConsumerWidget {
                         '₱${amount.toStringAsFixed(2)}',
                         style: context.textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.bold,
+                          fontFamily: 'Montserrat',
                         ),
                       ),
                       SizedBox(width: AppConstants.spacingSM),
@@ -384,12 +391,14 @@ class AdminBillDetailScreen extends ConsumerWidget {
                       'Paid: ₱${amountPaid.toStringAsFixed(2)}',
                       style: context.textTheme.bodySmall?.copyWith(
                         color: Colors.green,
+                        fontFamily: 'Montserrat',
                       ),
                     ),
                     Text(
                       'Balance: ₱${balance.toStringAsFixed(2)}',
                       style: context.textTheme.bodySmall?.copyWith(
                         color: Colors.orange,
+                        fontFamily: 'Montserrat',
                       ),
                     ),
                   ],
@@ -431,6 +440,7 @@ class AdminBillDetailScreen extends ConsumerWidget {
                     style: context.textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: Colors.green,
+                      fontFamily: 'Montserrat',
                     ),
                   ),
                 ],
@@ -526,6 +536,7 @@ class AdminBillDetailScreen extends ConsumerWidget {
             style: (isLarge ? context.textTheme.titleMedium : context.textTheme.bodyMedium)?.copyWith(
               fontWeight: FontWeight.bold,
               color: amountColor,
+              fontFamily: 'Montserrat',
             ),
           ),
         ],

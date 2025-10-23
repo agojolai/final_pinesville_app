@@ -863,6 +863,7 @@ class _BillingManagementScreenState extends ConsumerState<BillingManagementScree
             children: [
               // Property Filter
               Expanded(
+                flex: 3,
                 child: propertiesAsync.when(
                   data: (properties) {
                     return DropdownButtonFormField<String>(
@@ -870,16 +871,23 @@ class _BillingManagementScreenState extends ConsumerState<BillingManagementScree
                       decoration: const InputDecoration(
                         labelText: 'Property',
                         prefixIcon: Icon(Iconsax.building),
+                        isDense: true,
                       ),
+                      isExpanded: true,
                       items: [
                         const DropdownMenuItem(
                           value: null,
-                          child: Text('All'),
+                          child: Text('All Properties', overflow: TextOverflow.ellipsis),
                         ),
                         ...properties.map((p) {
+                          final propertyName = p['name'] as String? ?? 'Unknown';
                           return DropdownMenuItem(
                             value: p['id'] as String,
-                            child: Text(p['name'] as String? ?? 'Unknown'),
+                            child: Text(
+                              propertyName,
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
                           );
                         }),
                       ],
@@ -894,15 +902,18 @@ class _BillingManagementScreenState extends ConsumerState<BillingManagementScree
                   error: (_, __) => const Text('Error'),
                 ),
               ),
-              SizedBox(width: AppConstants.spacingMD),
+              SizedBox(width: AppConstants.spacingSM),
               // Status Filter
               Expanded(
+                flex: 2,
                 child: DropdownButtonFormField<String>(
                   value: _selectedStatusFilter,
                   decoration: const InputDecoration(
                     labelText: 'Status',
                     prefixIcon: Icon(Iconsax.filter),
+                    isDense: true,
                   ),
+                  isExpanded: true,
                   items: const [
                     DropdownMenuItem(value: 'all', child: Text('All')),
                     DropdownMenuItem(value: 'paid', child: Text('Paid')),
@@ -1082,9 +1093,33 @@ class _BillingManagementScreenState extends ConsumerState<BillingManagementScree
         DataCell(_buildAmountCell(bill.wifiBreakdown.amount, bill.wifiBreakdown.isPaid)),
         DataCell(_buildAmountCell(bill.parkingBreakdown.amount, bill.parkingBreakdown.isPaid)),
         DataCell(_buildAmountCell(bill.additionalChargesBreakdown.amount, bill.additionalChargesBreakdown.isPaid)),
-        DataCell(Text('₱${bill.total.toStringAsFixed(2)}')),
-        DataCell(Text('₱${bill.amountPaid.toStringAsFixed(2)}')),
-        DataCell(Text('₱${bill.balance.toStringAsFixed(2)}')),
+        DataCell(
+          Text(
+            '₱${bill.total.toStringAsFixed(2)}',
+            style: const TextStyle(
+              fontFamily: 'Montserrat',
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        DataCell(
+          Text(
+            '₱${bill.amountPaid.toStringAsFixed(2)}',
+            style: const TextStyle(
+              fontFamily: 'Montserrat',
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        DataCell(
+          Text(
+            '₱${bill.balance.toStringAsFixed(2)}',
+            style: const TextStyle(
+              fontFamily: 'Montserrat',
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
         DataCell(
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -1097,6 +1132,7 @@ class _BillingManagementScreenState extends ConsumerState<BillingManagementScree
               style: TextStyle(
                 color: statusColor,
                 fontWeight: FontWeight.bold,
+                fontFamily: 'Montserrat',
               ),
             ),
           ),
@@ -1109,7 +1145,13 @@ class _BillingManagementScreenState extends ConsumerState<BillingManagementScree
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('₱${amount.toStringAsFixed(0)}'),
+        Text(
+          '₱${amount.toStringAsFixed(0)}',
+          style: const TextStyle(
+            fontFamily: 'Montserrat',
+            fontWeight: FontWeight.w600,
+          ),
+        ),
         const SizedBox(width: 4),
         Icon(
           isPaid ? Iconsax.tick_circle5 : Iconsax.close_circle5,
