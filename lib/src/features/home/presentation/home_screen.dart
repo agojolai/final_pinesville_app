@@ -761,6 +761,18 @@ class _AnnouncementSection extends StatelessWidget {
                               ),
                             ),
                           ),
+                          SizedBox(height: AppConstants.spacingSM),
+                          Align(
+                            alignment: Alignment.bottomRight,
+                            child: Text(
+                              _formatAnnouncementTimestamp(announcements[index].timestamp),
+                              style: context.textTheme.bodySmall?.copyWith(
+                                color: context.colorScheme.onSurface.withValues(alpha: 0.4),
+                                fontFamily: 'Montserrat',
+                                fontSize: 11,
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -809,6 +821,45 @@ class _AnnouncementSection extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  String _formatAnnouncementTimestamp(DateTime timestamp) {
+    final now = DateTime.now();
+    final difference = now.difference(timestamp);
+
+    // Format date
+    final months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    
+    final month = months[timestamp.month - 1];
+    final day = timestamp.day;
+    final year = timestamp.year;
+    
+    // Convert to 12-hour format
+    final hour12 = timestamp.hour % 12 == 0 ? 12 : timestamp.hour % 12;
+    final amPm = timestamp.hour >= 12 ? 'PM' : 'AM';
+    final minute = timestamp.minute.toString().padLeft(2, '0');
+    final timeString = '$hour12:$minute $amPm';
+
+    // If posted today, show time only
+    if (difference.inDays == 0 && timestamp.day == now.day) {
+      return timeString;
+    }
+    // If posted yesterday
+    else if (difference.inDays == 1 || 
+             (difference.inHours < 48 && timestamp.day == now.day - 1)) {
+      return 'Yesterday $timeString';
+    }
+    // If posted this year, show month, day, and time
+    else if (timestamp.year == now.year) {
+      return '$month $day, $year $timeString';
+    }
+    // If posted in previous years, include year
+    else {
+      return '$month $day, $year $timeString';
+    }
   }
 }
 

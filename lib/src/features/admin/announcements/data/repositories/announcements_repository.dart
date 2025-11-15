@@ -11,14 +11,36 @@ class AnnouncementsRepository {
   // ==================== ANNOUNCEMENTS ====================
 
   /// Stream active announcements
-  Stream<QuerySnapshot> getAnnouncementsStream({bool archived = false}) {
+  /// 
+  /// [archived] - Whether to fetch from archived or active collection
+  /// [lastNDays] - Optional filter to only fetch announcements from the last N days
+  ///               Defaults to 7 days for active announcements (null for archived)
+  ///               Set to null to fetch all announcements regardless of date
+  Stream<QuerySnapshot> getAnnouncementsStream({
+    bool archived = false,
+    int? lastNDays,
+  }) {
     final docPath = archived ? 'announcements_archived' : 'announcements_main';
-    return _firestore
+    
+    // Default to 7 days for active announcements only (reduce reads)
+    final daysFilter = lastNDays ?? (archived ? null : 7);
+    
+    Query query = _firestore
         .collection('announcements')
         .doc(docPath)
         .collection('messages')
-        .orderBy('timestamp', descending: true)
-        .snapshots();
+        .orderBy('timestamp', descending: true);
+    
+    // Add time filter if specified
+    if (daysFilter != null) {
+      final cutoffDate = DateTime.now().subtract(Duration(days: daysFilter));
+      query = query.where(
+        'timestamp',
+        isGreaterThan: Timestamp.fromDate(cutoffDate),
+      );
+    }
+    
+    return query.snapshots();
   }
 
   /// Create a new announcement
