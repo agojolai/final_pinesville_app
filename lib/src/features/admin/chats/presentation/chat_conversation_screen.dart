@@ -14,6 +14,7 @@ import '../../../../core/snackbars/loaders.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../providers/chats_providers.dart';
 import '../domain/chat_model.dart';
+import '../../../../core/repositories/auth_repository.dart';
 
 /// Individual Chat Conversation Screen
 /// Displays messages between admin and a specific tenant
@@ -119,16 +120,35 @@ class _ChatConversationScreenState
     try {
       final repository = ref.read(chatsRepositoryProvider);
       final chatId = 'chat_${widget.userId}';
+      // Resolve admin identity
+      final authUser = AuthRepository.instance.authUser;
+      final adminUid = authUser?.uid ?? 'admin';
+      String adminName = 'Admin';
+      try {
+        final info = await repository.getAdminInfo(adminUid);
+        if (info != null) {
+          final candidate = (info['name'] as String?)?.trim();
+          if (candidate != null && candidate.isNotEmpty) {
+            adminName = candidate;
+          } else {
+            adminName = authUser?.email ?? 'Admin';
+          }
+        } else {
+          adminName = authUser?.email ?? 'Admin';
+        }
+      } catch (_) {
+        adminName = authUser?.email ?? 'Admin';
+      }
       
-      AppLogger.info('Sending message - chatId: $chatId, hasText: ${message.isNotEmpty}, hasImage: ${imageUrl != null}');
+      AppLogger.info('Sending message - chatId: $chatId, hasText: ${message.isNotEmpty}, hasImage: ${imageUrl != null}, senderId: $adminUid');
       
       await repository.sendMessage(
         chatId: chatId,
         text: message.isNotEmpty ? message : '',
         imageUrl: imageUrl,
         videoUrl: videoUrl,
-        senderId: 'admin',
-        senderName: 'Admin', // TODO: Get actual admin name from auth
+        senderId: adminUid,
+        senderName: adminName,
         senderType: 'admin',
       );
 
@@ -754,6 +774,24 @@ class _MessageBubbleState extends State<_MessageBubble>
               ? CrossAxisAlignment.end 
               : CrossAxisAlignment.start,
           children: [
+            // Sender name display (like Meta Business Suite)
+            if (widget.message.senderName != null && widget.message.senderName!.isNotEmpty)
+              Padding(
+                padding: EdgeInsets.only(
+                  left: widget.isAdmin ? 0 : AppConstants.spacingXS,
+                  right: widget.isAdmin ? AppConstants.spacingXS : 0,
+                  bottom: AppConstants.spacingXS / 2,
+                ),
+                child: Text(
+                  widget.message.senderName!,
+                  style: context.textTheme.bodySmall?.copyWith(
+                    color: context.colorScheme.onSurface.withValues(alpha: 0.7),
+                    //fontWeight: FontWeight.w600,
+                    fontSize: 8.5,
+                    fontFamily: 'Montserrat',
+                  ),
+                ),
+              ),
             Container(
               padding: EdgeInsets.symmetric(
                 horizontal: AppConstants.spacingSM,

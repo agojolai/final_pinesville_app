@@ -1074,7 +1074,7 @@ class _AdminCreateBillScreenState extends ConsumerState<AdminCreateBillScreen> {
 This screen will show bill breakdown with highlighted paid items.
 
 \\\dart
-// TODO: Create tenant_view_billing_screen.dart
+// Create tenant_view_billing_screen.dart
 // - Show bill breakdown
 // - Highlight paid items in green
 // - Show unpaid items in red
@@ -1085,7 +1085,7 @@ This screen will show bill breakdown with highlighted paid items.
 ### Step 3.3: Tenant - Pay Rent Screen with Partial Payment
 
 \\\dart
-// TODO: Create tenant_pay_rent_screen.dart
+// Create tenant_pay_rent_screen.dart
 // - Checkbox for full payment
 // - Checkboxes for individual items (disabled if already paid)
 // - Calculate total based on selection
@@ -1096,7 +1096,7 @@ This screen will show bill breakdown with highlighted paid items.
 ### Step 3.4: Admin - Validate Payments Screen
 
 \\\dart
-// TODO: Create admin_validate_payments_screen.dart
+//  Create admin_validate_payments_screen.dart
 // - List all pending verification payments
 // - Show proof of payment
 // - Approve/Reject buttons

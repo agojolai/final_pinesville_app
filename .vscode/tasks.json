@@ -120,6 +120,13 @@
 			"isBackground": false,
 			"group": "test",
 			"problemMatcher": []
+		},
+		{
+			"label": "Analyze Code",
+			"type": "shell",
+			"command": "flutter analyze",
+			"isBackground": false,
+			"group": "build"
 		}
 	]
 }

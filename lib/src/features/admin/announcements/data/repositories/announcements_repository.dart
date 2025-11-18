@@ -10,7 +10,7 @@ class AnnouncementsRepository {
 
   // ==================== ANNOUNCEMENTS ====================
 
-  /// Stream active announcements
+  /// Stream active announcements (TENANT USE - with 7-day filter for efficiency)
   /// 
   /// [archived] - Whether to fetch from archived or active collection
   /// [lastNDays] - Optional filter to only fetch announcements from the last N days
@@ -41,6 +41,33 @@ class AnnouncementsRepository {
     }
     
     return query.snapshots();
+  }
+
+  /// Get paginated announcements (ADMIN USE - load 10 at a time for efficiency)
+  /// 
+  /// [archived] - Whether to fetch from archived or active collection
+  /// [limit] - Number of announcements to fetch (default: 10)
+  /// [startAfterDoc] - Document to start after for pagination (null for first page)
+  Future<QuerySnapshot> getPaginatedAnnouncements({
+    bool archived = false,
+    int limit = 10,
+    DocumentSnapshot? startAfterDoc,
+  }) async {
+    final docPath = archived ? 'announcements_archived' : 'announcements_main';
+    
+    Query query = _firestore
+        .collection('announcements')
+        .doc(docPath)
+        .collection('messages')
+        .orderBy('timestamp', descending: true)
+        .limit(limit);
+    
+    // Add pagination cursor if provided
+    if (startAfterDoc != null) {
+      query = query.startAfterDocument(startAfterDoc);
+    }
+    
+    return await query.get();
   }
 
   /// Create a new announcement

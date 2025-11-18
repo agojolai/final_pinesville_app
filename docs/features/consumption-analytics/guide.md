@@ -925,7 +925,7 @@ class _TenantConsumptionScreenState extends ConsumerState<TenantConsumptionScree
   }
   
   void _exportReport() {
-    // TODO: Implement PDF export
+    // Implement image export of validated payment
   }
 }
 \\\
