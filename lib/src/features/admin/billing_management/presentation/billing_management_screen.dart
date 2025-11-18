@@ -227,11 +227,10 @@ class _BillingManagementScreenState extends ConsumerState<BillingManagementScree
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Tenant ID: ${unit.tenantId ?? "N/A"}'),
-              Text('Rent: ₱${unit.monthlyRent.toStringAsFixed(2)}'),
-              if (unit.lastElectricityReading != null)
-                Text('⚡ Last: ${unit.lastElectricityReading!.reading} kWh'),
-              if (unit.lastWaterReading != null)
-                Text('💧 Last: ${unit.lastWaterReading!.reading} m³'),
+              Text(
+                'Rent: ₱${unit.monthlyRent.toStringAsFixed(2)}',
+                style: const TextStyle(fontFamily: 'Montserrat'),
+              ),
             ],
           ),
           trailing: isBilled

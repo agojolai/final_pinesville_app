@@ -701,23 +701,8 @@ Future<void> updateLateFees() async {
 
 // ==================== RECEIPT GENERATION ====================
 
-/// Generate receipt PDF for fully paid bill
-Future<String> generateReceipt(String billId) async {
-  final bill = await getBillById(billId);
-  if (bill == null) throw Exception('Bill not found');
-  if (!bill.isPaid) throw Exception('Bill not fully paid');
-  
-  // TODO: Implement PDF generation using pdf package
-  // For now, return placeholder URL
-  final receiptUrl = 'https://storage.googleapis.com/receipts/\.pdf';
-  
-  await firestore.collection('Bills').doc(billId).update({
-    'receiptGenerated': true,
-    'receiptUrl': receiptUrl,
-    'receiptGeneratedAt': DateTime.now().toIso8601String(),
-  });
-  
-  return receiptUrl;
+/// Generate receipt jpeg for fully paid bill
+
 }
 \\\
 
