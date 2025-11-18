@@ -204,6 +204,7 @@ class UserRepository {
     required String phoneNumber,
     required String unitNumber,
     required DateTime moveInDate,
+    UserRole role = UserRole.tenant, // Default to tenant role
     String profilePicture = '',
   }) {
     return UserModel(
@@ -221,9 +222,62 @@ class UserRepository {
       leaseEndDate: null, // Default value, to be set by admin
       rentAmount: 0.0, // Default value, to be set by admin
       status: "pending", // Initial status for a new user
+      role: role, // Add the role parameter
       createdAt: DateTime.now(),
     );
   }
+
+  /// Create an admin user account (for development/testing)
+  Future<void> createAdminAccount({
+    required String uid,
+    required String firstName,
+    required String lastName,
+    required String email,
+    required String phoneNumber,
+    String profilePicture = '',
+  }) async {
+    final adminUser = UserModel(
+      id: uid,
+      firstName: firstName,
+      lastName: lastName,
+      email: email,
+      phoneNumber: phoneNumber,
+      profilePicture: profilePicture,
+      propertyName: 'Pinesville Apartment Complex',
+      propertyId: 'pinesville_main',
+      unitId: 'ADMIN',
+      unitType: 'Administrative',
+      moveInDate: DateTime.now(),
+      leaseEndDate: null,
+      rentAmount: 0.0,
+      status: 'active',
+      role: UserRole.admin, // 🎯 Admin role
+      createdAt: DateTime.now(),
+    );
+
+    await saveUserRecord(adminUser);
+  }
+
+  /// Convert existing user to admin role
+  Future<void> promoteToAdmin(String userId) async {
+    try {
+      await _db.collection('Users').doc(userId).update({
+        'account.role': 'admin',
+        'property.unitId': 'ADMIN',
+        'property.unitType': 'Administrative',
+        'property.rentAmount': 0.0,
+      });
+    } on FirebaseException catch (e) {
+      throw custom_firebase.FirebaseException(e.code).message;
+    } catch (e) {
+      throw Exception('Error promoting user to admin: $e');
+    }
+  }
+
+
+  //TODO: default values to be changed. it will be fetched 
+//together w/ the unit& property dropdown 
+//once the unit and property models are ready
 
   // Update specific user profile fields (not overwrite everything)
   Future<void> updateUserProfileField(Map<String, dynamic> fields) async {
@@ -401,6 +455,3 @@ class UserRepository {
   }
 }
 
-//TODO: default values to be changed. it will be fetched 
-//together w/ the unit& property dropdown 
-//once the unit and property models are ready

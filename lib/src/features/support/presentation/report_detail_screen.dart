@@ -44,6 +44,16 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> with Ti
     super.dispose();
   }
 
+  Future<void> _refreshReport() async {
+    // Add a small delay to show the refresh animation
+    await Future.delayed(const Duration(milliseconds: 500));
+    // In a real scenario, you would fetch the updated report from Firestore
+    // For now, we'll just refresh the UI
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -98,10 +108,14 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> with Ti
       ),
       body: FadeTransition(
         opacity: _fadeAnimation,
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: EdgeInsets.all(AppConstants.spacingMD),
-          child: Column(
+        child: RefreshIndicator(
+          onRefresh: _refreshReport,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
+            padding: EdgeInsets.all(AppConstants.spacingMD),
+            child: Column(
             children: [
               _StatusHeader(),
               SizedBox(height: AppConstants.spacingLG),
@@ -198,6 +212,7 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> with Ti
               SizedBox(height: AppConstants.spacingXL),
             ],
           ),
+        ),
         ),
       ),
     );

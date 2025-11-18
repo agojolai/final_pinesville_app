@@ -8,6 +8,7 @@ import '../../../../core/exceptions/firebase_exceptions.dart' as custom_firebase
 import '../../../../core/exceptions/format_exceptions.dart' as custom_format;
 import '../../../../core/exceptions/platform_exceptions.dart' as custom_platform;
 import '../../../../core/repositories/auth_repository.dart';
+import '../../../../core/utils/app_logger.dart';
 
 class ReportRepository {
   static ReportRepository? _instance;
@@ -405,7 +406,7 @@ class ReportRepository {
             .set(report.toJson());
       }
 
-      print('✅ Sample reports created successfully');
+      AppLogger.info('Sample reports created successfully');
     } catch (e) {
       throw Exception('Error creating sample reports: $e');
     }
@@ -420,7 +421,7 @@ class ReportRepository {
         await doc.reference.delete();
       }
 
-      print('✅ All reports deleted successfully');
+      AppLogger.info('All reports deleted successfully');
     } catch (e) {
       throw Exception('Error deleting all reports: $e');
     }

@@ -10,6 +10,7 @@ import '../../../core/snackbars/loaders.dart';
 import '../providers/reports_provider.dart';
 import '../../profile/providers/profile_provider.dart';
 
+///TODO: DI MAKAUPLOAD NG PICTURE
 class SubmitReportScreen extends ConsumerStatefulWidget {
   final Function(dynamic)? onReportSubmitted;
   
@@ -529,7 +530,7 @@ class _SubmitReportScreenState extends ConsumerState<SubmitReportScreen> with Ti
               ),
               SizedBox(height: AppConstants.spacingXS),
               Text(
-                'Upload photos of damage, screenshots, or any relevant files to help us understand the issue better. (${_attachments.length}/$maxAttachments attachments)',
+                'Upload photos of damage, screenshots, or any relevant files to help us understand the issue better. (${_attachmentFiles.length}/$maxAttachments attachments)',
                 style: context.textTheme.bodySmall?.copyWith(
                   color: context.colorScheme.onSurface.withValues(alpha:0.5),
                   fontFamily: 'Montserrat',
@@ -543,14 +544,14 @@ class _SubmitReportScreenState extends ConsumerState<SubmitReportScreen> with Ti
                   _AttachmentButton(
                     icon: Iconsax.camera,
                     label: 'Camera',
-                    onTap: _attachments.length < maxAttachments ? _takePhoto : null,
-                    isEnabled: _attachments.length < maxAttachments,
+                    onTap: _attachmentFiles.length < maxAttachments ? _takePhoto : null,
+                    isEnabled: _attachmentFiles.length < maxAttachments,
                   ),
                   _AttachmentButton(
                     icon: Iconsax.gallery,
                     label: 'Gallery',
-                    onTap: _attachments.length < maxAttachments ? _pickFromGallery : null,
-                    isEnabled: _attachments.length < maxAttachments,
+                    onTap: _attachmentFiles.length < maxAttachments ? _pickFromGallery : null,
+                    isEnabled: _attachmentFiles.length < maxAttachments,
                   ),
                 ],
               ),
@@ -570,24 +571,24 @@ class _SubmitReportScreenState extends ConsumerState<SubmitReportScreen> with Ti
       children: _attachments.asMap().entries.map((entry) {
         int index = entry.key;
         String attachment = entry.value;
-        
+
         // Get file name from path
         String fileName = attachment.split('/').last;
         if (fileName.isEmpty) fileName = attachment.split('\\').last;
-        
+
         // Determine icon based on file extension
         IconData fileIcon = Iconsax.document;
-        if (fileName.toLowerCase().contains('.jpg') || 
-            fileName.toLowerCase().contains('.jpeg') || 
+        if (fileName.toLowerCase().contains('.jpg') ||
+            fileName.toLowerCase().contains('.jpeg') ||
             fileName.toLowerCase().contains('.png') ||
             fileName.toLowerCase().contains('.gif')) {
           fileIcon = Iconsax.image;
-        } else if (fileName.toLowerCase().contains('.mp4') || 
-                   fileName.toLowerCase().contains('.mov') ||
-                   fileName.toLowerCase().contains('.avi')) {
+        } else if (fileName.toLowerCase().contains('.mp4') ||
+            fileName.toLowerCase().contains('.mov') ||
+            fileName.toLowerCase().contains('.avi')) {
           fileIcon = Iconsax.video;
         }
-        
+
         return Container(
           margin: EdgeInsets.only(bottom: AppConstants.spacingXS),
           padding: EdgeInsets.all(AppConstants.spacingSM),
@@ -612,7 +613,12 @@ class _SubmitReportScreenState extends ConsumerState<SubmitReportScreen> with Ti
                 ),
               ),
               IconButton(
-                onPressed: () => setState(() => _attachments.removeAt(index)),
+                onPressed: () => setState(() {
+                  _attachments.removeAt(index);
+                  if (_attachmentFiles.length > index) {
+                    _attachmentFiles.removeAt(index);
+                  }
+                }),
                 icon: Icon(
                   Iconsax.trash,
                   size: 16,
@@ -702,7 +708,11 @@ class _SubmitReportScreenState extends ConsumerState<SubmitReportScreen> with Ti
           _attachmentFiles.add(photo);
           _attachments.add(photo.path); // For display
         });
-        Loaders.customToast(context, message: 'Photo captured successfully');
+        Loaders.successSnackBar(
+          context,
+          title: 'Photo Captured',
+          message: 'Photo added to your report successfully.',
+        );
       }
     } catch (e) {
       Loaders.errorSnackBar(
@@ -775,7 +785,6 @@ class _SubmitReportScreenState extends ConsumerState<SubmitReportScreen> with Ti
       
       if (mediaType != null) {
         XFile? pickedFile;
-        
         if (mediaType == 'image') {
           pickedFile = await _picker.pickImage(
             source: ImageSource.gallery,
@@ -789,15 +798,15 @@ class _SubmitReportScreenState extends ConsumerState<SubmitReportScreen> with Ti
             maxDuration: const Duration(minutes: 5), // Limit video to 5 minutes
           );
         }
-        
         if (pickedFile != null) {
           setState(() {
             _attachmentFiles.add(pickedFile!);
-            _attachments.add(pickedFile.path); // For display
+            _attachments.add(pickedFile.path);
           });
-          Loaders.customToast(
-            context, 
-            message: '${mediaType[0].toUpperCase()}${mediaType.substring(1)} selected successfully'
+          Loaders.successSnackBar(
+            context,
+            title: mediaType == 'image' ? 'Image Added' : 'Video Added',
+            message: 'File added to your report successfully.',
           );
         }
       }

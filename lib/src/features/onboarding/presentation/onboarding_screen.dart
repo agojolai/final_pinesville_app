@@ -173,7 +173,7 @@ class _SkipButton extends StatelessWidget {
           TextButton(
             onPressed: onTap,
             style: TextButton.styleFrom(
-              foregroundColor: context.colorScheme.onSurface.withOpacity(0.6),
+              foregroundColor: context.colorScheme.onSurface.withValues(alpha: 0.6),
               padding: EdgeInsets.symmetric(
                 horizontal: AppConstants.spacingMD,
                 vertical: AppConstants.spacingSM,
@@ -210,10 +210,10 @@ class _OnboardingPageContent extends StatelessWidget {
             width: 120,
             height: 120,
             decoration: BoxDecoration(
-              color: context.colorScheme.primaryContainer.withOpacity(0.2),
+              color: context.colorScheme.primaryContainer.withValues(alpha: 0.2),
               borderRadius: context.radiusXL,
               border: Border.all(
-                color: context.colorScheme.primary.withOpacity(0.3),
+                color: context.colorScheme.primary.withValues(alpha: 0.3),
                 width: 2,
               ),
             ),
@@ -243,7 +243,7 @@ class _OnboardingPageContent extends StatelessWidget {
           Text(
             page.description,
             style: context.textTheme.bodyLarge?.copyWith(
-              color: context.colorScheme.onSurface.withOpacity(0.7),
+              color: context.colorScheme.onSurface.withValues(alpha: 0.7),
               fontFamily: 'Montserrat',
               height: 1.5,
             ),
@@ -284,7 +284,7 @@ class _BottomNavigation extends StatelessWidget {
             count: totalPages,
             effect: ExpandingDotsEffect(
               activeDotColor: context.colorScheme.primary,
-              dotColor: context.colorScheme.primary.withOpacity(0.3),
+              dotColor: context.colorScheme.primary.withValues(alpha: 0.3),
               dotHeight: 8,
               dotWidth: 8,
               expansionFactor: 3,

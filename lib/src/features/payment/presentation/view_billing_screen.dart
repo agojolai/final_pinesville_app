@@ -3,10 +3,16 @@ import 'package:flutter/services.dart';
 import 'package:iconsax/iconsax.dart';
 import '../../../theme/app_constants.dart';
 import '../../../theme/theme_extensions.dart';
-import '../../../theme/app_theme.dart'; // Import for CustomColors extension
+import '../../../theme/app_theme.dart';
+import '../../billing/domain/bill_model.dart';
 
 class ViewBillingScreen extends StatefulWidget {
-  const ViewBillingScreen({super.key});
+  final BillModel? bill;
+  
+  const ViewBillingScreen({
+    super.key,
+    this.bill,
+  });
 
   @override
   State<ViewBillingScreen> createState() => _ViewBillingScreenState();
@@ -15,27 +21,6 @@ class ViewBillingScreen extends StatefulWidget {
 class _ViewBillingScreenState extends State<ViewBillingScreen> with TickerProviderStateMixin {
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
-
-  // Sample billing data
-  static const BillingData billingData = BillingData(
-    billNumber: 'BILL-2025-08-001',
-    dueDate: 'September 15, 2025',
-    status: BillingStatus.pending,
-    rent: 20000.00,
-    waterReading: WaterReading(
-      previousReading: 1245.5,
-      currentReading: 1267.3,
-      rate: 45.50,
-    ),
-    electricityReading: ElectricityReading(
-      previousReading: 2340.2,
-      currentReading: 2398.7,
-      rate: 12.75,
-    ),
-    wifi: 1500.00,
-    parking: 1000.00,
-    extra: 500.00,
-  );
 
   @override
   void initState() {
@@ -56,8 +41,117 @@ class _ViewBillingScreenState extends State<ViewBillingScreen> with TickerProvid
     super.dispose();
   }
 
+  BillingData _convertBillToBillingData(BillModel bill) {
+    // Convert BillModel status to BillingStatus
+    BillingStatus status;
+    if (bill.isPaid) {
+      status = BillingStatus.paid;
+    } else if (bill.isOverdue || bill.lateFeeDetails.isLate) {
+      status = BillingStatus.overdue;
+    } else {
+      status = BillingStatus.pending;
+    }
+
+    // Format due date
+    final dueDate = '${_getMonthName(bill.billingPeriod.dueDate.month)} ${bill.billingPeriod.dueDate.day}, ${bill.billingPeriod.dueDate.year}';
+
+    return BillingData(
+      billNumber: bill.billId,
+      dueDate: dueDate,
+      status: status,
+      rent: bill.rentBreakdown.amount,
+      waterReading: WaterReading(
+        previousReading: bill.water.previousReading,
+        currentReading: bill.water.currentReading,
+        rate: bill.water.ratePerUnit,
+      ),
+      electricityReading: ElectricityReading(
+        previousReading: bill.electricity.previousReading,
+        currentReading: bill.electricity.currentReading,
+        rate: bill.electricity.ratePerUnit,
+      ),
+      wifi: bill.wifiBreakdown.amount,
+      parking: bill.parkingBreakdown.amount,
+      extra: bill.additionalChargesBreakdown.amount,
+      extraDescription: bill.additionalChargesBreakdown.description,
+      trash: bill.trashBreakdown.amount,
+      discount: bill.discount,
+      lateFee: bill.lateFee,
+      tax: bill.tax,
+      subtotal: bill.subtotal,
+      total: bill.total,
+      balance: bill.balance,
+      amountPaid: bill.amountPaid,
+    );
+  }
+
+  String _getMonthName(int month) {
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    return months[month - 1];
+  }
+
   @override
   Widget build(BuildContext context) {
+    // If no bill provided, show error state
+    if (widget.bill == null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(
+            'View Billing',
+            style: context.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              fontFamily: 'Montserrat',
+            ),
+          ),
+          leading: IconButton(
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              Navigator.of(context).pop();
+            },
+            icon: Icon(
+              Iconsax.arrow_left,
+              color: context.colorScheme.onSurface,
+            ),
+          ),
+          toolbarHeight: AppConstants.appBarHeight,
+          elevation: 0,
+          backgroundColor: context.colorScheme.surface,
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Iconsax.document_text,
+                size: 80,
+                color: context.colorScheme.outline.withValues(alpha: 0.5),
+              ),
+              SizedBox(height: AppConstants.spacingMD),
+              Text(
+                'No Bill Selected',
+                style: context.textTheme.titleLarge?.copyWith(
+                  fontFamily: 'Montserrat',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: AppConstants.spacingSM),
+              Text(
+                'Please select a bill to view details',
+                style: context.textTheme.bodyMedium?.copyWith(
+                  color: context.colorScheme.onSurface.withValues(alpha: 0.7),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final billingData = _convertBillToBillingData(widget.bill!);
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -298,6 +392,11 @@ class _BillBreakdownCard extends StatelessWidget {
             amount: billingData.wifi,
           ),
           _BillLineItem(
+            icon: Iconsax.trash,
+            label: 'Trash',
+            amount: billingData.trash,
+          ),
+          _BillLineItem(
             icon: Iconsax.car,
             label: 'Parking',
             amount: billingData.parking,
@@ -307,6 +406,19 @@ class _BillBreakdownCard extends StatelessWidget {
               icon: Iconsax.add_circle,
               label: 'Extra Charges',
               amount: billingData.extra,
+              description: billingData.extraDescription,
+            ),
+          if (billingData.discount > 0)
+            _BillLineItem(
+              icon: Iconsax.ticket_discount,
+              label: 'Discount',
+              amount: -billingData.discount,
+            ),
+          if (billingData.lateFee > 0)
+            _BillLineItem(
+              icon: Iconsax.warning_2,
+              label: 'Late Fee',
+              amount: billingData.lateFee,
             ),
         ],
       ),
@@ -319,11 +431,13 @@ class _BillLineItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final double amount;
+  final String? description;
 
   const _BillLineItem({
     required this.icon,
     required this.label,
     required this.amount,
+    this.description,
   });
 
   @override
@@ -354,11 +468,26 @@ class _BillLineItem extends StatelessWidget {
           ),
           SizedBox(width: AppConstants.spacingSM),
           Expanded(
-            child: Text(
-              label,
-              style: context.textTheme.bodyLarge?.copyWith(
-                fontFamily: 'Montserrat',
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: context.textTheme.bodyLarge?.copyWith(
+                    fontFamily: 'Montserrat',
+                  ),
+                ),
+                if (description != null && description!.isNotEmpty) ...[
+                  SizedBox(height: AppConstants.spacingXS / 2),
+                  Text(
+                    description!,
+                    style: context.textTheme.bodySmall?.copyWith(
+                      color: context.colorScheme.onSurface.withValues(alpha: 0.6),
+                      fontFamily: 'Montserrat',
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
           Text(
@@ -591,7 +720,7 @@ class _BillSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final double total = billingData.calculateTotal();
+    final double total = billingData.totalAmountDue;
 
     return Container(
       padding: EdgeInsets.all(AppConstants.spacingLG),
@@ -656,6 +785,15 @@ class BillingData {
   final double wifi;
   final double parking;
   final double extra;
+  final String? extraDescription;
+  final double trash;
+  final double discount;
+  final double lateFee;
+  final double tax;
+  final double subtotal;
+  final double total;
+  final double balance;
+  final double amountPaid;
 
   const BillingData({
     required this.billNumber,
@@ -667,14 +805,19 @@ class BillingData {
     required this.wifi,
     required this.parking,
     required this.extra,
+    this.extraDescription,
+    required this.trash,
+    required this.discount,
+    required this.lateFee,
+    required this.tax,
+    required this.subtotal,
+    required this.total,
+    required this.balance,
+    required this.amountPaid,
   });
 
-  double calculateTotal() {
-    final waterTotal = (waterReading.currentReading - waterReading.previousReading) * waterReading.rate;
-    final electricityTotal = (electricityReading.currentReading - electricityReading.previousReading) * electricityReading.rate;
-    
-    return rent + waterTotal + electricityTotal + wifi + parking + extra;
-  }
+  // Use the actual balance from BillModel (amount still owed)
+  double get totalAmountDue => balance;
 }
 
 class WaterReading {

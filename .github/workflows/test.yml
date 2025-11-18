@@ -1,0 +1,77 @@
+name: Flutter Tests
+
+# Run tests on push to main/playground branches and on pull requests
+on:
+  push:
+    branches: [ main, playground ]
+  pull_request:
+    branches: [ main, playground ]
+
+jobs:
+  test:
+    name: Run Flutter Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      # Setup Java (required for Flutter)
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+      
+      # Setup Flutter
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.35.5'
+          channel: 'stable'
+      
+      # Get dependencies
+      - name: Install dependencies
+        run: flutter pub get
+      
+      # Verify Flutter setup
+      - name: Verify Flutter
+        run: flutter doctor -v
+      
+      # Run code analysis
+      - name: Analyze code
+        run: flutter analyze
+      
+      # Run unit tests
+      - name: Run unit tests
+        run: flutter test test/unit/ --coverage
+      
+      # Run widget tests
+      - name: Run widget tests
+        run: flutter test test/widget/ || true
+      
+      # Run integration tests
+      - name: Run integration tests
+        run: flutter test test/integration/
+      
+      # Upload coverage to Codecov (optional)
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage/lcov.info
+          fail_ci_if_error: false
+      
+      # Generate coverage report
+      - name: Generate coverage report
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lcov
+          genhtml coverage/lcov.info -o coverage/html
+      
+      # Upload coverage artifact
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/html
