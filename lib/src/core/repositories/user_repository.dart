@@ -195,18 +195,46 @@ class UserRepository {
   }
 
   // Helper method to create UserModel from registration data
-  UserModel createUserFromRegistration({
+  // OPTIMIZED: Now accepts propertyId directly to avoid redundant query
+  Future<UserModel> createUserFromRegistration({
     required String uid,
     required String firstName,
     required String lastName,
     required String email,
     required String propertyName,
+    required String propertyId, // NEW: Pass propertyId directly
     required String phoneNumber,
     required String unitNumber,
     required DateTime moveInDate,
-    UserRole role = UserRole.tenant, // Default to tenant role
+    UserRole role = UserRole.tenant,
     String profilePicture = '',
-  }) {
+  }) async {
+    String unitType = '';
+    double rentAmount = 0.0;
+
+    try {
+      // Only fetch unit details (property already known)
+      if (propertyId.isNotEmpty) {
+        final unitSnapshot = await _db
+            .collection('Property')
+            .doc(propertyId)
+            .collection('Units')
+            .where('unitNumber', isEqualTo: unitNumber)
+            .limit(1)
+            .get();
+
+        if (unitSnapshot.docs.isNotEmpty) {
+          final unitData = unitSnapshot.docs.first.data();
+          final details = unitData['Details'] ?? {};
+          unitType = details['unitType'] ?? '';
+          rentAmount = (details['monthlyRent'] ?? 0).toDouble();
+        }
+      }
+    } catch (e) {
+      // Log error but continue with empty values
+      print('Error fetching unit details: $e');
+    }
+
     return UserModel(
       id: uid,
       firstName: firstName,
@@ -215,69 +243,17 @@ class UserRepository {
       phoneNumber: phoneNumber,
       profilePicture: profilePicture,
       propertyName: propertyName,
-      propertyId: "", // Default empty, can be set later
+      propertyId: propertyId,
       unitId: unitNumber,
-      unitType: "", // Default value, can be updated later by admin
+      unitType: unitType,
       moveInDate: moveInDate,
-      leaseEndDate: null, // Default value, to be set by admin
-      rentAmount: 0.0, // Default value, to be set by admin
-      status: "pending", // Initial status for a new user
-      role: role, // Add the role parameter
-      createdAt: DateTime.now(),
-    );
-  }
-
-  /// Create an admin user account (for development/testing)
-  Future<void> createAdminAccount({
-    required String uid,
-    required String firstName,
-    required String lastName,
-    required String email,
-    required String phoneNumber,
-    String profilePicture = '',
-  }) async {
-    final adminUser = UserModel(
-      id: uid,
-      firstName: firstName,
-      lastName: lastName,
-      email: email,
-      phoneNumber: phoneNumber,
-      profilePicture: profilePicture,
-      propertyName: 'Pinesville Apartment Complex',
-      propertyId: 'pinesville_main',
-      unitId: 'ADMIN',
-      unitType: 'Administrative',
-      moveInDate: DateTime.now(),
       leaseEndDate: null,
-      rentAmount: 0.0,
-      status: 'active',
-      role: UserRole.admin, // 🎯 Admin role
+      rentAmount: rentAmount,
+      status: "pending",
+      role: role,
       createdAt: DateTime.now(),
     );
-
-    await saveUserRecord(adminUser);
   }
-
-  /// Convert existing user to admin role
-  Future<void> promoteToAdmin(String userId) async {
-    try {
-      await _db.collection('Users').doc(userId).update({
-        'account.role': 'admin',
-        'property.unitId': 'ADMIN',
-        'property.unitType': 'Administrative',
-        'property.rentAmount': 0.0,
-      });
-    } on FirebaseException catch (e) {
-      throw custom_firebase.FirebaseException(e.code).message;
-    } catch (e) {
-      throw Exception('Error promoting user to admin: $e');
-    }
-  }
-
-
-  //TODO: default values to be changed. it will be fetched 
-//together w/ the unit& property dropdown 
-//once the unit and property models are ready
 
   // Update specific user profile fields (not overwrite everything)
   Future<void> updateUserProfileField(Map<String, dynamic> fields) async {

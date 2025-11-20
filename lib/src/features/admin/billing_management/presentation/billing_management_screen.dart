@@ -60,7 +60,7 @@ class _BillingManagementScreenState extends ConsumerState<BillingManagementScree
           onPressed: widget.onMenuTap,
         ),
         title: Text(
-          'Billing Management',
+          'Manage Billing',
           style: context.textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.bold,
             fontFamily: 'Montserrat',
@@ -223,15 +223,9 @@ class _BillingManagementScreenState extends ConsumerState<BillingManagementScree
               fontWeight: FontWeight.bold,
             ),
           ),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Tenant ID: ${unit.tenantId ?? "N/A"}'),
-              Text(
-                'Rent: ₱${unit.monthlyRent.toStringAsFixed(2)}',
-                style: const TextStyle(fontFamily: 'Montserrat'),
-              ),
-            ],
+          subtitle: Text(
+            'Rent: ₱${unit.monthlyRent.toStringAsFixed(2)}',
+            style: const TextStyle(fontFamily: 'Montserrat'),
           ),
           trailing: isBilled
               ? FilledButton.tonalIcon(

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax/iconsax.dart';
-import 'dart:async';
 import '../../../../theme/app_constants.dart';
 import '../../../../theme/theme_extensions.dart';
 import '../../../../core/snackbars/loaders.dart';
@@ -26,10 +25,8 @@ class _TenantManagementScreenState extends ConsumerState<TenantManagementScreen>
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
   
-  final TextEditingController _searchController = TextEditingController();
-  String _searchQuery = '';
   String _selectedFilter = 'all'; // all, active, pending, suspended
-  Timer? _debounceTimer;
+  String? _selectedProperty; // null means all properties
 
   @override
   void initState() {
@@ -47,18 +44,7 @@ class _TenantManagementScreenState extends ConsumerState<TenantManagementScreen>
   @override
   void dispose() {
     _fadeController.dispose();
-    _searchController.dispose();
-    _debounceTimer?.cancel();
     super.dispose();
-  }
-
-  void _onSearchChanged(String value) {
-    _debounceTimer?.cancel();
-    _debounceTimer = Timer(const Duration(milliseconds: 300), () {
-      if (mounted) {
-        setState(() => _searchQuery = value);
-      }
-    });
   }
 
   @override
@@ -74,7 +60,7 @@ class _TenantManagementScreenState extends ConsumerState<TenantManagementScreen>
           onPressed: widget.onMenuTap,
         ),
         title: Text(
-          'Tenant Management',
+          'Manage Tenants',
           style: context.textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.bold,
             fontFamily: 'Montserrat',
@@ -86,19 +72,12 @@ class _TenantManagementScreenState extends ConsumerState<TenantManagementScreen>
         backgroundColor: context.colorScheme.surface,
         actions: [
           IconButton(
-            onPressed: () => _showSortOptions(),
+            onPressed: () => _showPropertyFilter(),
             icon: Icon(
-              Iconsax.sort,
+              Iconsax.filter,
               color: context.colorScheme.onSurface,
             ),
-          ),
-          IconButton(
-            tooltip: 'Refresh Tenants',
-            icon: Icon(Icons.refresh, color: context.colorScheme.primary),
-            onPressed: () async {
-              await ref.read(tenantListProvider.notifier).fetchTenants();
-              Loaders.infoSnackBar(context, title: 'Refreshed', message: 'Tenant list updated.');
-            },
+            tooltip: 'Filter by Property',
           ),
           SizedBox(width: AppConstants.spacingSM),
         ],
@@ -120,13 +99,6 @@ class _TenantManagementScreenState extends ConsumerState<TenantManagementScreen>
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _addNewTenant(),
-        backgroundColor: context.colorScheme.primary,
-        foregroundColor: Colors.white,
-        icon: Icon(Iconsax.profile_add),
-        label: Text('Add Tenant'),
-      ),
     );
   }
 
@@ -136,76 +108,33 @@ class _TenantManagementScreenState extends ConsumerState<TenantManagementScreen>
       color: context.colorScheme.surface,
       child: Column(
         children: [
-          // Search bar
-          Container(
-            decoration: BoxDecoration(
-              color: context.colorScheme.surface,
-              borderRadius: context.radiusMD,
-              border: Border.all(
-                color: context.colorScheme.outline.withValues(alpha: 0.3),
-              ),
-            ),
-            child: TextField(
-              controller: _searchController,
-              onChanged: _onSearchChanged,
-              decoration: InputDecoration(
-                hintText: 'Search tenants...',
-                hintStyle: TextStyle(
-                  fontFamily: 'Montserrat',
-                  color: context.colorScheme.onSurface.withValues(alpha: 0.6),
-                ),
-                prefixIcon: Icon(
-                  Iconsax.search_normal,
-                  color: context.colorScheme.onSurface.withValues(alpha: 0.6),
-                ),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        onPressed: () {
-                          _searchController.clear();
-                          _onSearchChanged('');
-                        },
-                        icon: Icon(
-                          Iconsax.close_circle,
-                          color: context.colorScheme.onSurface.withValues(alpha: 0.6),
-                        ),
-                      )
-                    : null,
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(
-                  vertical: AppConstants.spacingMD,
-                ),
-              ),
-            ),
-          ),
-          SizedBox(height: AppConstants.spacingMD),
-          
           // Filter chips
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
                 _FilterChip(
-                  label: 'All (245)',
+                  label: 'All',
                   isSelected: _selectedFilter == 'all',
                   onTap: () => setState(() => _selectedFilter = 'all'),
                 ),
                 SizedBox(width: AppConstants.spacingSM),
                 _FilterChip(
-                  label: 'Active (195)',
+                  label: 'Active',
                   isSelected: _selectedFilter == 'active',
                   onTap: () => setState(() => _selectedFilter = 'active'),
                   color: Colors.green,
                 ),
                 SizedBox(width: AppConstants.spacingSM),
                 _FilterChip(
-                  label: 'Pending (8)',
+                  label: 'Pending',
                   isSelected: _selectedFilter == 'pending',
                   onTap: () => setState(() => _selectedFilter = 'pending'),
                   color: Colors.orange,
                 ),
                 SizedBox(width: AppConstants.spacingSM),
                 _FilterChip(
-                  label: 'Suspended (2)',
+                  label: 'Suspended',
                   isSelected: _selectedFilter == 'suspended',
                   onTap: () => setState(() => _selectedFilter = 'suspended'),
                   color: Colors.red,
@@ -273,15 +202,52 @@ class _TenantManagementScreenState extends ConsumerState<TenantManagementScreen>
       error: (e, _) => Center(child: Text('Error loading tenants')), 
       data: (tenants) {
         var filtered = tenants.where((t) {
+          // Filter by status
           if (_selectedFilter != 'all' && t.status != _selectedFilter) return false;
-          if (_searchQuery.isNotEmpty) {
-            final query = _searchQuery.toLowerCase();
-            return t.fullName.toLowerCase().contains(query) ||
-                   t.email.toLowerCase().contains(query) ||
-                   t.unitId.toLowerCase().contains(query);
-          }
+          
+          // Filter by property
+          if (_selectedProperty != null && t.propertyName != _selectedProperty) return false;
+          
           return true;
         }).toList();
+        // Show empty state if no results
+        if (filtered.isEmpty) {
+          return Center(
+            child: Padding(
+              padding: EdgeInsets.all(AppConstants.spacingXL),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Iconsax.search_status,
+                    size: 64,
+                    color: context.colorScheme.onSurface.withValues(alpha: 0.3),
+                  ),
+                  SizedBox(height: AppConstants.spacingMD),
+                  Text(
+                    'Nothing here',
+                    style: context.textTheme.headlineSmall?.copyWith(
+                      color: context.colorScheme.onSurface.withValues(alpha: 0.6),
+                      fontFamily: 'Montserrat',
+                    ),
+                  ),
+                  SizedBox(height: AppConstants.spacingSM),
+                  Text(
+                    _selectedProperty != null 
+                        ? 'No tenants found in $_selectedProperty'
+                        : 'No tenants match your filters',
+                    style: context.textTheme.bodyMedium?.copyWith(
+                      color: context.colorScheme.onSurface.withValues(alpha: 0.5),
+                      fontFamily: 'Montserrat',
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        
         if (isTabletOrDesktop) {
           return GridView.builder(
             padding: EdgeInsets.all(AppConstants.spacingMD),
@@ -294,7 +260,6 @@ class _TenantManagementScreenState extends ConsumerState<TenantManagementScreen>
             itemCount: filtered.length,
             itemBuilder: (context, index) => _TenantCard(
               tenant: filtered[index],
-              onTap: () => _viewTenantDetails(filtered[index]),
               isCompact: true,
             ),
           );
@@ -305,7 +270,6 @@ class _TenantManagementScreenState extends ConsumerState<TenantManagementScreen>
             separatorBuilder: (context, index) => SizedBox(height: AppConstants.spacingMD),
             itemBuilder: (context, index) => _TenantCard(
               tenant: filtered[index],
-              onTap: () => _viewTenantDetails(filtered[index]),
               isCompact: false,
             ),
           );
@@ -316,7 +280,6 @@ class _TenantManagementScreenState extends ConsumerState<TenantManagementScreen>
 
   Widget _TenantCard({
     required UserModel tenant,
-    required VoidCallback onTap,
     bool isCompact = false,
   }) {
     final status = tenant.status;
@@ -324,135 +287,136 @@ class _TenantManagementScreenState extends ConsumerState<TenantManagementScreen>
     
     return Material(
       color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: context.radiusMD,
-        child: Container(
-          padding: EdgeInsets.all(AppConstants.spacingMD),
-          decoration: BoxDecoration(
-            color: context.colorScheme.surface,
-            borderRadius: context.radiusMD,
-            border: Border.all(
-              color: context.colorScheme.outline.withValues(alpha: 0.1),
+      child: Container(
+        padding: EdgeInsets.all(AppConstants.spacingMD),
+        decoration: BoxDecoration(
+          color: context.colorScheme.surface,
+          borderRadius: context.radiusMD,
+          border: Border.all(
+            color: context.colorScheme.outline.withValues(alpha: 0.1),
+          ),
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                // Profile image
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor: context.colorScheme.primary.withValues(alpha: 0.1),
+                  backgroundImage: tenant.profilePicture.isNotEmpty
+                      ? NetworkImage(tenant.profilePicture)
+                      : null,
+                  child: tenant.profilePicture.isEmpty
+                      ? Text(
+                          tenant.fullName.split(' ').map((e) => e[0]).join().toUpperCase(),
+                          style: context.textTheme.titleMedium?.copyWith(
+                            color: context.colorScheme.primary,
+                            fontWeight: FontWeight.bold,
+                            fontFamily: 'Montserrat',
+                          ),
+                        )
+                      : null,
+                ),
+                SizedBox(width: AppConstants.spacingMD),
+                
+                // Tenant info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              tenant.fullName,
+                              style: context.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                fontFamily: 'Montserrat',
+                              ),
+                            ),
+                          ),
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: AppConstants.spacingSM,
+                              vertical: AppConstants.spacingXS,
+                            ),
+                            decoration: BoxDecoration(
+                              color: statusColor.withValues(alpha: 0.1),
+                              borderRadius: context.radiusSM,
+                            ),
+                            child: Text(
+                              status.toUpperCase(),
+                              style: context.textTheme.bodySmall?.copyWith(
+                                color: statusColor,
+                                fontWeight: FontWeight.w600,
+                                fontFamily: 'Montserrat',
+                                fontSize: 10,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: AppConstants.spacingXS),
+                      Wrap(
+                        spacing: AppConstants.spacingSM,
+                        runSpacing: AppConstants.spacingXS,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          _buildInfoChip(
+                            icon: Iconsax.home,
+                            label: 'Unit ${tenant.unitId}',
+                            textColor: context.colorScheme.onSurface.withValues(alpha: 0.7),
+                          ),
+                          _buildInfoChip(
+                            icon: Iconsax.calendar,
+                            label: 'Since ${tenant.moveInDate?.toString().substring(0, 10) ?? 'Unknown'}',
+                            textColor: context.colorScheme.onSurface.withValues(alpha: 0.7),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: AppConstants.spacingXS),
+                      Wrap(
+                        spacing: AppConstants.spacingSM,
+                        runSpacing: AppConstants.spacingXS,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          _buildInfoChip(
+                            icon: Iconsax.money_send,
+                            label: '₱${tenant.rentAmount.toStringAsFixed(0)}/month',
+                            textColor: context.colorScheme.onSurface.withValues(alpha: 0.8),
+                          ),
+                          // Note: Unread messages feature to be implemented
+                          // Will need to add this to UserModel or fetch separately
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                
+                // Action button (only for non-pending tenants)
+                if (tenant.status != 'pending')
+                  IconButton(
+                    onPressed: () => _showTenantActions(tenant),
+                    icon: Icon(
+                      Iconsax.more_2,
+                      color: context.colorScheme.onSurface.withValues(alpha: 0.6),
+                    ),
+                  ),
+                // Eye button for pending tenants, Accept button removed
+                if (tenant.status == 'pending')
+                  IconButton(
+                    onPressed: () => _showPendingTenantDetails(tenant),
+                    icon: Icon(
+                      Iconsax.eye,
+                      color: context.colorScheme.primary,
+                      size: 24,
+                    ),
+                    tooltip: 'View Details',
+                  ),
+              ],
             ),
-          ),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  // Profile image
-                  CircleAvatar(
-                    radius: 24,
-                    backgroundColor: context.colorScheme.primary.withValues(alpha: 0.1),
-                    child: Text(
-                      tenant.fullName.split(' ').map((e) => e[0]).join().toUpperCase(),
-                      style: context.textTheme.titleMedium?.copyWith(
-                        color: context.colorScheme.primary,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'Montserrat',
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: AppConstants.spacingMD),
-                  
-                  // Tenant info
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                tenant.fullName,
-                                style: context.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                  fontFamily: 'Montserrat',
-                                ),
-                              ),
-                            ),
-                            Container(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: AppConstants.spacingSM,
-                                vertical: AppConstants.spacingXS,
-                              ),
-                              decoration: BoxDecoration(
-                                color: statusColor.withValues(alpha: 0.1),
-                                borderRadius: context.radiusSM,
-                              ),
-                              child: Text(
-                                status.toUpperCase(),
-                                style: context.textTheme.bodySmall?.copyWith(
-                                  color: statusColor,
-                                  fontWeight: FontWeight.w600,
-                                  fontFamily: 'Montserrat',
-                                  fontSize: 10,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: AppConstants.spacingXS),
-                        Wrap(
-                          spacing: AppConstants.spacingSM,
-                          runSpacing: AppConstants.spacingXS,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            _buildInfoChip(
-                              icon: Iconsax.home,
-                              label: 'Unit ${tenant.unitId}',
-                              textColor: context.colorScheme.onSurface.withValues(alpha: 0.7),
-                            ),
-                            _buildInfoChip(
-                              icon: Iconsax.calendar,
-                              label: 'Since ${tenant.moveInDate?.toString().substring(0, 10) ?? 'Unknown'}',
-                              textColor: context.colorScheme.onSurface.withValues(alpha: 0.7),
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: AppConstants.spacingXS),
-                        Wrap(
-                          spacing: AppConstants.spacingSM,
-                          runSpacing: AppConstants.spacingXS,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            _buildInfoChip(
-                              icon: Iconsax.money_send,
-                              label: '₱${tenant.rentAmount.toStringAsFixed(0)}/month',
-                              textColor: context.colorScheme.onSurface.withValues(alpha: 0.8),
-                            ),
-                            // Note: Unread messages feature to be implemented
-                            // Will need to add this to UserModel or fetch separately
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  
-                  // Action button (only for non-pending tenants)
-                  if (tenant.status != 'pending')
-                    IconButton(
-                      onPressed: () => _showTenantActions(tenant),
-                      icon: Icon(
-                        Iconsax.more_2,
-                        color: context.colorScheme.onSurface.withValues(alpha: 0.6),
-                      ),
-                    ),
-                  // Eye button for pending tenants, Accept button removed
-                  if (tenant.status == 'pending')
-                    IconButton(
-                      onPressed: () => _showPendingTenantDetails(tenant),
-                      icon: Icon(
-                        Iconsax.eye,
-                        color: context.colorScheme.primary,
-                        size: 24,
-                      ),
-                      tooltip: 'View Details',
-                    ),
-                ],
-              ),
-            ],
-          ),
+          ],
         ),
       ),
     );
@@ -478,30 +442,134 @@ class _TenantManagementScreenState extends ConsumerState<TenantManagementScreen>
   }
 
 
-  void _showSortOptions() {
-    // TODO: Implement sort options
-    Loaders.infoSnackBar(
-      context,
-      title: 'Coming Soon',
-      message: 'Sort options will be available in a future update.',
-    );
-  }
-
-  void _addNewTenant() {
-    // TODO: Navigate to add tenant screen
-    Loaders.infoSnackBar(
-      context,
-      title: 'Coming Soon',
-      message: 'Add new tenant feature will be available soon.',
-    );
-  }
-
-  void _viewTenantDetails(UserModel tenant) {
-    // TODO: Navigate to tenant details screen
-    Loaders.infoSnackBar(
-      context,
-      title: 'Tenant Details',
-      message: 'Viewing details for ${tenant.fullName}',
+  void _showPropertyFilter() {
+    final tenantAsync = ref.read(tenantListProvider);
+    final tenants = tenantAsync.valueOrNull ?? [];
+    
+    // Get unique properties
+    final properties = tenants
+        .map((t) => t.propertyName)
+        .where((name) => name.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+    
+    if (properties.isEmpty) {
+      Loaders.infoSnackBar(
+        context,
+        title: 'No Properties',
+        message: 'No properties available to filter.',
+      );
+      return;
+    }
+    
+    showModalBottomSheet(
+      context: context,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppConstants.radiusLG),
+        ),
+      ),
+      builder: (context) => Container(
+        padding: EdgeInsets.only(
+          left: AppConstants.spacingLG,
+          right: AppConstants.spacingLG,
+          top: AppConstants.spacingLG,
+          bottom: MediaQuery.of(context).viewPadding.bottom + AppConstants.spacingLG,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Handle bar
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: EdgeInsets.only(bottom: AppConstants.spacingLG),
+                decoration: BoxDecoration(
+                  color: context.colorScheme.outline.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            // Title
+            Text(
+              'Filter by Property',
+              style: context.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                fontFamily: 'Montserrat',
+              ),
+            ),
+            SizedBox(height: AppConstants.spacingMD),
+            // All properties option
+            ListTile(
+              leading: Icon(
+                Iconsax.building,
+                color: _selectedProperty == null 
+                    ? context.colorScheme.primary 
+                    : context.colorScheme.onSurface,
+              ),
+              title: Text(
+                'All Properties',
+                style: TextStyle(
+                  fontFamily: 'Montserrat',
+                  fontWeight: _selectedProperty == null ? FontWeight.w600 : FontWeight.normal,
+                  color: _selectedProperty == null 
+                      ? context.colorScheme.primary 
+                      : context.colorScheme.onSurface,
+                ),
+              ),
+              trailing: _selectedProperty == null
+                  ? Icon(
+                      Iconsax.tick_circle,
+                      color: context.colorScheme.primary,
+                    )
+                  : null,
+              onTap: () {
+                setState(() => _selectedProperty = null);
+                Navigator.pop(context);
+              },
+              shape: RoundedRectangleBorder(
+                borderRadius: context.radiusMD,
+              ),
+            ),
+            Divider(height: 1),
+            // Property list
+            ...properties.map((property) => ListTile(
+              leading: Icon(
+                Iconsax.building,
+                color: _selectedProperty == property 
+                    ? context.colorScheme.primary 
+                    : context.colorScheme.onSurface,
+              ),
+              title: Text(
+                property,
+                style: TextStyle(
+                  fontFamily: 'Montserrat',
+                  fontWeight: _selectedProperty == property ? FontWeight.w600 : FontWeight.normal,
+                  color: _selectedProperty == property 
+                      ? context.colorScheme.primary 
+                      : context.colorScheme.onSurface,
+                ),
+              ),
+              trailing: _selectedProperty == property
+                  ? Icon(
+                      Iconsax.tick_circle,
+                      color: context.colorScheme.primary,
+                    )
+                  : null,
+              onTap: () {
+                setState(() => _selectedProperty = property);
+                Navigator.pop(context);
+              },
+              shape: RoundedRectangleBorder(
+                borderRadius: context.radiusMD,
+              ),
+            )),
+          ],
+        ),
+      ),
     );
   }
 
@@ -550,14 +618,19 @@ class _TenantManagementScreenState extends ConsumerState<TenantManagementScreen>
                     CircleAvatar(
                       radius: 30,
                       backgroundColor: context.colorScheme.primary.withValues(alpha: 0.1),
-                      child: Text(
-                        tenant.fullName.split(' ').map((e) => e[0]).join().toUpperCase(),
-                        style: context.textTheme.headlineSmall?.copyWith(
-                          color: context.colorScheme.primary,
-                          fontWeight: FontWeight.bold,
-                          fontFamily: 'Montserrat',
-                        ),
-                      ),
+                      backgroundImage: tenant.profilePicture.isNotEmpty
+                          ? NetworkImage(tenant.profilePicture)
+                          : null,
+                      child: tenant.profilePicture.isEmpty
+                          ? Text(
+                              tenant.fullName.split(' ').map((e) => e[0]).join().toUpperCase(),
+                              style: context.textTheme.headlineSmall?.copyWith(
+                                color: context.colorScheme.primary,
+                                fontWeight: FontWeight.bold,
+                                fontFamily: 'Montserrat',
+                              ),
+                            )
+                          : null,
                     ),
                     SizedBox(width: AppConstants.spacingMD),
                     Expanded(
@@ -832,14 +905,6 @@ class _TenantManagementScreenState extends ConsumerState<TenantManagementScreen>
               ),
               SizedBox(height: AppConstants.spacingLG),
               _ActionTile(
-                icon: Iconsax.profile_circle,
-                title: 'View Profile',
-                onTap: () {
-                  Navigator.pop(context);
-                  _viewTenantDetails(tenant);
-                },
-              ),
-              _ActionTile(
                 icon: Iconsax.message,
                 title: 'Send Message',
                 onTap: () {
@@ -848,30 +913,6 @@ class _TenantManagementScreenState extends ConsumerState<TenantManagementScreen>
                     context,
                     title: 'Coming Soon',
                     message: 'Message feature will be available soon.',
-                  );
-                },
-              ),
-              _ActionTile(
-                icon: Iconsax.receipt,
-                title: 'Generate Bill',
-                onTap: () {
-                  Navigator.pop(context);
-                  Loaders.infoSnackBar(
-                    context,
-                    title: 'Coming Soon',
-                    message: 'Generate bill feature will be available soon.',
-                  );
-                },
-              ),
-              _ActionTile(
-                icon: Iconsax.edit,
-                title: 'Edit Details',
-                onTap: () {
-                  Navigator.pop(context);
-                  Loaders.infoSnackBar(
-                    context,
-                    title: 'Coming Soon',
-                    message: 'Edit details feature will be available soon.',
                   );
                 },
               ),

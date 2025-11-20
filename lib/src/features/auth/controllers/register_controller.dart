@@ -106,6 +106,7 @@ class RegisterController extends StateNotifier<RegisterState> {
     required String phoneNumber,
     required String password,
     required String propertyName,
+    required String propertyId, 
     required String unitNumber,
     required DateTime moveInDate,
     required BuildContext context,
@@ -129,13 +130,14 @@ class RegisterController extends StateNotifier<RegisterState> {
           // Step 2: Store additional user data in Firestore
           if (userCredential?.user != null) {
             final newUser =
-                UserRepository.instance.createUserFromRegistration(
+                await UserRepository.instance.createUserFromRegistration(
               uid: userCredential!.user!.uid,
               firstName: firstName,
               lastName: lastName,
               email: email,
               phoneNumber: phoneNumber,
               propertyName: propertyName,
+              propertyId: propertyId, 
               unitNumber: unitNumber,
               moveInDate: moveInDate,
             );
