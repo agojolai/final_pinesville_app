@@ -1,6 +1,6 @@
 name: untitled
 description: "A new Flutter project."
-version: 1.0.2
+version: 1.0.3
 
 environment:
   sdk: ^3.5.4
