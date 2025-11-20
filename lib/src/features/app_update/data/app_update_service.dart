@@ -19,8 +19,8 @@ class AppUpdateService {
           osVersion: Version(1, 0, 0), // Placeholder, will be auto-detected
         ),
       ),
-      debugDisplayAlways: true, // TODO: Set to false for production - forces dialog to show
-      debugLogging: true, // Set to true for debugging
+      debugDisplayAlways: false, // Production: Only show when update available //set to true for forced dialog display during testing
+      debugLogging: false, // Production: Disable debug logs //set to true for debugging
       durationUntilAlertAgain: const Duration(days: 3),
       // Optional: Custom messages
       // messages: CustomUpgraderMessages(),
