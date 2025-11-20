@@ -2,6 +2,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_downloader/flutter_downloader.dart';
 import 'app.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -36,6 +37,14 @@ Future<void> main() async {
     // Use different providers based on platform and environment
     androidProvider: AndroidProvider.debug, // Use AndroidProvider.playIntegrity for production
   );
+
+  // Initialize FlutterDownloader for APK downloads
+  AppLogger.info('Initializing FlutterDownloader...');
+  await FlutterDownloader.initialize(
+    debug: true, // Set to false in production
+    ignoreSsl: false, // Set to true to ignore SSL cert verification (not recommended)
+  );
+  AppLogger.info('FlutterDownloader initialized successfully');
 
   // Initialize screen util for responsive design
   await ScreenUtil.ensureScreenSize();
