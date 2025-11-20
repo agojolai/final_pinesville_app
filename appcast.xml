@@ -1,0 +1,21 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+    <channel>
+        <title>Pinesville App - Updates</title>
+        <description>Update feed for all Pinesville users</description>
+        <language>en</language>
+        <item>
+            <title>Version 999.0.0</title>
+            <description>
+ TEST VERSION - Testing update functionality
+ This will trigger the update dialog
+ Download will use a test APK
+            </description>
+            <pubDate>Thu, 21 Nov 2025 12:00:00 +0000</pubDate>
+            <enclosure 
+                url="https://github.com/agojolai/final_pinesville_app/releases/download/HUH/app-release.apk" 
+                sparkle:version="999.0.0" 
+                sparkle:os="android" />
+        </item>
+    </channel>
+</rss>

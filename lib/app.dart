@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:upgrader/upgrader.dart';
 import 'src/theme/app_theme.dart';
 import 'src/features/auth/presentation/login_screen.dart';
 import 'src/features/auth/providers/auth_provider.dart';
@@ -9,10 +10,29 @@ import 'src/features/onboarding/data/onboarding_repository.dart';
 import 'src/core/utils/app_logger.dart';
 import 'src/common/widgets/main_navigation.dart';
 import 'src/features/admin/navigation/presentation/admin_navigation.dart';
+import 'src/features/app_update/data/app_update_service.dart';
+import 'src/features/app_update/data/apk_download_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class App extends ConsumerWidget {
   const App({super.key});
+  
+  /// Handle APK download when user taps UPDATE NOW
+  static void _handleUpdate() async {
+    try {
+      AppLogger.info('User tapped UPDATE NOW - starting APK download');
+      final apkUrl = await AppUpdateService.getApkDownloadUrl();
+      
+      if (apkUrl != null && apkUrl.isNotEmpty) {
+        AppLogger.info('APK URL retrieved: $apkUrl');
+        await ApkDownloadService.downloadAndInstall(apkUrl);
+      } else {
+        AppLogger.error('Failed to retrieve APK download URL');
+      }
+    } catch (e, stackTrace) {
+      AppLogger.error('Error handling update: $e', stackTrace);
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -92,10 +112,27 @@ class App extends ConsumerWidget {
                         final role = snapshot.data!;
                         AppLogger.debug('   🎯 User role determined: $role');
                         
+                        // Get upgrader instance (same for all users)
+                        final upgrader = AppUpdateService.getUpgrader();
+                        
                         if (role == 'admin') {
-                          return AdminNavigation(key: ValueKey('admin_${user.uid}'));
+                          return UpgradeAlert(
+                            upgrader: upgrader,
+                            onUpdate: () {
+                              _handleUpdate();
+                              return true;
+                            },
+                            child: AdminNavigation(key: ValueKey('admin_${user.uid}')),
+                          );
                         } else {
-                          return MainNavigation(key: ValueKey('tenant_${user.uid}'));
+                          return UpgradeAlert(
+                            upgrader: upgrader,
+                            onUpdate: () {
+                              _handleUpdate();
+                              return true;
+                            },
+                            child: MainNavigation(key: ValueKey('tenant_${user.uid}')),
+                          );
                         }
                       },
                     );
