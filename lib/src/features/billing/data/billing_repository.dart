@@ -417,13 +417,18 @@ class BillingRepository {
           AppLogger.debug('Units snapshot received: ${snapshot.docs.length} documents');
           return snapshot.docs.map((doc) {
             AppLogger.trace('Processing unit doc ID: ${doc.id}');
-            return UnitBillingInfo.fromSnapshot(doc);
+            // CRITICAL FIX: Inject both propertyId and unitId (document ID)
+            final data = doc.data();
+            data['propertyId'] = propertyId; // Inject propertyId from parent path
+            data['unitId'] = doc.id; // Inject actual Firestore document ID
+            return UnitBillingInfo.fromMap(data);
           }).toList();
         });
   }
 
   /// Get unit details
   Future<UnitBillingInfo?> getUnitDetails(String propertyId, String unitId) async {
+    AppLogger.debug('getUnitDetails - propertyId: $propertyId, unitId: $unitId');
     final doc = await firestore
         .collection('Property')
         .doc(propertyId)
@@ -431,8 +436,16 @@ class BillingRepository {
         .doc(unitId)
         .get();
 
-    if (!doc.exists) return null;
-    return UnitBillingInfo.fromSnapshot(doc);
+    if (!doc.exists) {
+      AppLogger.warning('Unit document does not exist: Property/$propertyId/Units/$unitId');
+      return null;
+    }
+    
+    // CRITICAL FIX: Inject both propertyId and unitId (document ID)
+    final data = doc.data()!;
+    data['propertyId'] = propertyId;
+    data['unitId'] = doc.id; // Inject actual Firestore document ID
+    return UnitBillingInfo.fromMap(data);
   }
 
   /// Get property utility rates

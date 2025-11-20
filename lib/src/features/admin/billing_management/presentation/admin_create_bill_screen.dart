@@ -173,7 +173,7 @@ class _AdminCreateBillScreenState extends ConsumerState<AdminCreateBillScreen> {
       
       await repository.createBillFromInput(
         propertyId: widget.propertyId,
-        unitId: widget.unit.unitNumber,
+        unitId: widget.unit.unitId, // FIXED: Use document ID, not unitNumber
         month: now.month,
         year: now.year,
         electricityCurrent: currentElecReading,

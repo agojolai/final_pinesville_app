@@ -51,7 +51,7 @@ class UnitRepository {
   }
 
   /// Fetch names of property
-  /// for property dropdown0
+  /// for property dropdown
   Future<List<String>> fetchPropertyNames() async {
     try {
       final snapshot = await _db
@@ -71,7 +71,100 @@ class UnitRepository {
     } on PlatformException catch (e) {
       throw custom_platform.PlatformException(e.code).message;
     } catch (e) {
-      throw Exception('Error fetching units by property: $e');
+      throw Exception('Error fetching property names: $e');
+    }
+  }
+
+  /// Fetch properties with IDs (for efficient lookups)
+  /// Returns map of propertyName -> propertyId
+  Future<Map<String, String>> fetchPropertyMap() async {
+    try {
+      final snapshot = await _db.collection('Property').get();
+      return Map.fromEntries(
+        snapshot.docs.map((doc) => MapEntry(doc['name'] as String, doc.id))
+      );
+    } on FirebaseException catch (e) {
+      throw custom_firebase.FirebaseException(e.code).message;
+    } on custom_format.FormatException catch (_) {
+      throw const custom_format.FormatException();
+    } on PlatformException catch (e) {
+      throw custom_platform.PlatformException(e.code).message;
+    } catch (e) {
+      throw Exception('Error fetching property map: $e');
+    }
+  }
+
+  /// Fetch vacant units for a specific property by property name
+  /// Returns a sorted list of unit numbers where rental.status = 'vacant'
+  Future<List<String>> fetchVacantUnitsByProperty(String propertyName) async {
+    try {
+      // First, find the property document by name
+      final propertySnapshot = await _db
+          .collection('Property')
+          .where('name', isEqualTo: propertyName)
+          .limit(1)
+          .get();
+
+      if (propertySnapshot.docs.isEmpty) {
+        return [];
+      }
+
+      final propertyId = propertySnapshot.docs.first.id;
+
+      // Fetch vacant units from the property's Units subcollection
+      final unitsSnapshot = await _db
+          .collection('Property')
+          .doc(propertyId)
+          .collection('Units')
+          .where('rental.status', isEqualTo: 'vacant')
+          .get();
+
+      List<String> vacantUnits = unitsSnapshot.docs
+          .map((doc) => doc['unitNumber'] as String)
+          .toList();
+
+      // Sort the unit numbers
+      vacantUnits.sort();
+
+      return vacantUnits;
+    } on FirebaseException catch (e) {
+      throw custom_firebase.FirebaseException(e.code).message;
+    } on custom_format.FormatException catch (_) {
+      throw const custom_format.FormatException();
+    } on PlatformException catch (e) {
+      throw custom_platform.PlatformException(e.code).message;
+    } catch (e) {
+      throw Exception('Error fetching vacant units by property: $e');
+    }
+  }
+
+  /// Fetch vacant units by propertyId (optimized - no name lookup needed)
+  /// Returns a sorted list of unit numbers where rental.status = 'vacant'
+  Future<List<String>> fetchVacantUnitsByPropertyId(String propertyId) async {
+    try {
+      if (propertyId.isEmpty) return [];
+
+      final unitsSnapshot = await _db
+          .collection('Property')
+          .doc(propertyId)
+          .collection('Units')
+          .where('rental.status', isEqualTo: 'vacant')
+          .get();
+
+      List<String> vacantUnits = unitsSnapshot.docs
+          .map((doc) => doc['unitNumber'] as String)
+          .toList();
+
+      vacantUnits.sort();
+      return vacantUnits;
+    } on FirebaseException catch (e) {
+      throw custom_firebase.FirebaseException(e.code).message;
+    } on custom_format.FormatException catch (_) {
+      throw const custom_format.FormatException();
+    } on PlatformException catch (e) {
+      throw custom_platform.PlatformException(e.code).message;
+    } catch (e) {
+      throw Exception('Error fetching vacant units by property ID: $e');
     }
   }
 
