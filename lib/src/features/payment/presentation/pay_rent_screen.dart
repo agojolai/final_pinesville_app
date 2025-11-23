@@ -1164,8 +1164,8 @@ class _PaymentTypeSelector extends StatelessWidget {
                   onTap: () => onChanged(false),
                 ),
               ),
-              SizedBox(width: AppConstants.spacingSM),
-              Expanded(
+             SizedBox(width: AppConstants.spacingSM),
+             /* Expanded(
                 child: _PaymentTypeOption(
                   label: 'Partial Payment',
                   subtitle: 'Pay specific items',
@@ -1173,7 +1173,7 @@ class _PaymentTypeSelector extends StatelessWidget {
                   isSelected: isPartialPayment,
                   onTap: () => onChanged(true),
                 ),
-              ),
+              ),*/
             ],
           ),
         ],

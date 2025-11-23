@@ -502,12 +502,6 @@ class _ProfileSections extends StatelessWidget {
                 onTap: () => _showComingSoon(context), // TODO: download dapat to
               ),
               _ProfileMenuItem(
-                icon: Iconsax.home_2,
-                title: 'Unit Transfer',
-                subtitle: 'Request unit change',
-                onTap: () => _showComingSoon(context),
-              ),
-              _ProfileMenuItem(
                 icon: Iconsax.refresh,
                 title: 'Renew / Move-out',
                 subtitle: 'Contract renewal options',
@@ -521,7 +515,7 @@ class _ProfileSections extends StatelessWidget {
             items: [
               _ProfileMenuItem(
                 icon: Iconsax.message_question,
-                title: 'Reports & Tickets',
+                title: 'Submit an Issue',
                 subtitle: 'Submit and track issues',
                 onTap: () async {
                   HapticFeedback.lightImpact();
