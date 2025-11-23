@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../repositories/auth_repository.dart';
 import '../../features/auth/data/models/user_model.dart';
+import '../services/notification_service.dart';
 
 enum TenantStatus { all, active, pending, suspended }
 
@@ -70,6 +71,21 @@ class TenantListNotifier extends StateNotifier<AsyncValue<List<UserModel>>> {
 
       // Perform backend update
       await AuthRepository.instance.approvePendingUser(email);
+      
+      // Send approval notification to tenant
+      try {
+        final approvedTenant = updatedTenants.firstWhere((t) => t.email == email);
+        if (approvedTenant.id != null) {
+          await NotificationService.notifyApplicationStatus(
+            userId: approvedTenant.id!,
+            isApproved: true,
+            rejectionReason: null,
+          );
+        }
+      } catch (e) {
+        // Don't fail the approval if notification fails
+        print('Failed to send approval notification: $e');
+      }
       
       // Refresh from backend to ensure consistency
       await fetchTenants();

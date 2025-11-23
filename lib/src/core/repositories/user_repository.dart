@@ -9,6 +9,8 @@ import '../exceptions/firebase_exceptions.dart' as custom_firebase;
 import '../exceptions/format_exceptions.dart' as custom_format;
 import '../exceptions/platform_exceptions.dart' as custom_platform;
 import 'auth_repository.dart';
+import '../services/fcm_service.dart';
+import '../utils/app_logger.dart';
 
 class UserRepository {
   static UserRepository? _instance;
@@ -25,6 +27,16 @@ class UserRepository {
       await _db.collection('Users')
           .doc(user.id)
           .set(user.toJson());
+      
+      // Store FCM token for new user
+      try {
+        if (user.id != null) {
+          await FCMService.saveTokenToFirestore(user.id!);
+        }
+      } catch (e) {
+        AppLogger.warning('⚠️ Failed to save FCM token during user registration: $e');
+        // Don't throw - user registration should still succeed
+      }
     } on FirebaseException catch (e) {
       throw custom_firebase.FirebaseException(e.code).message;
     } on custom_format.FormatException catch (_) {

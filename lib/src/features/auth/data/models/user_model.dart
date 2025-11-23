@@ -43,6 +43,7 @@ class UserModel {
   final String status; // pending, active, suspended, terminated
   final UserRole role; // tenant, admin
   final DateTime? createdAt;
+  final String? fcmToken; // Firebase Cloud Messaging token for push notifications
 
   const UserModel({
     this.id,
@@ -61,6 +62,7 @@ class UserModel {
     required this.status,
     required this.role,
     required this.createdAt,
+    this.fcmToken,
   });
 
   String get fullName => '$firstName $lastName';
@@ -91,6 +93,7 @@ class UserModel {
         status: "pending",
         role: UserRole.tenant,
         createdAt: null,
+        fcmToken: null,
       );
 
  // Convert model to JSON (Firestore format)
@@ -116,6 +119,7 @@ class UserModel {
         "status": status,
         "role": role.value,
         "createdAt": createdAt?.toIso8601String(),
+        "fcmToken": fcmToken,
       }
     };
   }
@@ -159,6 +163,7 @@ class UserModel {
       status: account['status'] ?? "pending",
       role: UserRole.fromString(account['role']),
       createdAt: _parseDate(account['createdAt']),
+      fcmToken: account['fcmToken'],
     );
   }
 
