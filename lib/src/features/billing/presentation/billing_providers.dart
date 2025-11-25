@@ -3,6 +3,7 @@ import '../domain/bill_model.dart';
 import '../domain/payment_model.dart';
 import '../domain/property_billing_model.dart';
 import '../domain/unit_billing_model.dart';
+import '../domain/eviction_status.dart';
 import '../data/billing_repository.dart';
 
 // ==================== BILL PROVIDERS ====================
@@ -188,4 +189,30 @@ final averageConsumptionProvider = FutureProvider.family<Map<String, double>, ({
 final consumptionComparisonProvider = FutureProvider.family<Map<String, dynamic>, String>((ref, userId) async {
   final repository = ref.watch(billingRepositoryProvider);
   return repository.compareWithPreviousMonth(userId: userId);
+});
+
+// ==================== NEW DEBT & EVICTION PROVIDERS ====================
+
+/// Provider for total debt across all unpaid bills
+final userTotalDebtProvider = StreamProvider.autoDispose.family<double, String>((ref, userId) {
+  final repository = ref.watch(billingRepositoryProvider);
+  return repository.getUserTotalDebt(userId);
+});
+
+/// Provider for oldest unpaid bill (payment priority)
+final oldestUnpaidBillProvider = StreamProvider.autoDispose.family<BillModel?, String>((ref, userId) {
+  final repository = ref.watch(billingRepositoryProvider);
+  return repository.getUserOldestUnpaidBill(userId);
+});
+
+/// Provider for unpaid bills ordered oldest first (for view billing screen)
+final unpaidBillsOldestFirstProvider = StreamProvider.family<List<BillModel>, String>((ref, userId) {
+  final repository = ref.watch(billingRepositoryProvider);
+  return repository.getUnpaidBillsOldestFirst(userId);
+});
+
+/// Provider for eviction status check - streams real-time updates
+final evictionStatusProvider = StreamProvider.autoDispose.family<EvictionStatus, String>((ref, userId) {
+  final repository = ref.watch(billingRepositoryProvider);
+  return repository.streamEvictionStatus(userId);
 });

@@ -224,7 +224,7 @@ class _BillingManagementScreenState extends ConsumerState<BillingManagementScree
             ),
           ),
           subtitle: Text(
-            'Rent: ₱${unit.monthlyRent.toStringAsFixed(2)}',
+            '${unit.tenantName}',
             style: const TextStyle(fontFamily: 'Montserrat'),
           ),
           trailing: isBilled
@@ -412,6 +412,8 @@ class _BillingManagementScreenState extends ConsumerState<BillingManagementScree
             Divider(height: AppConstants.spacingLG),
             
             // Payment Details
+            _buildDetailRow('Billing Period', _formatBillingPeriod(payment.billingMonth, payment.billingYear), Iconsax.calendar_1),
+            SizedBox(height: AppConstants.spacingXS),
             _buildDetailRow('Payment Method', payment.paymentMethod.displayName, Iconsax.card),
             SizedBox(height: AppConstants.spacingXS),
             _buildDetailRow(
@@ -597,6 +599,14 @@ class _BillingManagementScreenState extends ConsumerState<BillingManagementScree
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
     ];
     return '${months[date.month]} ${date.day}, ${date.year} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _formatBillingPeriod(int month, int year) {
+    const months = [
+      '', 'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    return '${months[month]} $year';
   }
 
   void _showProofImage(String imageUrl) {

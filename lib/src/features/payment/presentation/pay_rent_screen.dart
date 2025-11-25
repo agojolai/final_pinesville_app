@@ -248,6 +248,9 @@ class _PayRentScreenState extends ConsumerState<PayRentScreen> with TickerProvid
         case 'cash':
           paymentMethod = PaymentMethod.cash;
           break;
+        case 'gotyme':
+          paymentMethod = PaymentMethod.gotyme;
+          break;
         default:
           paymentMethod = PaymentMethod.gcash;
       }
@@ -287,11 +290,7 @@ class _PayRentScreenState extends ConsumerState<PayRentScreen> with TickerProvid
         amount: amount,
         payFor: payFor,
         paymentMethod: paymentMethod,
-        paymentDetails: {
-          'method': selectedPaymentMethod,
-          'timestamp': DateTime.now().toIso8601String(),
-          'paymentType': isPartialPayment ? 'partial' : 'full',
-        },
+        isFullPayment: !isPartialPayment,
         proofOfPaymentUrl: proofUrl,
         notes: notes,
       );
@@ -1165,7 +1164,7 @@ class _PaymentTypeSelector extends StatelessWidget {
                 ),
               ),
               SizedBox(width: AppConstants.spacingSM),
-              Expanded(
+             /* Expanded(
                 child: _PaymentTypeOption(
                   label: 'Partial Payment',
                   subtitle: 'Pay specific items',
@@ -1173,7 +1172,7 @@ class _PaymentTypeSelector extends StatelessWidget {
                   isSelected: isPartialPayment,
                   onTap: () => onChanged(true),
                 ),
-              ),
+              ),*/
             ],
           ),
         ],

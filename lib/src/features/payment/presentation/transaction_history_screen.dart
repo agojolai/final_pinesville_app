@@ -319,15 +319,14 @@ class _ReceiptCard extends StatelessWidget {
             SizedBox(height: AppConstants.spacingSM),
             _InfoRow(
               label: 'Subtotal',
-              value: currencyFormat.format(bill.total - bill.lateFeeDetails.totalLateFee),
-              isBold: false,
+              value: currencyFormat.format(bill.subtotal),
+              isBold: true,
             ),
             if (bill.discount > 0)
-              _InfoRow(
+              _ReceiptLineItem(
                 label: 'Discount',
-                value: '- ${currencyFormat.format(bill.discount)}',
-                isBold: false,
-                valueColor: Colors.green,
+                amount: '- ${currencyFormat.format(bill.discount)}',
+                subtitle: bill.discountReason.isNotEmpty ? 'Reason: ${bill.discountReason}' : null,
               ),
             if (bill.lateFeeDetails.totalLateFee > 0)
               _InfoRow(
@@ -522,7 +521,6 @@ class _ReceiptLineItem extends StatelessWidget {
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       fontFamily: 'Montserrat',
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      fontStyle: FontStyle.italic,
                     ),
               ),
             ),

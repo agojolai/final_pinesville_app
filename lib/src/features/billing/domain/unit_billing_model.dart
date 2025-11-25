@@ -44,27 +44,146 @@ class LastMeterReading {
   }
 }
 
-/// Represents unit billing information
+/// Represents rental information for a unit
+class RentalInfo {
+  final double monthlyRent;
+  final String status; // "occupied", "vacant", "maintenance"
+  final String? tenantId;
+  final String? tenantName;
+
+  const RentalInfo({
+    required this.monthlyRent,
+    required this.status,
+    this.tenantId,
+    this.tenantName,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'monthlyRent': monthlyRent,
+      'status': status,
+      if (tenantId != null) 'tenantId': tenantId,
+      if (tenantName != null) 'tenantName': tenantName,
+    };
+  }
+
+  factory RentalInfo.fromMap(Map<String, dynamic> map) {
+    return RentalInfo(
+      monthlyRent: (map['monthlyRent'] as num).toDouble(),
+      status: map['status'] as String,
+      tenantId: map['tenantId'] as String?,
+      tenantName: map['tenantName'] as String?,
+    );
+  }
+
+  RentalInfo copyWith({
+    double? monthlyRent,
+    String? status,
+    String? tenantId,
+    String? tenantName,
+  }) {
+    return RentalInfo(
+      monthlyRent: monthlyRent ?? this.monthlyRent,
+      status: status ?? this.status,
+      tenantId: tenantId ?? this.tenantId,
+      tenantName: tenantName ?? this.tenantName,
+    );
+  }
+
+  /// Check if unit is occupied
+  bool get isOccupied => status == 'occupied' && tenantId != null && tenantId!.isNotEmpty;
+}
+
+/// Represents unit details
+class UnitDetails {
+  final List<String> amenities;
+  final String description;
+  final String furnishing;
+  final List<String> images;
+  final int maxOccupants;
+  final double monthlyRent;
+  final String size;
+  final String unitType;
+
+  const UnitDetails({
+    required this.amenities,
+    required this.description,
+    required this.furnishing,
+    required this.images,
+    required this.maxOccupants,
+    required this.monthlyRent,
+    required this.size,
+    required this.unitType,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'amenities': amenities,
+      'description': description,
+      'furnishing': furnishing,
+      'images': images,
+      'maxOccupants': maxOccupants,
+      'monthlyRent': monthlyRent,
+      'size': size,
+      'unitType': unitType,
+    };
+  }
+
+  factory UnitDetails.fromMap(Map<String, dynamic> map) {
+    return UnitDetails(
+      amenities: List<String>.from(map['amenities'] as List? ?? []),
+      description: map['description'] as String? ?? '',
+      furnishing: map['furnishing'] as String? ?? '',
+      images: List<String>.from(map['images'] as List? ?? []),
+      maxOccupants: map['maxOccupants'] as int? ?? 1,
+      monthlyRent: (map['monthlyRent'] as num?)?.toDouble() ?? 0.0,
+      size: map['size'] as String? ?? '',
+      unitType: map['unitType'] as String? ?? '',
+    );
+  }
+
+  UnitDetails copyWith({
+    List<String>? amenities,
+    String? description,
+    String? furnishing,
+    List<String>? images,
+    int? maxOccupants,
+    double? monthlyRent,
+    String? size,
+    String? unitType,
+  }) {
+    return UnitDetails(
+      amenities: amenities ?? this.amenities,
+      description: description ?? this.description,
+      furnishing: furnishing ?? this.furnishing,
+      images: images ?? this.images,
+      maxOccupants: maxOccupants ?? this.maxOccupants,
+      monthlyRent: monthlyRent ?? this.monthlyRent,
+      size: size ?? this.size,
+      unitType: unitType ?? this.unitType,
+    );
+  }
+}
+
+/// Represents complete unit information
 class UnitBillingInfo {
   final String unitId;
   final String unitNumber;
   final String propertyId;
-  final double monthlyRent;
-  final String? tenantId;
+  final UnitDetails details;
+  final RentalInfo? rental;
   final LastMeterReading? lastElectricityReading;
   final LastMeterReading? lastWaterReading;
-  final DateTime createdAt;
   final DateTime updatedAt;
 
   const UnitBillingInfo({
     required this.unitId,
     required this.unitNumber,
     required this.propertyId,
-    required this.monthlyRent,
-    this.tenantId,
+    required this.details,
+    this.rental,
     this.lastElectricityReading,
     this.lastWaterReading,
-    required this.createdAt,
     required this.updatedAt,
   });
 
@@ -73,16 +192,12 @@ class UnitBillingInfo {
       'unitId': unitId,
       'unitNumber': unitNumber,
       'propertyId': propertyId,
-      'rental': {
-        'monthlyRent': monthlyRent,
-        'status': tenantId != null ? 'occupied' : 'vacant',
-        'tenantId': tenantId,
-      },
+      'details': details.toMap(),
+      if (rental != null) 'rental': rental!.toMap(),
       'lastReadings': {
-        'electricity': lastElectricityReading?.toMap(),
-        'water': lastWaterReading?.toMap(),
+        if (lastElectricityReading != null) 'electricity': lastElectricityReading!.toMap(),
+        if (lastWaterReading != null) 'water': lastWaterReading!.toMap(),
       },
-      'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
   }
@@ -96,6 +211,7 @@ class UnitBillingInfo {
     AppLogger.trace('UnitBillingInfo.fromMap - Raw map keys: ${map.keys.toList()}');
     AppLogger.trace('UnitBillingInfo.fromMap - Map data: $map');
     
+    final detailsData = map['details'] as Map<String, dynamic>?;
     final rentalData = map['rental'] as Map<String, dynamic>?;
     final lastReadingsData = map['lastReadings'] as Map<String, dynamic>?;
 
@@ -110,15 +226,25 @@ class UnitBillingInfo {
       unitId: unitId,
       unitNumber: unitNumber,
       propertyId: propertyId,
-      monthlyRent: (rentalData?['monthlyRent'] as num?)?.toDouble() ?? 0.0,
-      tenantId: rentalData?['tenantId'] as String?,
+      details: detailsData != null 
+          ? UnitDetails.fromMap(detailsData)
+          : UnitDetails(
+              amenities: [],
+              description: '',
+              furnishing: '',
+              images: [],
+              maxOccupants: 1,
+              monthlyRent: 0.0,
+              size: '',
+              unitType: '',
+            ),
+      rental: rentalData != null ? RentalInfo.fromMap(rentalData) : null,
       lastElectricityReading: lastReadingsData?['electricity'] != null
           ? LastMeterReading.fromMap(lastReadingsData!['electricity'] as Map<String, dynamic>)
           : null,
       lastWaterReading: lastReadingsData?['water'] != null
           ? LastMeterReading.fromMap(lastReadingsData!['water'] as Map<String, dynamic>)
           : null,
-      createdAt: map['createdAt'] != null ? DateTime.parse(map['createdAt'] as String) : DateTime.now(),
       updatedAt: map['updatedAt'] != null ? DateTime.parse(map['updatedAt'] as String) : DateTime.now(),
     );
   }
@@ -127,26 +253,33 @@ class UnitBillingInfo {
     String? unitId,
     String? unitNumber,
     String? propertyId,
-    double? monthlyRent,
-    String? tenantId,
+    UnitDetails? details,
+    RentalInfo? rental,
     LastMeterReading? lastElectricityReading,
     LastMeterReading? lastWaterReading,
-    DateTime? createdAt,
     DateTime? updatedAt,
   }) {
     return UnitBillingInfo(
       unitId: unitId ?? this.unitId,
       unitNumber: unitNumber ?? this.unitNumber,
       propertyId: propertyId ?? this.propertyId,
-      monthlyRent: monthlyRent ?? this.monthlyRent,
-      tenantId: tenantId ?? this.tenantId,
+      details: details ?? this.details,
+      rental: rental ?? this.rental,
       lastElectricityReading: lastElectricityReading ?? this.lastElectricityReading,
       lastWaterReading: lastWaterReading ?? this.lastWaterReading,
-      createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 
   /// Check if unit is occupied
-  bool get isOccupied => tenantId != null && tenantId!.isNotEmpty;
+  bool get isOccupied => rental?.isOccupied ?? false;
+
+  /// Get tenant ID (for backward compatibility)
+  String? get tenantId => rental?.tenantId;
+
+  /// Get tenant name
+  String? get tenantName => rental?.tenantName;
+
+  /// Get monthly rent (from rental info if available, otherwise from details)
+  double get monthlyRent => rental?.monthlyRent ?? details.monthlyRent;
 }

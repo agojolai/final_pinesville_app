@@ -411,8 +411,6 @@ class AdminBillDetailScreen extends ConsumerWidget {
   }
 
   Widget _buildPaymentHistory(BuildContext context, BillModel bill) {
-    // For now, show simplified payment summary
-    // TODO: Implement separate query to fetch payment history for this bill
     return Card(
       child: Padding(
         padding: EdgeInsets.all(AppConstants.spacingMD),
@@ -486,7 +484,9 @@ class AdminBillDetailScreen extends ConsumerWidget {
         padding: EdgeInsets.all(AppConstants.spacingMD),
         child: Column(
           children: [
-            _buildTotalRow(context, 'Subtotal', bill.total - bill.lateFee),
+            _buildTotalRow(context, 'Subtotal', bill.subtotal),
+            if (bill.discount > 0)
+              _buildTotalRow(context, 'Discount', -bill.discount, isDiscount: true),
             if (bill.lateFee > 0)
               _buildTotalRow(context, 'Late Fee', bill.lateFee, isLateFee: true),
             _buildTotalRow(context, 'Total Amount', bill.total, isLarge: true),
@@ -513,11 +513,13 @@ class AdminBillDetailScreen extends ConsumerWidget {
     bool isPaid = false,
     bool isLateFee = false,
     bool isBalance = false,
+    bool isDiscount = false,
   }) {
     Color? amountColor;
     if (isPaid) amountColor = Colors.green;
     if (isLateFee) amountColor = Colors.red;
     if (isBalance && amount > 0) amountColor = Colors.orange;
+    if (isDiscount) amountColor = Colors.green;
 
     return Padding(
       padding: EdgeInsets.symmetric(vertical: AppConstants.spacingXS),

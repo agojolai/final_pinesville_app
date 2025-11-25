@@ -7,6 +7,7 @@ import '../../../theme/app_constants.dart';
 import '../../../theme/theme_extensions.dart';
 import 'package:iconsax/iconsax.dart';
 import '../../../core/snackbars/loaders.dart';
+import '../../../core/widgets/eviction_warning_dialog.dart';
 import 'account_settings_screen.dart';
 import 'change_password_screen.dart';
 import '../../support/presentation/reports_tickets_screen.dart';
@@ -14,6 +15,7 @@ import '../../auth/presentation/login_screen.dart';
 import '../../onboarding/presentation/onboarding_test_screen.dart';
 import '../../../core/repositories/auth_repository.dart';
 import '../../../core/repositories/user_repository.dart';
+import '../../billing/presentation/billing_providers.dart';
 import '../providers/profile_provider.dart';
 import '../../auth/data/models/user_model.dart';
 
@@ -545,19 +547,6 @@ class _ProfileSections extends StatelessWidget {
                 title: 'About App',
                 subtitle: 'Version, privacy policy',
                 onTap: () => _showAboutDialog(context),
-              ),
-              _ProfileMenuItem(
-                icon: Iconsax.command_square,
-                title: 'Onboarding Test',
-                subtitle: 'Test onboarding walkthrough',
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => const OnboardingTestScreen(),
-                    ),
-                  );
-                },
               ),
             ],
           ),

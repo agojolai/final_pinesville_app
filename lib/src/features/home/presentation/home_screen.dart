@@ -7,11 +7,14 @@ import '../../../theme/theme_extensions.dart';
 import 'package:iconsax/iconsax.dart';
 import '../../payment/presentation/pay_rent_screen.dart';
 import '../../payment/presentation/view_billing_screen.dart';
+import '../../payment/presentation/unpaid_bills_list_screen.dart';
 import '../../payment/presentation/transaction_history_screen.dart';
 import '../../../core/snackbars/loaders.dart';
 import '../../../core/repositories/auth_repository.dart';
+import '../../../core/widgets/eviction_warning_dialog.dart';
 import '../../billing/presentation/billing_providers.dart';
 import '../../billing/domain/bill_model.dart';
+import '../../billing/domain/eviction_status.dart';
 import '../../profile/providers/profile_provider.dart';
 import '../../auth/data/models/user_model.dart';
 import '../../consumption/providers/consumption_providers.dart';
@@ -52,6 +55,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
   int currentPage = 0;
+  bool _hasShownEvictionWarning = false; // Track if eviction warning shown
 
   @override
   void initState() {
@@ -65,6 +69,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
     );
     _fadeController.forward();
+
+    // Check eviction status after build (removed persistent flag)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Eviction status now monitored via ref.listen in build method
+    });
   }
 
   @override
@@ -75,14 +84,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   List<Transaction> _convertBillsToTransactions(List<BillModel> bills) {
-    return bills.take(6).map((bill) {
+    // Filter to only show paid bills
+    return bills
+        .where((bill) => bill.isPaid)
+        .take(6)
+        .map((bill) {
       final monthName = _getMonthName(bill.billingPeriod.month);
       final date = '$monthName ${bill.billingPeriod.year}';
 
       return Transaction(
         date: date,
         reference: bill.billId,
-        amount: bill.isPaid ? bill.amountPaid : bill.balance,
+        amount: bill.amountPaid,
         bill: bill,
       );
     }).toList();
@@ -123,6 +136,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
     // Watch bills provider
     final billsAsync = ref.watch(userBillsProvider(userId));
+
+    // Watch eviction status and show dialog when needed
+    ref.listen<AsyncValue<EvictionStatus>>(
+      evictionStatusProvider(userId),
+      (previous, next) {
+        next.whenData((evictionStatus) {
+          if (evictionStatus.isFacingEviction && !_hasShownEvictionWarning && mounted) {
+            _hasShownEvictionWarning = true;
+            
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              EvictionWarningDialog.show(
+                context,
+                evictionStatus: evictionStatus,
+                onContactAdmin: () {
+                  Loaders.infoSnackBar(
+                    context,
+                    title: 'Contact Admin',
+                    message: 'Please switch to the "Chat Admin" tab to contact the admin.',
+                  );
+                },
+              );
+            });
+          } else if (!evictionStatus.isFacingEviction) {
+            // Reset flag when no longer facing eviction
+            _hasShownEvictionWarning = false;
+          }
+        });
+      },
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -468,7 +510,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 }
 
 // Billing Card Widget
-class _BillingCard extends StatelessWidget {
+class _BillingCard extends ConsumerWidget {
   final BillModel? bill;
   final UserModel userModel;
   final Function(BuildContext) onRentPaid;
@@ -480,9 +522,13 @@ class _BillingCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    // If no bill, show placeholder
-    final displayAmount = bill != null ? bill!.balance : 0.0;
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Watch total debt provider
+    final totalDebtAsync = ref.watch(userTotalDebtProvider(userModel.id ?? ''));
+    
+    // Watch oldest unpaid bill provider for Pay Rent navigation
+    final oldestBillAsync = ref.watch(oldestUnpaidBillProvider(userModel.id ?? ''));
+    
     final hasUnpaidBill = bill != null && !bill!.isPaid;
 
     return Container(
@@ -520,7 +566,7 @@ class _BillingCard extends StatelessWidget {
           ),
           SizedBox(height: AppConstants.spacingSM),
           Text(
-            hasUnpaidBill ? 'Your rent for this month is' : 'No pending bills',
+            hasUnpaidBill ? 'Your total outstanding balance is' : 'No pending bills',
             style: context.textTheme.bodyLarge?.copyWith(
               fontFamily: 'Montserrat',
               color: Colors.white.withValues(alpha: 0.9),
@@ -528,12 +574,30 @@ class _BillingCard extends StatelessWidget {
           ),
           if (hasUnpaidBill) ...[
             SizedBox(height: AppConstants.spacingSM),
-            Text(
-              '₱${displayAmount.toStringAsFixed(2)}',
-              style: context.textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                fontFamily: 'Montserrat',
-                color: Colors.white,
+            totalDebtAsync.when(
+              data: (totalDebt) => Text(
+                '₱${totalDebt.toStringAsFixed(2)}',
+                style: context.textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Montserrat',
+                  color: Colors.white,
+                ),
+              ),
+              loading: () => Text(
+                '₱${(bill?.balance ?? 0.0).toStringAsFixed(2)}',
+                style: context.textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Montserrat',
+                  color: Colors.white,
+                ),
+              ),
+              error: (_, __) => Text(
+                '₱${(bill?.balance ?? 0.0).toStringAsFixed(2)}',
+                style: context.textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Montserrat',
+                  color: Colors.white,
+                ),
               ),
             ),
           ],
@@ -546,9 +610,11 @@ class _BillingCard extends StatelessWidget {
                   onPressed: () {
                     HapticFeedback.lightImpact();
                     if (hasUnpaidBill) {
+                      // Use the watched oldest unpaid bill
+                      final oldestBill = oldestBillAsync.value;
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (context) => PayRentScreen(bill: bill),
+                          builder: (context) => PayRentScreen(bill: oldestBill),
                         ),
                       );
                     } else {
@@ -572,11 +638,11 @@ class _BillingCard extends StatelessWidget {
                             // Show "Rent Paid" message if bill is already paid
                             onRentPaid(context);
                           } else {
-                            // Navigate to View Billing screen for unpaid bills
+                            // Navigate to unpaid bills list screen
                             Navigator.of(context).push(
                               MaterialPageRoute(
                                 builder: (context) =>
-                                    ViewBillingScreen(bill: bill),
+                                    const UnpaidBillsListScreen(),
                               ),
                             );
                           }

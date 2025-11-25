@@ -72,6 +72,11 @@ class _AdminNavigationState extends State<AdminNavigation> {
       selectedIcon: Icon(Iconsax.message5),
       label: 'Chats',
     ),
+    const NavigationDestination(
+      icon: Icon(Iconsax.import),
+      selectedIcon: Icon(Iconsax.import),
+      label: 'Import Data',
+    ),
   ];
 
   final List<_DrawerEntry> _upcomingEntries = const [
@@ -90,6 +95,7 @@ class _AdminNavigationState extends State<AdminNavigation> {
   AdminReportsManagementScreen(onMenuTap: () => _scaffoldKey.currentState?.openDrawer()),
   AnnouncementsManagementScreen(onMenuTap: () => _scaffoldKey.currentState?.openDrawer()),
   AdminChatsScreen(onMenuTap: () => _scaffoldKey.currentState?.openDrawer()),
+  ImportDataScreen(onMenuTap: () => _scaffoldKey.currentState?.openDrawer()),
     ];
   }
 
@@ -156,21 +162,6 @@ class _AdminNavigationState extends State<AdminNavigation> {
                         ),
                         children: [
                           ..._buildPrimaryNavigationTiles(colorScheme, textTheme),
-                          SizedBox(height: AppConstants.spacingLG),
-                          Padding(
-                            padding: EdgeInsets.symmetric(vertical: AppConstants.spacingXS),
-                            child: Text(
-                              'UTILITIES',
-                              style: textTheme.labelSmall?.copyWith(
-                                fontFamily: 'Montserrat',
-                                fontWeight: FontWeight.w600,
-                                color: colorScheme.onSurface.withValues(alpha: 0.6),
-                                letterSpacing: 1.2,
-                              ),
-                            ),
-                          ),
-                          SizedBox(height: AppConstants.spacingSM),
-                          _buildImportDataTile(colorScheme, textTheme),
                           SizedBox(height: AppConstants.spacingLG),
                           Padding(
                             padding: EdgeInsets.symmetric(vertical: AppConstants.spacingXS),
@@ -286,44 +277,6 @@ class _AdminNavigationState extends State<AdminNavigation> {
     }
 
     return tiles;
-  }
-
-  Widget _buildImportDataTile(
-    ColorScheme colorScheme,
-    TextTheme textTheme,
-  ) {
-    final Color iconColor = colorScheme.primary;
-    final Color labelColor = colorScheme.onSurface;
-
-    return ListTile(
-      dense: true,
-      leading: Icon(
-        Iconsax.import,
-        color: iconColor,
-        size: 24,
-      ),
-      title: Text(
-        'Import Historical Data',
-        style: textTheme.bodyLarge?.copyWith(
-          fontFamily: 'Montserrat',
-          fontWeight: FontWeight.w500,
-          color: labelColor,
-        ),
-      ),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppConstants.radiusMD),
-      ),
-      onTap: () {
-        Navigator.of(context).pop();
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => ImportDataScreen(
-              onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
-            ),
-          ),
-        );
-      },
-    );
   }
 
   Widget _buildComingSoonTile(
