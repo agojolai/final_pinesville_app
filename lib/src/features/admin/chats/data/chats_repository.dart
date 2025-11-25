@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/utils/app_logger.dart';
+import '../../../../core/services/notification_service.dart';
 
 final chatsRepositoryProvider = Provider<ChatsRepository>((ref) {
   return ChatsRepository(
@@ -101,6 +102,18 @@ class ChatsRepository {
       'lastMessage': lastMessageText,
       'lastMessageTime': FieldValue.serverTimestamp(),
     });
+    
+    // Send notification if sender is admin
+    if (senderType == 'admin') {
+      try {
+        // Extract userId from chatId (format: chat_userId)
+        final userId = chatId.replaceFirst('chat_', '');
+        await NotificationService.notifyNewAdminMessage(userId: userId);
+        AppLogger.info('Chat notification sent to user: $userId');
+      } catch (e) {
+        AppLogger.error('Failed to send chat notification: $e', e);
+      }
+    }
     
     AppLogger.debug('Message sent to chatId: $chatId');
   }

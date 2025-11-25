@@ -14,6 +14,10 @@ import 'src/features/app_update/data/app_update_service.dart';
 import 'src/features/app_update/data/apk_download_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+/// Global navigator key for navigation from anywhere in the app
+/// Used for FCM notification navigation
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 class App extends ConsumerWidget {
   const App({super.key});
   
@@ -37,6 +41,7 @@ class App extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightMediumContrast,      // Light mode theme
       darkTheme: AppTheme.darkMediumContrast,   // Dark mode theme

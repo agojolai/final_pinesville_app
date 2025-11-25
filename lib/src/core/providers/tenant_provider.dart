@@ -136,6 +136,23 @@ class TenantListNotifier extends StateNotifier<AsyncValue<List<UserModel>>> {
       // Perform backend update
       await AuthRepository.instance.updateUserStatus(email, newStatus, reason: reason);
       
+      // Send notification to tenant about status change
+      if (newStatus == 'rejected') {
+        try {
+          final rejectedTenant = updatedTenants.firstWhere((t) => t.email == email);
+          if (rejectedTenant.id != null) {
+            await NotificationService.notifyApplicationStatus(
+              userId: rejectedTenant.id!,
+              isApproved: false,
+              rejectionReason: reason,
+            );
+          }
+        } catch (e) {
+          // Don't fail the status update if notification fails
+          print('Failed to send rejection notification: $e');
+        }
+      }
+      
       // Refresh from backend to ensure consistency
       await fetchTenants();
     } catch (e) {

@@ -331,19 +331,10 @@ class BillingRepository {
       throw Exception('Payment amount does not match selected items. Expected: ₱${expectedAmount.toStringAsFixed(2)}, Got: ₱${amount.toStringAsFixed(2)}');
     }
 
-<<<<<<< HEAD
-    // Create payment document with unique IDs
-    final now = DateTime.now();
-    final timestamp = now.millisecondsSinceEpoch;
-    final paymentId = 'PAY_${userId}_$timestamp';
-    final transactionId = 'TXN_$timestamp';
-    final receiptNumber = 'REC_${now.year}_${now.month.toString().padLeft(2, '0')}_$timestamp';
-=======
     // Create payment document
     final now = DateTime.now();
     final timestamp = now.millisecondsSinceEpoch;
     final paymentId = 'PAY_${billId}_$timestamp';
->>>>>>> origin/main
 
     final payment = PaymentModel(
       paymentId: paymentId,
@@ -387,12 +378,7 @@ class BillingRepository {
       ),
       paidFor: payFor,
       transactionDate: now,
-<<<<<<< HEAD
-      transactionId: transactionId,
-      receiptNumber: receiptNumber,
-=======
       receiptNumber: 'REC_$paymentId',
->>>>>>> origin/main
       status: PaymentStatus.pending,
       paymentStatus: PaymentVerificationStatus.pendingVerification,
       proofOfPaymentUrl: proofOfPaymentUrl,
@@ -921,6 +907,26 @@ class BillingRepository {
     );
 
     await firestore.collection('Bills').doc(billId).set(bill.toMap());
+    
+    AppLogger.info('Bill created successfully. BillId: $billId, TenantId: ${unit.tenantId}');
+    
+    // Send notification to tenant about new bill
+    try {
+      AppLogger.info('Attempting to send notification for bill $billId to user ${unit.tenantId}');
+      
+      await NotificationService.notifyNewBill(
+        userId: unit.tenantId!,
+        billId: billId,
+        totalAmount: totalAfterDiscount,
+        dueDate: dueDate,
+      );
+      
+      AppLogger.info('✅ New bill notification sent successfully to user ${unit.tenantId}');
+    } catch (e, stackTrace) {
+      AppLogger.error('❌ Failed to send new bill notification: $e');
+      AppLogger.error('Stack trace: $stackTrace');
+      // Don't throw - bill creation should succeed even if notification fails
+    }
 
     // Update unit's last readings
     await firestore

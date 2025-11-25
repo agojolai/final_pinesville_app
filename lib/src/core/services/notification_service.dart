@@ -62,18 +62,25 @@ class NotificationService {
     required DateTime dueDate,
   }) async {
     try {
+      AppLogger.info('📧 notifyNewBill called - userId: $userId, billId: $billId');
+      
       final formattedAmount = totalAmount.toStringAsFixed(2);
       final formattedDate = '${dueDate.month}/${dueDate.day}/${dueDate.year}';
       
+      AppLogger.info('📧 Calling _createNotificationDocument...');
+      
       await _createNotificationDocument(
         userId: userId,
-        title: 'New Bill Available ',
-        body: 'Your new bill of $formattedAmount is ready. Due on $formattedDate',
+        title: 'New Bill Available 📄',
+        body: 'Your new bill of ₱$formattedAmount is ready. Due on $formattedDate',
         screen: '/billing/$billId',
         type: 'new_bill',
       );
+      
+      AppLogger.info('📧 notifyNewBill completed successfully');
     } catch (e) {
-      AppLogger.error('Error sending new bill notification: $e');
+      AppLogger.error('📧 Error in notifyNewBill: $e');
+      rethrow;
     }
   }
   
@@ -179,9 +186,28 @@ class NotificationService {
     }
   }
   
+  /// 8. Notify tenant about new admin message
+  /// Use Case: Admin sends a chat message to tenant
+  static Future<void> notifyNewAdminMessage({
+    required String userId,
+  }) async {
+    try {
+      await _createNotificationDocument(
+        userId: userId,
+        title: 'Admin Chat 💬',
+        body: 'You have a new message',
+        screen: '/chat',
+        type: 'admin_message',
+      );
+      AppLogger.info('Admin chat notification sent to user $userId');
+    } catch (e) {
+      AppLogger.error('Error sending admin chat notification: $e');
+    }
+  }
+  
   // ============ ADMIN NOTIFICATIONS ============
   
-  /// 8. Notify admins about new tenant application
+  /// 9. Notify admins about new tenant application
   static Future<void> notifyNewApplication({
     required String applicantName,
     required String applicantEmail,
@@ -280,16 +306,29 @@ class NotificationService {
     required String screen,
     required String type,
   }) async {
-    await _firestore.collection('Notifications').add({
-      'userId': userId,
-      'title': title,
-      'body': body,
-      'screen': screen,
-      'type': type,
-      'read': false,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
+    AppLogger.info('📝 _createNotificationDocument called for userId: $userId, type: $type');
     
-    AppLogger.info('Notification created for user $userId');
+    try {
+      final notificationData = {
+        'userId': userId,
+        'title': title,
+        'body': body,
+        'screen': screen,
+        'type': type,
+        'read': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      };
+      
+      AppLogger.info('📝 Writing to Firestore Notifications collection...');
+      AppLogger.info('📝 Data: $notificationData');
+      
+      final docRef = await _firestore.collection('Notifications').add(notificationData);
+      
+      AppLogger.info('✅ Notification document created successfully! DocID: ${docRef.id}');
+    } catch (e, stackTrace) {
+      AppLogger.error('❌ Error creating notification document: $e');
+      AppLogger.error('Stack trace: $stackTrace');
+      rethrow;
+    }
   }
 }

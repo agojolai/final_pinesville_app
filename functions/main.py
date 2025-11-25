@@ -260,3 +260,106 @@ def send_daily_late_fee_notifications(event: scheduler_fn.ScheduledEvent) -> Non
         
     except Exception as e:
         logger.error(f"Error in scheduled late fee notifications: {str(e)}")
+
+
+@scheduler_fn.on_schedule(schedule="0 0 * * *", timezone="Asia/Manila")
+def update_late_fees_daily(event: scheduler_fn.ScheduledEvent) -> None:
+    """
+    Scheduled function that runs daily at midnight Manila time.
+    Recalculates and updates late fees for all overdue bills.
+    """
+    try:
+        logger.info("Starting daily late fee update...")
+        db = firestore.client()
+        
+        # Get all overdue unpaid bills
+        bills_ref = db.collection("Bills")
+        bills = bills_ref.where("isPaid", "==", False) \
+                        .where("isOverdue", "==", True) \
+                        .stream()
+        
+        count = 0
+        for bill_doc in bills:
+            try:
+                bill_data = bill_doc.to_dict()
+                bill_id = bill_doc.id
+                user_id = bill_data.get("userId")
+                property_id = bill_data.get("propertyId")
+                unit_id = bill_data.get("unitId")
+                
+                billing_period = bill_data.get("billingPeriod", {})
+                due_date_str = billing_period.get("dueDate")
+                if not due_date_str:
+                    continue
+                
+                due_date = datetime.fromisoformat(due_date_str.replace('Z', '+00:00'))
+                
+                # Check for next bill (to freeze late fees)
+                next_bill_created_at = None
+                next_month = billing_period.get("month") + 1
+                next_year = billing_period.get("year")
+                
+                if next_month > 12:
+                    next_month = 1
+                    next_year += 1
+                
+                next_bills = bills_ref.where("userId", "==", user_id) \
+                                    .where("propertyId", "==", property_id) \
+                                    .where("unitId", "==", unit_id) \
+                                    .where("billingPeriod.month", "==", next_month) \
+                                    .where("billingPeriod.year", "==", next_year) \
+                                    .limit(1) \
+                                    .get()
+                
+                if next_bills:
+                    next_bill_data = next_bills[0].to_dict()
+                    created_at_str = next_bill_data.get("createdAt")
+                    if created_at_str:
+                        next_bill_created_at = datetime.fromisoformat(created_at_str.replace('Z', '+00:00'))
+                
+                # Calculate late fee
+                calculation_end = next_bill_created_at or datetime.now()
+                
+                if calculation_end > due_date:
+                    days_overdue = (calculation_end - due_date).days
+                    weeks_overdue = (days_overdue // 7) + (1 if days_overdue % 7 > 0 else 0)
+                    total_late_fee = weeks_overdue * 150.0
+                    
+                    # Get current values
+                    current_late_fee_details = bill_data.get("lateFeeDetails", {})
+                    current_late_fee = current_late_fee_details.get("totalLateFee", 0.0)
+                    
+                    # Only update if late fee changed
+                    if total_late_fee != current_late_fee:
+                        subtotal = bill_data.get("summary", {}).get("subtotal", 0.0)
+                        amount_paid = bill_data.get("summary", {}).get("amountPaid", 0.0)
+                        new_total = subtotal + total_late_fee
+                        new_balance = new_total - amount_paid
+                        
+                        # Update bill
+                        bill_doc.reference.update({
+                            "lateFeeDetails": {
+                                "isLate": True,
+                                "weeksOverdue": weeks_overdue,
+                                "lateFeePerWeek": 150.0,
+                                "totalLateFee": total_late_fee,
+                                "lateFeeAppliedAt": calculation_end.isoformat(),
+                                "gracePeriodEnd": due_date.isoformat(),
+                                "lastCalculated": datetime.now().isoformat(),
+                            },
+                            "summary.lateFee": total_late_fee,
+                            "summary.total": new_total,
+                            "summary.balance": new_balance,
+                            "updatedAt": datetime.now().isoformat(),
+                        })
+                        
+                        count += 1
+                        logger.info(f"Updated late fee for bill {bill_id}: ₱{current_late_fee:.2f} → ₱{total_late_fee:.2f}")
+                        
+            except Exception as e:
+                logger.error(f"Error updating bill {bill_doc.id}: {str(e)}")
+        
+        logger.info(f"Late fee update complete. Updated {count} bills.")
+        
+    except Exception as e:
+        logger.error(f"Error in scheduled late fee update: {str(e)}")

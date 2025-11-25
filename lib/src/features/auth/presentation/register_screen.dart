@@ -7,6 +7,7 @@ import '../../../theme/theme_extensions.dart';
 import '../../../core/constants/validators.dart';
 import '../../../core/repositories/unit_repository.dart';
 import '../controllers/register_controller.dart';
+import '../widgets/terms_and_conditions_dialog.dart';
 
 // OPTIMIZED: Cache property map for O(1) lookups instead of repeated queries
 final propertyMapProvider = FutureProvider<Map<String, String>>((ref) async {
@@ -45,6 +46,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     with TickerProviderStateMixin {
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
+  bool _hasAcceptedTerms = false;
   
   final _formKey = GlobalKey<FormState>();
   final _firstNameController = TextEditingController();
@@ -76,6 +78,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
       CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
     );
     _fadeController.forward();
+
+    // Present Terms & Conditions when screen appears
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showTermsDialog();
+    });
   }
 
   @override
@@ -94,6 +101,26 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     _passwordFocusNode.dispose();
     _confirmPasswordFocusNode.dispose();
     super.dispose();
+  }
+
+  Future<void> _showTermsDialog() async {
+    // Show terms dialog; accept sets flag, decline or close returns without setting
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => TermsAndConditionsDialog(
+        onAccept: () {
+          setState(() {
+            _hasAcceptedTerms = true;
+          });
+        },
+      ),
+    );
+
+    // If not accepted, return to login (pop this screen)
+    if (mounted && !_hasAcceptedTerms) {
+      Navigator.of(context).pop();
+    }
   }
 
   Future<void> _handleRegister() async {
@@ -117,6 +144,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     // Dismiss keyboard
     controller.dismissKeyboard(context);
 
+    // Ensure terms were accepted before proceeding
+    if (!_hasAcceptedTerms) {
+      await _showTermsDialog();
+      if (!_hasAcceptedTerms) return;
+    }
+
     // Perform registration using controller
     await controller.registerUser(
       firstName: _firstNameController.text.trim(),
@@ -131,7 +164,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
       context: context,
     );
   }
-
   Future<void> _selectMoveInDate() async {
     final controller = ref.read(registerControllerProvider.notifier);
     final picked = await controller.selectMoveInDate(context, _selectedMoveInDate);
@@ -426,7 +458,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                 
                 SizedBox(height: AppConstants.spacingMD),
                 
-                // Terms and Conditions
+                                // Terms and Conditions
                 _TermsAndConditions(),
                 
                 SizedBox(height: AppConstants.spacingXL),
@@ -964,8 +996,6 @@ class _RegisterButton extends StatelessWidget {
   }
 }
 
-//TODO: show on the web landing page the terms of service 
-//and privacy policy, together with the link to the app
 // Terms and Conditions Widget
 class _TermsAndConditions extends StatelessWidget {
   const _TermsAndConditions();

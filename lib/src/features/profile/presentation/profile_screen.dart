@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../../../theme/app_constants.dart';
 import '../../../theme/theme_extensions.dart';
 import 'package:iconsax/iconsax.dart';
@@ -539,7 +540,7 @@ class _ProfileSections extends StatelessWidget {
               _ProfileMenuItem(
                 icon: Iconsax.info_circle,
                 title: 'About App',
-                subtitle: 'Version, privacy policy',
+                subtitle: 'Version, build number',
                 onTap: () => _showAboutDialog(context),
               ),
             ],
@@ -560,7 +561,12 @@ class _ProfileSections extends StatelessWidget {
     );
   }
 
-  void _showAboutDialog(BuildContext context) {
+  void _showAboutDialog(BuildContext context) async {
+    // Get package info
+    final packageInfo = await PackageInfo.fromPlatform();
+    
+    if (!context.mounted) return;
+    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -575,11 +581,13 @@ class _ProfileSections extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Version: 1.0.0'),
+            Text('Version: ${packageInfo.version}'),
+            SizedBox(height: AppConstants.spacingSM),
+            Text('Build Number: ${packageInfo.buildNumber}'),
             SizedBox(height: AppConstants.spacingSM),
             Text('Developer: Pinesville Management'),
             SizedBox(height: AppConstants.spacingSM),
-            Text('© 2025 Pinesville. All rights reserved.'),
+            Text('© 2025 SilcoTech. All rights reserved.'),
           ],
         ),
         actions: [

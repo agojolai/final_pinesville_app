@@ -240,6 +240,13 @@ class AuthRepository {
         throw 'Your application is still pending approval. Please wait for administrator confirmation.';
       }
       
+      if (userStatus == 'rejected') {
+        AppLogger.debug('🚫 LOGIN BLOCKED: Account rejected');
+        // User account was rejected - sign out and throw error
+        await _auth.signOut();
+        throw 'Your application was not approved. Please contact support for more information.';
+      }
+      
       if (userStatus == 'suspended' || userStatus == 'terminated') {
         AppLogger.debug('🚫 LOGIN BLOCKED: Account $userStatus');
         // User account is suspended or terminated - sign out and throw error
