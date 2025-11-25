@@ -76,6 +76,7 @@ class _ViewBillingScreenState extends State<ViewBillingScreen> with TickerProvid
       extraDescription: bill.additionalChargesBreakdown.description,
       trash: bill.trashBreakdown.amount,
       discount: bill.discount,
+      discountReason: bill.discountReason,
       lateFee: bill.lateFee,
       tax: bill.tax,
       subtotal: bill.subtotal,
@@ -413,6 +414,7 @@ class _BillBreakdownCard extends StatelessWidget {
               icon: Iconsax.ticket_discount,
               label: 'Discount',
               amount: -billingData.discount,
+              description: billingData.discountReason,
             ),
           if (billingData.lateFee > 0)
             _BillLineItem(
@@ -788,6 +790,7 @@ class BillingData {
   final String? extraDescription;
   final double trash;
   final double discount;
+  final String? discountReason;
   final double lateFee;
   final double tax;
   final double subtotal;
@@ -808,6 +811,7 @@ class BillingData {
     this.extraDescription,
     required this.trash,
     required this.discount,
+    this.discountReason,
     required this.lateFee,
     required this.tax,
     required this.subtotal,

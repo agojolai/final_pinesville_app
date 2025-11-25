@@ -286,6 +286,19 @@ class ImportRepository {
 
   /// Convert ImportPaymentData to PaymentModel
   PaymentModel _createPaymentModel(ImportPaymentData data) {
+    // Extract billing period from billId (format: BILL_YYYY_MM_userId)
+    int billingYear = DateTime.now().year;
+    int billingMonth = 1;
+    try {
+      final parts = data.billId.split('_');
+      if (parts.length >= 3) {
+        billingYear = int.parse(parts[1]);
+        billingMonth = int.parse(parts[2]);
+      }
+    } catch (e) {
+      // If parsing fails, use default values
+    }
+    
     return PaymentModel(
       paymentId: data.paymentId,
       billId: data.billId,
@@ -293,10 +306,12 @@ class ImportRepository {
       userEmail: '', // Will be filled from bill
       userName: '', // Will be filled from bill
       unitId: '', // Will be filled from bill
+      billingMonth: billingMonth,
+      billingYear: billingYear,
       amount: data.amount,
       paymentType: PaymentType.full,
       paymentMethod: PaymentMethod.fromJson(data.paymentMethod.toLowerCase()),
-      paymentMethodDetails: {'referenceNumber': data.referenceNumber},
+
       rentAllocation: PaymentAllocationItem(amount: data.allocRent, appliedAt: data.paymentDate),
       electricityAllocation: PaymentAllocationItem(amount: data.allocElectricity, appliedAt: data.paymentDate),
       waterAllocation: PaymentAllocationItem(amount: data.allocWater, appliedAt: data.paymentDate),
@@ -306,7 +321,6 @@ class ImportRepository {
       additionalChargesAllocation: PaymentAllocationItem(amount: data.allocAdditional, appliedAt: data.paymentDate),
       paidFor: _getPaidForCategories(data),
       transactionDate: data.paymentDate,
-      transactionId: data.referenceNumber,
       receiptNumber: 'RCP-${data.paymentId}',
       status: PaymentStatus.fromJson(data.status),
       paymentStatus: PaymentVerificationStatus.fromJson(data.status == 'verified' ? 'verified' : 'pending_verification'),

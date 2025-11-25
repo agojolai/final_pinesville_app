@@ -6,6 +6,7 @@ import '../domain/payment_model.dart';
 import '../domain/billing_models.dart';
 import '../domain/property_billing_model.dart';
 import '../domain/unit_billing_model.dart';
+import '../domain/eviction_status.dart';
 import '../../../core/utils/app_logger.dart';
 
 final billingRepositoryProvider = Provider<BillingRepository>((ref) {
@@ -121,6 +122,108 @@ class BillingRepository {
     await firestore.collection('Bills').doc(billId).update(updates);
   }
 
+  /// Get total debt across all unpaid bills for a user
+  Stream<double> getUserTotalDebt(String userId) {
+    return firestore
+        .collection('Bills')
+        .where('userId', isEqualTo: userId)
+        .where('isPaid', isEqualTo: false)
+        .snapshots()
+        .map((snapshot) {
+      double totalDebt = 0.0;
+      for (var doc in snapshot.docs) {
+        final bill = BillModel.fromSnapshot(doc);
+        totalDebt += bill.balance;
+      }
+      return totalDebt;
+    });
+  }
+
+  /// Get oldest unpaid bill for a user (payment priority)
+  Stream<BillModel?> getUserOldestUnpaidBill(String userId) {
+    return firestore
+        .collection('Bills')
+        .where('userId', isEqualTo: userId)
+        .where('isPaid', isEqualTo: false)
+        .orderBy('billingPeriod.year', descending: false)
+        .orderBy('billingPeriod.month', descending: false)
+        .limit(1)
+        .snapshots()
+        .map((snapshot) {
+      if (snapshot.docs.isEmpty) return null;
+      return BillModel.fromSnapshot(snapshot.docs.first);
+    });
+  }
+
+  /// Get all unpaid bills ordered by oldest first
+  Stream<List<BillModel>> getUnpaidBillsOldestFirst(String userId) {
+    return firestore
+        .collection('Bills')
+        .where('userId', isEqualTo: userId)
+        .where('isPaid', isEqualTo: false)
+        .orderBy('billingPeriod.year', descending: false)
+        .orderBy('billingPeriod.month', descending: false)
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => BillModel.fromSnapshot(doc)).toList());
+  }
+
+  /// Check if user is facing eviction (2 consecutive unpaid months past due)
+  /// Stream eviction status - updates in real-time when bills change
+  Stream<EvictionStatus> streamEvictionStatus(String userId) {
+    return firestore
+        .collection('Bills')
+        .where('userId', isEqualTo: userId)
+        .where('isPaid', isEqualTo: false)
+        .orderBy('billingPeriod.year', descending: false)
+        .orderBy('billingPeriod.month', descending: false)
+        .snapshots()
+        .map((snapshot) => _calculateEvictionStatus(snapshot));
+  }
+
+  /// Calculate eviction status from bill snapshot (used by stream)
+  EvictionStatus _calculateEvictionStatus(QuerySnapshot snapshot) {
+    
+    if (snapshot.docs.length < 2) {
+      return EvictionStatus(
+        isFacingEviction: false,
+        unpaidMonthsCount: snapshot.docs.length,
+        oldestUnpaidBill: snapshot.docs.isNotEmpty 
+            ? BillModel.fromSnapshot(snapshot.docs.first) 
+            : null,
+      );
+    }
+
+    // Get the two oldest unpaid bills
+    final bills = snapshot.docs.map((doc) => BillModel.fromSnapshot(doc)).toList();
+    final firstBill = bills[0];
+    final secondBill = bills[1];
+
+    // Check if they are consecutive months
+    bool areConsecutive = false;
+    if (firstBill.billingPeriod.year == secondBill.billingPeriod.year) {
+      // Same year, check if months are consecutive
+      areConsecutive = (secondBill.billingPeriod.month - firstBill.billingPeriod.month) == 1;
+    } else if (secondBill.billingPeriod.year - firstBill.billingPeriod.year == 1) {
+      // Different year, check if it's Dec -> Jan
+      areConsecutive = firstBill.billingPeriod.month == 12 && secondBill.billingPeriod.month == 1;
+    }
+
+    // Check if both are past due date
+    final now = DateTime.now();
+    final firstPastDue = now.isAfter(firstBill.billingPeriod.dueDate);
+    final secondPastDue = now.isAfter(secondBill.billingPeriod.dueDate);
+
+    final isFacingEviction = areConsecutive && firstPastDue && secondPastDue;
+
+    return EvictionStatus(
+      isFacingEviction: isFacingEviction,
+      unpaidMonthsCount: bills.length,
+      oldestUnpaidBill: firstBill,
+      consecutiveUnpaidBills: areConsecutive ? [firstBill, secondBill] : null,
+    );
+  }
+
   // ==================== PAYMENTS ====================
 
   /// Get all payments for a user
@@ -157,14 +260,14 @@ class BillingRepository {
             snapshot.docs.map((doc) => PaymentModel.fromSnapshot(doc)).toList());
   }
 
-  /// Submit a partial payment
+  /// Submit a payment (partial or full)
   Future<void> submitPartialPayment({
     required String billId,
     required String userId,
     required double amount,
     required List<PaymentCategory> payFor,
     required PaymentMethod paymentMethod,
-    required Map<String, dynamic> paymentDetails,
+    bool isFullPayment = false,
     String? proofOfPaymentUrl,
     String notes = '',
   }) async {
@@ -206,13 +309,17 @@ class BillingRepository {
     }
 
     // Verify amount matches
-    if ((totalAllocated - amount).abs() > 0.01) {
-      throw Exception('Payment amount does not match selected items');
+    // For full payment: amount should match total bill balance (includes late fees)
+    // For partial payment: amount should match sum of selected category balances
+    final expectedAmount = isFullPayment ? bill.balance : totalAllocated;
+    if ((expectedAmount - amount).abs() > 0.01) {
+      throw Exception('Payment amount does not match selected items. Expected: ₱${expectedAmount.toStringAsFixed(2)}, Got: ₱${amount.toStringAsFixed(2)}');
     }
 
     // Create payment document
-    final paymentId = 'PAY_';
     final now = DateTime.now();
+    final timestamp = now.millisecondsSinceEpoch;
+    final paymentId = 'PAY_${billId}_$timestamp';
 
     final payment = PaymentModel(
       paymentId: paymentId,
@@ -221,10 +328,11 @@ class BillingRepository {
       userEmail: bill.userEmail,
       userName: bill.userName,
       unitId: bill.unitId,
+      billingMonth: bill.billingPeriod.month,
+      billingYear: bill.billingPeriod.year,
       amount: amount,
-      paymentType: PaymentType.partial,
+      paymentType: isFullPayment ? PaymentType.full : PaymentType.partial,
       paymentMethod: paymentMethod,
-      paymentMethodDetails: paymentDetails,
       rentAllocation: PaymentAllocationItem(
         amount: allocation[PaymentCategory.rent] ?? 0.0,
         appliedAt: payFor.contains(PaymentCategory.rent) ? now : null,
@@ -255,8 +363,7 @@ class BillingRepository {
       ),
       paidFor: payFor,
       transactionDate: now,
-      transactionId: 'TXN_',
-      receiptNumber: 'REC____',
+      receiptNumber: 'REC_$paymentId',
       status: PaymentStatus.pending,
       paymentStatus: PaymentVerificationStatus.pendingVerification,
       proofOfPaymentUrl: proofOfPaymentUrl,
@@ -267,6 +374,13 @@ class BillingRepository {
     );
 
     await firestore.collection('Payments').doc(paymentId).set(payment.toMap());
+  }
+
+  /// Get payment by ID
+  Future<PaymentModel?> getPaymentById(String paymentId) async {
+    final doc = await firestore.collection('Payments').doc(paymentId).get();
+    if (!doc.exists) return null;
+    return PaymentModel.fromSnapshot(doc);
   }
 
   /// Verify and approve a payment (Admin only)
@@ -300,6 +414,34 @@ class BillingRepository {
       Map<String, dynamic> updates = {};
       double newTotalPaid = bill.amountPaid + payment.amount;
       double newBalance = bill.balance - payment.amount;
+
+      // WAIVE LATE FEE LOGIC: Check if payment covers balance at transaction time
+      // If the user paid the full balance as of the transaction date, but late fees
+      // accrued while waiting for admin approval, we waive the extra fees.
+      if (newBalance > 0) {
+        final lateFeeAtPayment = LateFeeDetails.calculate(
+          dueDate: bill.billingPeriod.dueDate,
+          gracePeriodDays: 0,
+          lateFeePerWeek: bill.lateFeeDetails.lateFeePerWeek,
+          nextBillCreatedAt: payment.transactionDate, // Freeze calculation at payment time
+        );
+
+        final totalAtPayment = bill.subtotal + lateFeeAtPayment.totalLateFee;
+        final balanceAtPayment = totalAtPayment - bill.amountPaid;
+
+        // If payment covers the balance at that time (with small tolerance)
+        if (payment.amount >= (balanceAtPayment - 0.01)) {
+          AppLogger.info('Waiving late fee difference for Bill ${bill.billId}. Payment covered balance at transaction time.');
+          
+          // Revert bill totals to what they were at payment time
+          updates['lateFeeDetails'] = lateFeeAtPayment.toMap();
+          updates['summary.lateFee'] = lateFeeAtPayment.totalLateFee;
+          updates['summary.total'] = totalAtPayment;
+          
+          // Set balance to 0 since they paid it off
+          newBalance = 0.0;
+        }
+      }
 
       for (final category in payment.paidFor) {
         double categoryAmount = 0.0;
@@ -504,6 +646,8 @@ class BillingRepository {
     required int month,
     required int year,
     double? rentOverride, // Optional: use this if rent was manually adjusted
+    double? discount, // Optional: discount amount to apply
+    String? discountReason, // Optional: reason for the discount
   }) async {
     // Get unit details
     final unit = await getUnitDetails(propertyId, unitId);
@@ -564,11 +708,15 @@ class BillingRepository {
     // Use rent override if provided, otherwise use unit's monthly rent
     final rentAmount = rentOverride ?? unit.monthlyRent;
 
-    // Calculate total
+    // Calculate subtotal
     final subtotal = rentAmount +
         electricityAmount +
         waterAmount +
         additionalCharges.values.fold(0.0, (total, amount) => total + amount);
+    
+    // Apply discount
+    final discountAmount = discount ?? 0.0;
+    final totalAfterDiscount = subtotal - discountAmount;
 
     // Create billing period
     final startDate = DateTime(year, month, 1);
@@ -631,13 +779,13 @@ class BillingRepository {
       ),
       additionalCharges: const [],  // No longer used - data is in paymentBreakdown
       subtotal: subtotal,
-      discount: 0.0,
-      discountReason: '',
+      discount: discountAmount,
+      discountReason: discountReason ?? '',
       lateFee: 0.0,
       tax: 0.0,
-      total: subtotal,
+      total: totalAfterDiscount,
       amountPaid: 0.0,
-      balance: subtotal,
+      balance: totalAfterDiscount,
       rentBreakdown: PaymentBreakdownItem(
         amount: rentAmount,
         amountPaid: 0.0,

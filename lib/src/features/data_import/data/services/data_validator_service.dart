@@ -219,13 +219,14 @@ class DataValidatorService {
       ));
     }
 
-    // Due date should be 7 days after end date (per project rules)
-    final expectedDueDate = bill.endDate.add(const Duration(days: 7));
-    if (bill.dueDate.difference(expectedDueDate).inDays.abs() > 1) {
+    // Due date validation: Just ensure it's within a reasonable range
+    // Due dates can be during or even before the billing period ends
+    // (e.g., bill for Oct 1-31 can be due on Oct 22)
+    if (bill.dueDate.isBefore(bill.startDate)) {
       errors.add(ValidationError(
         rowNumber: rowNumber,
         field: 'dueDate',
-        message: 'Due date should be ~7 days after end date',
+        message: 'Due date cannot be before billing period start date',
       ));
     }
   }

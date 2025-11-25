@@ -38,6 +38,8 @@ class _AdminCreateBillScreenState extends ConsumerState<AdminCreateBillScreen> {
   final _parkingChargeController = TextEditingController();
   final _additionalChargesController = TextEditingController();
   final _additionalChargesDescController = TextEditingController();
+  final _discountController = TextEditingController();
+  final _discountReasonController = TextEditingController();
   
   // Track if fields have been focused (for auto-clear behavior)
   bool _electricityFocused = false;
@@ -56,6 +58,7 @@ class _AdminCreateBillScreenState extends ConsumerState<AdminCreateBillScreen> {
   double _wifiCharge = 0.0;
   double _parkingCharge = 0.0;
   double _additionalCharges = 0.0;
+  double _discount = 0.0;
   double _totalAmount = 0.0;
   
   bool _isLoading = false;
@@ -89,6 +92,7 @@ class _AdminCreateBillScreenState extends ConsumerState<AdminCreateBillScreen> {
     _wifiChargeController.addListener(_calculateTotal);
     _parkingChargeController.addListener(_calculateTotal);
     _additionalChargesController.addListener(_calculateTotal);
+    _discountController.addListener(_calculateTotal);
   }
 
   @override
@@ -101,6 +105,8 @@ class _AdminCreateBillScreenState extends ConsumerState<AdminCreateBillScreen> {
     _parkingChargeController.dispose();
     _additionalChargesController.dispose();
     _additionalChargesDescController.dispose();
+    _discountController.dispose();
+    _discountReasonController.dispose();
     super.dispose();
   }
 
@@ -131,15 +137,17 @@ class _AdminCreateBillScreenState extends ConsumerState<AdminCreateBillScreen> {
         _wifiCharge = double.tryParse(_wifiChargeController.text) ?? 0.0;
         _parkingCharge = double.tryParse(_parkingChargeController.text) ?? 0.0;
         _additionalCharges = double.tryParse(_additionalChargesController.text) ?? 0.0;
+        _discount = double.tryParse(_discountController.text) ?? 0.0;
         
-        // Calculate total
+        // Calculate total (subtract discount)
         _totalAmount = _rentAmount + 
                        _electricityCost + 
                        _waterCost + 
                        _trashCharge + 
                        _wifiCharge + 
                        _parkingCharge + 
-                       _additionalCharges;
+                       _additionalCharges - 
+                       _discount;
       });
     });
   }
@@ -183,6 +191,10 @@ class _AdminCreateBillScreenState extends ConsumerState<AdminCreateBillScreen> {
             ? null 
             : _additionalChargesDescController.text.trim(),
         rentOverride: _rentAmount != widget.unit.monthlyRent ? _rentAmount : null,
+        discount: _discount > 0 ? _discount : null,
+        discountReason: _discountReasonController.text.trim().isEmpty 
+            ? null 
+            : _discountReasonController.text.trim(),
       );
       
       if (mounted) {
@@ -348,6 +360,10 @@ class _AdminCreateBillScreenState extends ConsumerState<AdminCreateBillScreen> {
                 _buildAdditionalChargesSection(),
                 SizedBox(height: AppConstants.spacingLG),
                 
+                // Discount
+                _buildDiscountSection(),
+                SizedBox(height: AppConstants.spacingLG),
+                
                 // Calculation Preview
                 _buildCalculationPreview(),
                 SizedBox(height: AppConstants.spacingXL),
@@ -395,7 +411,7 @@ class _AdminCreateBillScreenState extends ConsumerState<AdminCreateBillScreen> {
             SizedBox(height: AppConstants.spacingSM),
             _buildInfoRow('Property', widget.propertyName),
             _buildInfoRow('Unit', widget.unit.unitNumber),
-            _buildInfoRow('Tenant ID', widget.unit.tenantId ?? 'N/A'),
+            _buildInfoRow('Tenant Name', widget.unit.rental?.tenantName ?? 'N/A'),
             _buildInfoRow('Period', '${DateTime.now().month}/${DateTime.now().year}'),
           ],
         ),
@@ -788,6 +804,56 @@ class _AdminCreateBillScreenState extends ConsumerState<AdminCreateBillScreen> {
     );
   }
 
+  Widget _buildDiscountSection() {
+    return Card(
+      child: Padding(
+        padding: EdgeInsets.all(AppConstants.spacingMD),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Discount',
+              style: context.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            SizedBox(height: AppConstants.spacingMD),
+            TextFormField(
+              controller: _discountController,
+              decoration: const InputDecoration(
+                labelText: 'Discount Amount',
+                prefixIcon: Icon(Iconsax.tag),
+                prefixText: '₱ ',
+                helperText: 'Discount to apply (optional)',
+              ),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+              ],
+            ),
+            SizedBox(height: AppConstants.spacingMD),
+            TextFormField(
+              controller: _discountReasonController,
+              decoration: const InputDecoration(
+                labelText: 'Discount Reason',
+                prefixIcon: Icon(Iconsax.document_text),
+                helperText: 'Why is this discount being applied?',
+              ),
+              maxLines: 2,
+              validator: (value) {
+                // Require reason if discount is provided
+                if (_discount > 0 && (value == null || value.trim().isEmpty)) {
+                  return 'Please provide a reason for the discount';
+                }
+                return null;
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildCalculationPreview() {
     return Card(
       color: context.colorScheme.tertiaryContainer.withValues(alpha: 0.3),
@@ -811,6 +877,8 @@ class _AdminCreateBillScreenState extends ConsumerState<AdminCreateBillScreen> {
             _buildSummaryRow('🅿️ Parking', _parkingCharge),
             if (_additionalCharges > 0)
               _buildSummaryRow('Additional', _additionalCharges),
+            if (_discount > 0)
+              _buildSummaryRow('Discount', -_discount, isDiscount: true),
             Divider(height: AppConstants.spacingMD * 2),
             _buildSummaryRow(
               'TOTAL',
@@ -823,7 +891,7 @@ class _AdminCreateBillScreenState extends ConsumerState<AdminCreateBillScreen> {
     );
   }
 
-  Widget _buildSummaryRow(String label, double amount, {bool isTotal = false}) {
+  Widget _buildSummaryRow(String label, double amount, {bool isTotal = false, bool isDiscount = false}) {
     return Padding(
       padding: EdgeInsets.symmetric(vertical: AppConstants.spacingXS),
       child: Row(
@@ -833,13 +901,14 @@ class _AdminCreateBillScreenState extends ConsumerState<AdminCreateBillScreen> {
             label,
             style: (isTotal ? context.textTheme.titleMedium : context.textTheme.bodyMedium)?.copyWith(
               fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
+              color: isDiscount ? Colors.red : null,
             ),
           ),
           Text(
             '₱${amount.toStringAsFixed(2)}',
             style: (isTotal ? context.textTheme.titleMedium : context.textTheme.bodyMedium)?.copyWith(
               fontWeight: FontWeight.bold,
-              color: isTotal ? context.colorScheme.primary : null,
+              color: isTotal ? context.colorScheme.primary : (isDiscount ? Colors.red : null),
             ),
           ),
         ],

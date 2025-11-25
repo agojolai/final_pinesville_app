@@ -106,6 +106,15 @@ class FileParserService {
   }
 
   ImportBillData _parseBillFromJson(Map<String, dynamic> json, int index) {
+    // Check if this is nested Firebase format or flat CSV-like format
+    final isNestedFormat = json.containsKey('billingPeriod') && 
+                           json['billingPeriod'] is Map<String, dynamic>;
+    
+    if (isNestedFormat) {
+      return _parseBillFromNestedJson(json, index);
+    }
+    
+    // Flat format (CSV-like JSON)
     return ImportBillData(
       userId: _getJsonString(json, 'userId'),
       userEmail: _getJsonString(json, 'userEmail'),
@@ -149,7 +158,76 @@ class FileParserService {
     );
   }
 
+  /// Parse bill from nested Firebase JSON format
+  ImportBillData _parseBillFromNestedJson(Map<String, dynamic> json, int index) {
+    final billingPeriod = json['billingPeriod'] as Map<String, dynamic>;
+    final rent = json['rent'] as Map<String, dynamic>?;
+    final utilities = json['utilities'] as Map<String, dynamic>;
+    final electricity = utilities['electricity'] as Map<String, dynamic>;
+    final water = utilities['water'] as Map<String, dynamic>;
+    final summary = json['summary'] as Map<String, dynamic>;
+    final paymentBreakdown = json['paymentBreakdown'] as Map<String, dynamic>;
+    final lateFeeDetails = json['lateFeeDetails'] as Map<String, dynamic>?;
+    
+    return ImportBillData(
+      userId: _getJsonString(json, 'userId'),
+      userEmail: _getJsonString(json, 'userEmail'),
+      userName: _getJsonString(json, 'userName'),
+      unitId: _getJsonString(json, 'unitId'),
+      propertyId: _getJsonString(json, 'propertyId'),
+      billingMonth: _getJsonInt(billingPeriod, 'month'),
+      billingYear: _getJsonInt(billingPeriod, 'year'),
+      startDate: _getJsonDate(billingPeriod, 'startDate'),
+      endDate: _getJsonDate(billingPeriod, 'endDate'),
+      dueDate: _getJsonDate(billingPeriod, 'dueDate'),
+      baseRent: _getJsonDouble(rent ?? {}, 'baseRent'),
+      electricityPreviousReading: _getJsonDouble(electricity, 'previousReading'),
+      electricityCurrentReading: _getJsonDouble(electricity, 'currentReading'),
+      electricityConsumption: _getJsonDouble(electricity, 'consumption'),
+      electricityRatePerUnit: _getJsonDouble(electricity, 'ratePerUnit'),
+      electricityAmount: _getJsonDouble(electricity, 'amount'),
+      electricityMeterNumber: _getJsonString(electricity, 'meterNumber'),
+      electricityReadingDate: _getJsonDate(electricity, 'readingDate'),
+      waterPreviousReading: _getJsonDouble(water, 'previousReading'),
+      waterCurrentReading: _getJsonDouble(water, 'currentReading'),
+      waterConsumption: _getJsonDouble(water, 'consumption'),
+      waterRatePerUnit: _getJsonDouble(water, 'ratePerUnit'),
+      waterAmount: _getJsonDouble(water, 'amount'),
+      waterMeterNumber: _getJsonString(water, 'meterNumber'),
+      waterReadingDate: _getJsonDate(water, 'readingDate'),
+      trashAmount: _getJsonDouble(paymentBreakdown['trash'] as Map<String, dynamic>? ?? {}, 'amount'),
+      wifiAmount: _getJsonDouble(paymentBreakdown['wifi'] as Map<String, dynamic>? ?? {}, 'amount'),
+      parkingAmount: _getJsonDouble(paymentBreakdown['parking'] as Map<String, dynamic>? ?? {}, 'amount'),
+      additionalChargesAmount: _getJsonDouble(
+        paymentBreakdown['additionalCharges'] as Map<String, dynamic>? ?? {}, 
+        'amount',
+      ),
+      additionalChargesDescription: _getJsonString(
+        paymentBreakdown['additionalCharges'] as Map<String, dynamic>? ?? {}, 
+        'description',
+      ),
+      subtotal: _getJsonDouble(summary, 'subtotal'),
+      discount: _getJsonDouble(summary, 'discount'),
+      discountReason: _getJsonString(summary, 'discountReason'),
+      lateFee: _getJsonDouble(summary, 'lateFee'),
+      lateFeeWeeks: _getJsonInt(lateFeeDetails ?? {}, 'weeksOverdue'),
+      total: _getJsonDouble(summary, 'total'),
+      isPaid: _getJsonBool(json, 'isPaid'),
+      amountPaid: _getJsonDouble(summary, 'amountPaid'),
+      balance: _getJsonDouble(summary, 'balance'),
+    );
+  }
+
   ImportPaymentData _parsePaymentFromJson(Map<String, dynamic> json, int index) {
+    // Check if this is nested Firebase format or flat CSV-like format
+    final isNestedFormat = json.containsKey('paymentAllocation') && 
+                           json['paymentAllocation'] is Map<String, dynamic>;
+    
+    if (isNestedFormat) {
+      return _parsePaymentFromNestedJson(json, index);
+    }
+    
+    // Flat format (CSV-like JSON)
     return ImportPaymentData(
       paymentId: _getJsonString(json, 'paymentId'),
       billId: _getJsonString(json, 'billId'),
@@ -170,6 +248,55 @@ class FileParserService {
       allocWifi: _getJsonDouble(json, 'allocWifi'),
       allocParking: _getJsonDouble(json, 'allocParking'),
       allocAdditional: _getJsonDouble(json, 'allocAdditional'),
+    );
+  }
+
+  /// Parse payment from nested Firebase JSON format
+  ImportPaymentData _parsePaymentFromNestedJson(Map<String, dynamic> json, int index) {
+    final paymentAllocation = json['paymentAllocation'] as Map<String, dynamic>;
+    final proofOfPayment = json['proofOfPayment'] as Map<String, dynamic>?;
+    
+    return ImportPaymentData(
+      paymentId: _getJsonString(json, 'paymentId'),
+      billId: _getJsonString(json, 'billId'),
+      userId: _getJsonString(json, 'userId'),
+      paymentDate: _getJsonDate(json, 'transactionDate'),
+      amount: _getJsonDouble(json, 'amount'),
+      paymentMethod: _getJsonString(json, 'paymentMethod'),
+      referenceNumber: _getJsonString(json, 'receiptNumber'),
+      proofOfPaymentUrl: _getJsonString(proofOfPayment ?? {}, 'imageUrl'),
+      status: _getJsonString(json, 'status'),
+      verifiedBy: _getJsonString(json, 'verifiedBy'),
+      verifiedAt: _getJsonDate(json, 'verifiedAt'),
+      notes: _getJsonString(json, 'notes'),
+      allocRent: _getJsonDouble(
+        paymentAllocation['rent'] as Map<String, dynamic>? ?? {}, 
+        'amount',
+      ),
+      allocElectricity: _getJsonDouble(
+        paymentAllocation['electricity'] as Map<String, dynamic>? ?? {}, 
+        'amount',
+      ),
+      allocWater: _getJsonDouble(
+        paymentAllocation['water'] as Map<String, dynamic>? ?? {}, 
+        'amount',
+      ),
+      allocTrash: _getJsonDouble(
+        paymentAllocation['trash'] as Map<String, dynamic>? ?? {}, 
+        'amount',
+      ),
+      allocWifi: _getJsonDouble(
+        paymentAllocation['wifi'] as Map<String, dynamic>? ?? {}, 
+        'amount',
+      ),
+      allocParking: _getJsonDouble(
+        paymentAllocation['parking'] as Map<String, dynamic>? ?? {}, 
+        'amount',
+      ),
+      allocAdditional: _getJsonDouble(
+        paymentAllocation['additionalCharges'] as Map<String, dynamic>? ?? {}, 
+        'amount',
+      ),
     );
   }
 
