@@ -331,19 +331,10 @@ class BillingRepository {
       throw Exception('Payment amount does not match selected items. Expected: ₱${expectedAmount.toStringAsFixed(2)}, Got: ₱${amount.toStringAsFixed(2)}');
     }
 
-<<<<<<< HEAD
-    // Create payment document with unique IDs
-    final now = DateTime.now();
-    final timestamp = now.millisecondsSinceEpoch;
-    final paymentId = 'PAY_${userId}_$timestamp';
-    final transactionId = 'TXN_$timestamp';
-    final receiptNumber = 'REC_${now.year}_${now.month.toString().padLeft(2, '0')}_$timestamp';
-=======
     // Create payment document
     final now = DateTime.now();
     final timestamp = now.millisecondsSinceEpoch;
     final paymentId = 'PAY_${billId}_$timestamp';
->>>>>>> origin/main
 
     final payment = PaymentModel(
       paymentId: paymentId,
@@ -387,12 +378,7 @@ class BillingRepository {
       ),
       paidFor: payFor,
       transactionDate: now,
-<<<<<<< HEAD
-      transactionId: transactionId,
-      receiptNumber: receiptNumber,
-=======
       receiptNumber: 'REC_$paymentId',
->>>>>>> origin/main
       status: PaymentStatus.pending,
       paymentStatus: PaymentVerificationStatus.pendingVerification,
       proofOfPaymentUrl: proofOfPaymentUrl,
