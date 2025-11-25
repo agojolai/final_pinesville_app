@@ -99,6 +99,7 @@ enum PaymentMethod {
   bdo,
   cash,
   bankTransfer,
+  gotyme,
   creditCard;
 
   String toJson() {
@@ -111,6 +112,8 @@ enum PaymentMethod {
         return 'cash';
       case PaymentMethod.bankTransfer:
         return 'bank_transfer';
+      case PaymentMethod.gotyme:
+        return 'gotyme';
       case PaymentMethod.creditCard:
         return 'credit_card';
     }
@@ -124,6 +127,8 @@ enum PaymentMethod {
         return PaymentMethod.bdo;
       case 'cash':
         return PaymentMethod.cash;
+      case 'gotyme':
+        return PaymentMethod.gotyme;
       case 'bank_transfer':
       case 'bankTransfer':
         return PaymentMethod.bankTransfer;
@@ -141,6 +146,8 @@ enum PaymentMethod {
         return 'GCash';
       case PaymentMethod.bdo:
         return 'BDO';
+      case PaymentMethod.gotyme:
+        return 'Gotyme';
       case PaymentMethod.cash:
         return 'Cash';
       case PaymentMethod.bankTransfer:
@@ -254,10 +261,11 @@ class PaymentModel {
   final String userEmail;
   final String userName;
   final String unitId;
+  final int billingMonth; // Billing period month (1-12)
+  final int billingYear;  // Billing period year
   final double amount;
   final PaymentType paymentType;
   final PaymentMethod paymentMethod;
-  final Map<String, dynamic> paymentMethodDetails;
   final PaymentAllocationItem rentAllocation;
   final PaymentAllocationItem electricityAllocation;
   final PaymentAllocationItem waterAllocation;
@@ -267,7 +275,6 @@ class PaymentModel {
   final PaymentAllocationItem additionalChargesAllocation;
   final List<PaymentCategory> paidFor;
   final DateTime transactionDate;
-  final String transactionId;
   final String receiptNumber;
   final PaymentStatus status;
   final PaymentVerificationStatus paymentStatus;
@@ -287,10 +294,11 @@ class PaymentModel {
     required this.userEmail,
     required this.userName,
     required this.unitId,
+    required this.billingMonth,
+    required this.billingYear,
     required this.amount,
     required this.paymentType,
     required this.paymentMethod,
-    required this.paymentMethodDetails,
     required this.rentAllocation,
     required this.electricityAllocation,
     required this.waterAllocation,
@@ -300,7 +308,6 @@ class PaymentModel {
     required this.additionalChargesAllocation,
     required this.paidFor,
     required this.transactionDate,
-    required this.transactionId,
     required this.receiptNumber,
     required this.status,
     required this.paymentStatus,
@@ -322,10 +329,11 @@ class PaymentModel {
       'userEmail': userEmail,
       'userName': userName,
       'unitId': unitId,
+      'billingMonth': billingMonth,
+      'billingYear': billingYear,
       'amount': amount,
       'paymentType': paymentType.toJson(),
       'paymentMethod': paymentMethod.toJson(),
-      'paymentMethodDetails': paymentMethodDetails,
       'paymentAllocation': {
         'rent': rentAllocation.toMap(),
         'electricity': electricityAllocation.toMap(),
@@ -337,7 +345,6 @@ class PaymentModel {
       },
       'paidFor': paidFor.map((c) => c.toJson()).toList(),
       'transactionDate': transactionDate.toIso8601String(),
-      'transactionId': transactionId,
       'receiptNumber': receiptNumber,
       'status': status.toJson(),
       'paymentStatus': paymentStatus.toJson(),
@@ -362,7 +369,7 @@ class PaymentModel {
   }
 
   factory PaymentModel.fromMap(Map<String, dynamic> map) {
-    final allocationData = map['paymentAllocation'] as Map<String, dynamic>;
+    final allocationData = map['paymentAllocation'] as Map<String, dynamic>?;
     final proofData = map['proofOfPayment'] as Map<String, dynamic>?;
 
     return PaymentModel(
@@ -372,28 +379,36 @@ class PaymentModel {
       userEmail: map['userEmail'] as String,
       userName: map['userName'] as String,
       unitId: map['unitId'] as String,
+      billingMonth: map['billingMonth'] as int? ?? 1, // Default to January if missing (legacy data)
+      billingYear: map['billingYear'] as int? ?? DateTime.now().year, // Default to current year if missing
       amount: (map['amount'] as num).toDouble(),
       paymentType: PaymentType.fromJson(map['paymentType'] as String),
       paymentMethod: PaymentMethod.fromJson(map['paymentMethod'] as String),
-      paymentMethodDetails: map['paymentMethodDetails'] as Map<String, dynamic>,
-      rentAllocation: PaymentAllocationItem.fromMap(allocationData['rent'] as Map<String, dynamic>),
-      electricityAllocation: PaymentAllocationItem.fromMap(allocationData['electricity'] as Map<String, dynamic>),
-      waterAllocation: PaymentAllocationItem.fromMap(allocationData['water'] as Map<String, dynamic>),
-      trashAllocation: allocationData.containsKey('trash') 
+      rentAllocation: allocationData != null && allocationData.containsKey('rent')
+          ? PaymentAllocationItem.fromMap(allocationData['rent'] as Map<String, dynamic>)
+          : const PaymentAllocationItem(amount: 0.0),
+      electricityAllocation: allocationData != null && allocationData.containsKey('electricity')
+          ? PaymentAllocationItem.fromMap(allocationData['electricity'] as Map<String, dynamic>)
+          : const PaymentAllocationItem(amount: 0.0),
+      waterAllocation: allocationData != null && allocationData.containsKey('water')
+          ? PaymentAllocationItem.fromMap(allocationData['water'] as Map<String, dynamic>)
+          : const PaymentAllocationItem(amount: 0.0),
+      trashAllocation: allocationData != null && allocationData.containsKey('trash') 
           ? PaymentAllocationItem.fromMap(allocationData['trash'] as Map<String, dynamic>)
           : const PaymentAllocationItem(amount: 0.0),
-      wifiAllocation: allocationData.containsKey('wifi')
+      wifiAllocation: allocationData != null && allocationData.containsKey('wifi')
           ? PaymentAllocationItem.fromMap(allocationData['wifi'] as Map<String, dynamic>)
           : const PaymentAllocationItem(amount: 0.0),
-      parkingAllocation: allocationData.containsKey('parking')
+      parkingAllocation: allocationData != null && allocationData.containsKey('parking')
           ? PaymentAllocationItem.fromMap(allocationData['parking'] as Map<String, dynamic>)
           : const PaymentAllocationItem(amount: 0.0),
-      additionalChargesAllocation: PaymentAllocationItem.fromMap(allocationData['additionalCharges'] as Map<String, dynamic>),
+      additionalChargesAllocation: allocationData != null && allocationData.containsKey('additionalCharges')
+          ? PaymentAllocationItem.fromMap(allocationData['additionalCharges'] as Map<String, dynamic>)
+          : const PaymentAllocationItem(amount: 0.0),
       paidFor: (map['paidFor'] as List<dynamic>)
           .map((c) => PaymentCategory.fromJson(c as String))
           .toList(),
       transactionDate: DateTime.parse(map['transactionDate'] as String),
-      transactionId: map['transactionId'] as String,
       receiptNumber: map['receiptNumber'] as String,
       status: PaymentStatus.fromJson(map['status'] as String),
       paymentStatus: PaymentVerificationStatus.fromJson(map['paymentStatus'] as String),
@@ -415,10 +430,11 @@ class PaymentModel {
     String? userEmail,
     String? userName,
     String? unitId,
+    int? billingMonth,
+    int? billingYear,
     double? amount,
     PaymentType? paymentType,
     PaymentMethod? paymentMethod,
-    Map<String, dynamic>? paymentMethodDetails,
     PaymentAllocationItem? rentAllocation,
     PaymentAllocationItem? electricityAllocation,
     PaymentAllocationItem? waterAllocation,
@@ -428,7 +444,6 @@ class PaymentModel {
     PaymentAllocationItem? additionalChargesAllocation,
     List<PaymentCategory>? paidFor,
     DateTime? transactionDate,
-    String? transactionId,
     String? receiptNumber,
     PaymentStatus? status,
     PaymentVerificationStatus? paymentStatus,
@@ -448,10 +463,11 @@ class PaymentModel {
       userEmail: userEmail ?? this.userEmail,
       userName: userName ?? this.userName,
       unitId: unitId ?? this.unitId,
+      billingMonth: billingMonth ?? this.billingMonth,
+      billingYear: billingYear ?? this.billingYear,
       amount: amount ?? this.amount,
       paymentType: paymentType ?? this.paymentType,
       paymentMethod: paymentMethod ?? this.paymentMethod,
-      paymentMethodDetails: paymentMethodDetails ?? this.paymentMethodDetails,
       rentAllocation: rentAllocation ?? this.rentAllocation,
       electricityAllocation: electricityAllocation ?? this.electricityAllocation,
       waterAllocation: waterAllocation ?? this.waterAllocation,
@@ -461,7 +477,6 @@ class PaymentModel {
       additionalChargesAllocation: additionalChargesAllocation ?? this.additionalChargesAllocation,
       paidFor: paidFor ?? this.paidFor,
       transactionDate: transactionDate ?? this.transactionDate,
-      transactionId: transactionId ?? this.transactionId,
       receiptNumber: receiptNumber ?? this.receiptNumber,
       status: status ?? this.status,
       paymentStatus: paymentStatus ?? this.paymentStatus,
@@ -484,4 +499,13 @@ class PaymentModel {
 
   /// Check if payment was rejected
   bool get isRejected => paymentStatus == PaymentVerificationStatus.rejected;
+  
+  /// Get formatted billing period (e.g., "October 2025")
+  String get formattedBillingPeriod {
+    const months = [
+      '', 'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    return '${months[billingMonth]} $billingYear';
+  }
 }
