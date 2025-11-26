@@ -62,7 +62,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     OnboardingPage(
       icon: Iconsax.user,
       title: 'Manage Your Profile',
-      description: 'Keep your account information updated and manage multiple occupants for your unit.',
+      description: 'Manage and keep your account information updated.',
     ),
   ];
 
