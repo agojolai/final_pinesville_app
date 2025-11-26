@@ -11,11 +11,8 @@ A comprehensive Flutter-based mobile application for residential property manage
 - [Installation & Setup](#-installation--setup)
 - [Firebase Configuration](#-firebase-configuration)
 - [Building for Production](#-building-for-production)
-- [Deployment](#-deployment)
 - [Environment Variables](#-environment-variables)
-- [Security Checklist](#-security-checklist)
 - [Troubleshooting](#-troubleshooting)
-- [License & Dependencies](#-license--dependencies)
 
 ## 🌟 Features
 
