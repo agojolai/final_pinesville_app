@@ -2,7 +2,10 @@
 
 > **Version 1.0.5** | Property Management System for Android
 
+
 A comprehensive Flutter-based mobile application for residential property management, designed to provide seamless communication and services between tenants and building administrators.
+
+https://github.com/user-attachments/assets/9523f71b-73ef-4f7c-b919-8c148fc1aa73
 
 ## 📋 Table of Contents
 - [Features](#-features)
@@ -11,11 +14,8 @@ A comprehensive Flutter-based mobile application for residential property manage
 - [Installation & Setup](#-installation--setup)
 - [Firebase Configuration](#-firebase-configuration)
 - [Building for Production](#-building-for-production)
-- [Deployment](#-deployment)
 - [Environment Variables](#-environment-variables)
-- [Security Checklist](#-security-checklist)
 - [Troubleshooting](#-troubleshooting)
-- [License & Dependencies](#-license--dependencies)
 
 ## 🌟 Features
 
