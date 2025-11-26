@@ -14,41 +14,6 @@ class Loaders {
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
   }
 
-  /// Show a custom toast-style snackbar
-  static void customToast(BuildContext context, {required String message}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        elevation: 0,
-        duration: Duration(seconds: 3),
-        backgroundColor: Colors.transparent,
-        content: Container(
-          padding: EdgeInsets.all(AppConstants.spacingSM),
-          margin: EdgeInsets.symmetric(horizontal: AppConstants.spacingXL),
-          decoration: BoxDecoration(
-            borderRadius: context.radiusXL,
-            color: context.colorScheme.surface.withValues(alpha:0.9),
-            boxShadow: [
-              BoxShadow(
-                color: context.colorScheme.shadow.withValues(alpha:0.1),
-                blurRadius: 8,
-                offset: Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Center(
-            child: Text(
-              message, 
-              style: context.textTheme.labelLarge?.copyWith(
-                color: context.colorScheme.onSurface,
-                fontFamily: 'Montserrat',
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   /// Show a success snackbar with green styling
   static void successSnackBar(
     BuildContext context, {

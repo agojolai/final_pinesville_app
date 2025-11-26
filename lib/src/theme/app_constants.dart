@@ -248,9 +248,9 @@ class AppConstants {
   /// Get responsive text size multiplier
   static double getTextSizeMultiplier(double screenWidth) {
     if (screenWidth >= breakpointDesktop) {
-      return 1.1; // 10% larger on desktop
+      return 1.0; // Same size on desktop to prevent oversized text
     } else if (screenWidth >= breakpointTablet) {
-      return 1.05; // 5% larger on tablet
+      return 0.95; // Slightly smaller on tablet to prevent oversized text
     } else {
       return 1.0; // Standard size on mobile
     }
@@ -265,4 +265,63 @@ class AppConstants {
   
   /// Check if screen is desktop size
   static bool isDesktop(double screenWidth) => screenWidth >= breakpointDesktop;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 📱 TABLET OPTIMIZATIONS
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  /// Get responsive column count for grid layouts
+  static int getResponsiveColumns(double screenWidth, {int mobileColumns = 2}) {
+    if (screenWidth >= breakpointDesktop) {
+      return mobileColumns * 2; // Desktop: double the mobile columns
+    } else if (screenWidth >= breakpointTablet) {
+      return (mobileColumns * 1.5).round(); // Tablet: 1.5x mobile columns
+    } else {
+      return mobileColumns; // Mobile: original columns
+    }
+  }
+
+  /// Get responsive grid spacing
+  static double getResponsiveGridSpacing(double screenWidth) {
+    if (screenWidth >= breakpointDesktop) {
+      return spacingXL;
+    } else if (screenWidth >= breakpointTablet) {
+      return spacingLG;
+    } else {
+      return spacingMD;
+    }
+  }
+
+  /// Get responsive content width (for centering content on large screens)
+  static double? getResponsiveContentWidth(double screenWidth) {
+    if (screenWidth >= breakpointDesktop) {
+      return breakpointDesktop * 0.8; // 80% of desktop breakpoint
+    } else if (screenWidth >= breakpointTablet) {
+      return screenWidth * 0.9; // 90% of screen width on tablet
+    } else {
+      return null; // Full width on mobile
+    }
+  }
+
+  /// Get responsive aspect ratio for cards/tiles
+  static double getResponsiveAspectRatio(double screenWidth) {
+    if (screenWidth >= breakpointDesktop) {
+      return 1.4; // Wider on desktop
+    } else if (screenWidth >= breakpointTablet) {
+      return 1.3; // Slightly wider on tablet
+    } else {
+      return 1.2; // Standard on mobile
+    }
+  }
+
+  /// Get responsive sidebar width for admin interfaces
+  static double getResponsiveSidebarWidth(double screenWidth) {
+    if (screenWidth >= breakpointDesktop) {
+      return 280.w;
+    } else if (screenWidth >= breakpointTablet) {
+      return 240.w;
+    } else {
+      return 200.w;
+    }
+  }
 }

@@ -1,5 +1,25 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+/// User role enum for role-based access control
+enum UserRole {
+  tenant,
+  admin;
+
+  /// Convert enum to string for Firestore
+  String get value => name;
+
+  /// Parse string to enum
+  static UserRole fromString(String? value) {
+    switch (value) {
+      case 'admin':
+        return UserRole.admin;
+      case 'tenant':
+      default:
+        return UserRole.tenant;
+    }
+  }
+}
+
 class UserModel {
   final String? id; // Firestore doc ID / Firebase Auth UID
 
@@ -21,7 +41,9 @@ class UserModel {
 
   // Nested account
   final String status; // pending, active, suspended, terminated
+  final UserRole role; // tenant, admin
   final DateTime? createdAt;
+  final String? fcmToken; // Firebase Cloud Messaging token for push notifications
 
   const UserModel({
     this.id,
@@ -38,10 +60,18 @@ class UserModel {
     required this.leaseEndDate,
     required this.rentAmount,
     required this.status,
+    required this.role,
     required this.createdAt,
+    this.fcmToken,
   });
 
   String get fullName => '$firstName $lastName';
+  
+  /// Check if user is admin
+  bool get isAdmin => role == UserRole.admin;
+  
+  /// Check if user is tenant
+  bool get isTenant => role == UserRole.tenant;
 //TODO: clarify where is this used
   static List<String> nameParts(fullName) => fullName.split(" ");
 
@@ -61,7 +91,9 @@ class UserModel {
         leaseEndDate: null,
         rentAmount: 0.0,
         status: "pending",
+        role: UserRole.tenant,
         createdAt: null,
+        fcmToken: null,
       );
 
  // Convert model to JSON (Firestore format)
@@ -85,7 +117,9 @@ class UserModel {
       },
       "account": {
         "status": status,
+        "role": role.value,
         "createdAt": createdAt?.toIso8601String(),
+        "fcmToken": fcmToken,
       }
     };
   }
@@ -127,7 +161,9 @@ class UserModel {
       leaseEndDate: _parseDate(property['leaseEndDate']),
       rentAmount: (property['rentAmount'] ?? 0).toDouble(),
       status: account['status'] ?? "pending",
+      role: UserRole.fromString(account['role']),
       createdAt: _parseDate(account['createdAt']),
+      fcmToken: account['fcmToken'],
     );
   }
 

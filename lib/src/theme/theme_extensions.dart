@@ -142,11 +142,53 @@ extension ResponsiveExtensions on BuildContext {
   /// Get responsive text size multiplier
   double get textSizeMultiplier => AppConstants.getTextSizeMultiplier(mediaQuery.size.width);
 
+  /// Get properly scaled text theme for tablets (prevents oversized text)
+  TextTheme get scaledTextTheme {
+    final theme = Theme.of(this).textTheme;
+    final multiplier = textSizeMultiplier;
+    
+    if (multiplier == 1.0) return theme;
+    
+    return theme.copyWith(
+      displayLarge: theme.displayLarge?.copyWith(fontSize: (theme.displayLarge?.fontSize ?? 57) * multiplier),
+      displayMedium: theme.displayMedium?.copyWith(fontSize: (theme.displayMedium?.fontSize ?? 45) * multiplier),
+      displaySmall: theme.displaySmall?.copyWith(fontSize: (theme.displaySmall?.fontSize ?? 36) * multiplier),
+      headlineLarge: theme.headlineLarge?.copyWith(fontSize: (theme.headlineLarge?.fontSize ?? 32) * multiplier),
+      headlineMedium: theme.headlineMedium?.copyWith(fontSize: (theme.headlineMedium?.fontSize ?? 28) * multiplier),
+      headlineSmall: theme.headlineSmall?.copyWith(fontSize: (theme.headlineSmall?.fontSize ?? 24) * multiplier),
+      titleLarge: theme.titleLarge?.copyWith(fontSize: (theme.titleLarge?.fontSize ?? 22) * multiplier),
+      titleMedium: theme.titleMedium?.copyWith(fontSize: (theme.titleMedium?.fontSize ?? 16) * multiplier),
+      titleSmall: theme.titleSmall?.copyWith(fontSize: (theme.titleSmall?.fontSize ?? 14) * multiplier),
+      bodyLarge: theme.bodyLarge?.copyWith(fontSize: (theme.bodyLarge?.fontSize ?? 16) * multiplier),
+      bodyMedium: theme.bodyMedium?.copyWith(fontSize: (theme.bodyMedium?.fontSize ?? 14) * multiplier),
+      bodySmall: theme.bodySmall?.copyWith(fontSize: (theme.bodySmall?.fontSize ?? 12) * multiplier),
+      labelLarge: theme.labelLarge?.copyWith(fontSize: (theme.labelLarge?.fontSize ?? 14) * multiplier),
+      labelMedium: theme.labelMedium?.copyWith(fontSize: (theme.labelMedium?.fontSize ?? 12) * multiplier),
+      labelSmall: theme.labelSmall?.copyWith(fontSize: (theme.labelSmall?.fontSize ?? 11) * multiplier),
+    );
+  }
+
   /// Get screen width
   double get screenWidth => mediaQuery.size.width;
 
   /// Get screen height
   double get screenHeight => mediaQuery.size.height;
+  
+  /// Get responsive column count for grids
+  int getResponsiveColumns({int mobileColumns = 2}) => 
+    AppConstants.getResponsiveColumns(screenWidth, mobileColumns: mobileColumns);
+  
+  /// Get responsive grid spacing
+  double get responsiveGridSpacing => AppConstants.getResponsiveGridSpacing(screenWidth);
+  
+  /// Get responsive content width
+  double? get responsiveContentWidth => AppConstants.getResponsiveContentWidth(screenWidth);
+  
+  /// Get responsive aspect ratio
+  double get responsiveAspectRatio => AppConstants.getResponsiveAspectRatio(screenWidth);
+  
+  /// Get responsive sidebar width
+  double get responsiveSidebarWidth => AppConstants.getResponsiveSidebarWidth(screenWidth);
 }
 
 /// Widget extensions - Convenience methods
@@ -192,4 +234,128 @@ extension WidgetExtensions on Widget {
     right: right,
     child: this,
   );
+}
+
+/// Responsive Layout Wrapper - Optimizes content for tablet/desktop
+class ResponsiveLayoutWrapper extends StatelessWidget {
+  final Widget child;
+  final bool centerContent;
+  final EdgeInsets? customPadding;
+  
+  const ResponsiveLayoutWrapper({
+    super.key,
+    required this.child,
+    this.centerContent = false,
+    this.customPadding,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final contentWidth = context.responsiveContentWidth;
+    final padding = customPadding ?? context.paddingResponsive;
+    
+    Widget content = Padding(
+      padding: padding,
+      child: child,
+    );
+    
+    // Center content on larger screens if requested
+    if (centerContent && contentWidth != null) {
+      content = Center(
+        child: SizedBox(
+          width: contentWidth,
+          child: content,
+        ),
+      );
+    }
+    
+    return content;
+  }
+}
+
+/// Responsive Grid View - Automatically adjusts columns based on screen size
+class ResponsiveGridView extends StatelessWidget {
+  final List<Widget> children;
+  final int mobileColumns;
+  final double? customSpacing;
+  final double? customAspectRatio;
+  final bool shrinkWrap;
+  final ScrollPhysics? physics;
+  
+  const ResponsiveGridView({
+    super.key,
+    required this.children,
+    this.mobileColumns = 2,
+    this.customSpacing,
+    this.customAspectRatio,
+    this.shrinkWrap = false,
+    this.physics,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final columns = context.getResponsiveColumns(mobileColumns: mobileColumns);
+    final spacing = customSpacing ?? context.responsiveGridSpacing;
+    final aspectRatio = customAspectRatio ?? context.responsiveAspectRatio;
+    
+    return GridView.count(
+      crossAxisCount: columns,
+      crossAxisSpacing: spacing,
+      mainAxisSpacing: spacing,
+      childAspectRatio: aspectRatio,
+      shrinkWrap: shrinkWrap,
+      physics: physics,
+      children: children,
+    );
+  }
+}
+
+/// Adaptive Two-Panel Layout - Side-by-side on tablets, stacked on mobile
+class AdaptiveTwoPanelLayout extends StatelessWidget {
+  final Widget primaryPanel;
+  final Widget secondaryPanel;
+  final double? primaryFlexRatio;
+  final double? secondaryFlexRatio;
+  final Axis? forceAxis; // Force specific layout direction
+  
+  const AdaptiveTwoPanelLayout({
+    super.key,
+    required this.primaryPanel,
+    required this.secondaryPanel,
+    this.primaryFlexRatio,
+    this.secondaryFlexRatio,
+    this.forceAxis,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isTabletOrDesktop = context.isTablet || context.isDesktop;
+    final useHorizontalLayout = forceAxis == Axis.horizontal || 
+        (forceAxis != Axis.vertical && isTabletOrDesktop && context.isLandscape);
+    
+    if (useHorizontalLayout) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: (primaryFlexRatio ?? 1.0 * 100).round(),
+            child: primaryPanel,
+          ),
+          SizedBox(width: context.responsiveGridSpacing),
+          Expanded(
+            flex: (secondaryFlexRatio ?? 1.0 * 100).round(),
+            child: secondaryPanel,
+          ),
+        ],
+      );
+    } else {
+      return Column(
+        children: [
+          primaryPanel,
+          SizedBox(height: context.responsiveGridSpacing),
+          secondaryPanel,
+        ],
+      );
+    }
+  }
 }

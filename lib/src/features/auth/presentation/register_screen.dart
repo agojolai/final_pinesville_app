@@ -7,14 +7,32 @@ import '../../../theme/theme_extensions.dart';
 import '../../../core/constants/validators.dart';
 import '../../../core/repositories/unit_repository.dart';
 import '../controllers/register_controller.dart';
+import '../widgets/terms_and_conditions_dialog.dart';
 
-// Providers for properties and units - these cache data automatically
-final availablePropertiesProvider = FutureProvider<List<String>>((ref) async {
-  return await UnitRepository.instance.fetchPropertyNames();
+// OPTIMIZED: Cache property map for O(1) lookups instead of repeated queries
+final propertyMapProvider = FutureProvider<Map<String, String>>((ref) async {
+  return await UnitRepository.instance.fetchPropertyMap();
 });
 
-final availableUnitsProvider = FutureProvider<List<String>>((ref) async {
-  return await UnitRepository.instance.fetchVacantUnits();
+// Derived provider for dropdown (just the names)
+final availablePropertiesProvider = FutureProvider<List<String>>((ref) async {
+  final propertyMap = await ref.watch(propertyMapProvider.future);
+  final names = propertyMap.keys.toList()..sort();
+  return names;
+});
+
+// OPTIMIZED: Use propertyId directly instead of querying by name
+final availableUnitsProvider = FutureProvider.family<List<String>, String>((ref, propertyName) async {
+  if (propertyName.isEmpty) return [];
+  
+  // Get propertyId from cached map (O(1) lookup)
+  final propertyMap = await ref.watch(propertyMapProvider.future);
+  final propertyId = propertyMap[propertyName];
+  
+  if (propertyId == null) return [];
+  
+  // Use optimized method that queries by ID directly
+  return await UnitRepository.instance.fetchVacantUnitsByPropertyId(propertyId);
 });
 
 class RegisterScreen extends ConsumerStatefulWidget {
@@ -28,6 +46,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     with TickerProviderStateMixin {
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
+  bool _hasAcceptedTerms = false;
   
   final _formKey = GlobalKey<FormState>();
   final _firstNameController = TextEditingController();
@@ -59,6 +78,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
       CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
     );
     _fadeController.forward();
+
+    // Present Terms & Conditions when screen appears
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showTermsDialog();
+    });
   }
 
   @override
@@ -79,6 +103,26 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     super.dispose();
   }
 
+  Future<void> _showTermsDialog() async {
+    // Show terms dialog; accept sets flag, decline or close returns without setting
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => TermsAndConditionsDialog(
+        onAccept: () {
+          setState(() {
+            _hasAcceptedTerms = true;
+          });
+        },
+      ),
+    );
+
+    // If not accepted, return to login (pop this screen)
+    if (mounted && !_hasAcceptedTerms) {
+      Navigator.of(context).pop();
+    }
+  }
+
   Future<void> _handleRegister() async {
     final controller = ref.read(registerControllerProvider.notifier);
     
@@ -93,8 +137,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
       return;
     }
 
+    // Get propertyId from cached map (O(1) lookup)
+    final propertyMap = await ref.read(propertyMapProvider.future);
+    final propertyId = propertyMap[_selectedProperty] ?? '';
+
     // Dismiss keyboard
     controller.dismissKeyboard(context);
+
+    // Ensure terms were accepted before proceeding
+    if (!_hasAcceptedTerms) {
+      await _showTermsDialog();
+      if (!_hasAcceptedTerms) return;
+    }
 
     // Perform registration using controller
     await controller.registerUser(
@@ -104,12 +158,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
       phoneNumber: _phoneController.text.trim(),
       password: _passwordController.text.trim(),
       propertyName: _selectedProperty!,
+      propertyId: propertyId, // OPTIMIZED: Pass cached propertyId
       unitNumber: _selectedUnit!,
       moveInDate: _selectedMoveInDate!,
       context: context,
     );
   }
-
   Future<void> _selectMoveInDate() async {
     final controller = ref.read(registerControllerProvider.notifier);
     final picked = await controller.selectMoveInDate(context, _selectedMoveInDate);
@@ -257,6 +311,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                         onChanged: (value) {
                           setState(() {
                             _selectedProperty = value;
+                            // Reset selected unit when property changes
+                            _selectedUnit = null;
                           });
                         },
                       ),
@@ -275,6 +331,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                           onChanged: (value) {
                             setState(() {
                               _selectedProperty = value;
+                              // Reset selected unit when property changes
+                              _selectedUnit = null;
                             });
                           },
                         );
@@ -285,15 +343,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                 
                 SizedBox(height: AppConstants.spacingMD),
                 
-                // Unit Number Dropdown
+                // Unit Number Dropdown (dependent on selected property)
                 Consumer(
                   builder: (context, ref, child) {
-                    final unitsAsync = ref.watch(availableUnitsProvider);
+                    // Watch units for the selected property
+                    final unitsAsync = ref.watch(availableUnitsProvider(_selectedProperty ?? ''));
                     return unitsAsync.when(
                       data: (units) => _UnitDropdown(
                         selectedUnit: _selectedUnit,
                         availableUnits: units,
                         isLoading: false,
+                        isDisabled: _selectedProperty == null,
+                        noUnitsAvailable: units.isEmpty && _selectedProperty != null,
                         onChanged: (value) {
                           setState(() {
                             _selectedUnit = value;
@@ -304,6 +365,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                         selectedUnit: _selectedUnit,
                         availableUnits: const [],
                         isLoading: true,
+                        isDisabled: false,
+                        noUnitsAvailable: false,
                         onChanged: (_) {}, // Empty callback during loading
                       ),
                       error: (error, stack) {
@@ -312,6 +375,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                           selectedUnit: _selectedUnit,
                           availableUnits: const [],
                           isLoading: false,
+                          isDisabled: _selectedProperty == null,
+                          noUnitsAvailable: false,
                           onChanged: (value) {
                             setState(() {
                               _selectedUnit = value;
@@ -393,7 +458,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                 
                 SizedBox(height: AppConstants.spacingMD),
                 
-                // Terms and Conditions
+                                // Terms and Conditions
                 _TermsAndConditions(),
                 
                 SizedBox(height: AppConstants.spacingXL),
@@ -672,12 +737,16 @@ class _UnitDropdown extends StatelessWidget {
   final String? selectedUnit;
   final List<String> availableUnits;
   final bool isLoading;
+  final bool isDisabled;
+  final bool noUnitsAvailable;
   final void Function(String?) onChanged;
 
   const _UnitDropdown({
     required this.selectedUnit,
     required this.availableUnits,
     required this.isLoading,
+    required this.isDisabled,
+    this.noUnitsAvailable = false,
     required this.onChanged,
   });
 
@@ -685,7 +754,7 @@ class _UnitDropdown extends StatelessWidget {
   Widget build(BuildContext context) {
     return DropdownButtonFormField<String>(
       value: selectedUnit,
-      onChanged: isLoading ? null : onChanged,
+      onChanged: (isLoading || isDisabled) ? null : onChanged,
       validator: (value) => value == null ? 'Please select a unit' : null,
       style: TextStyle(
         fontSize: context.textTheme.bodyMedium?.fontSize,
@@ -694,7 +763,11 @@ class _UnitDropdown extends StatelessWidget {
       ),
       decoration: InputDecoration(
         labelText: 'Unit Number',
-        hintText: isLoading ? 'Loading units...' : 'Select your unit',
+        hintText: isDisabled 
+            ? 'Select property first' 
+            : (noUnitsAvailable 
+                ? 'No vacant units available' 
+                : (isLoading ? 'Loading units...' : 'Select your unit')),
         labelStyle: TextStyle(
           fontSize: context.textTheme.bodyMedium?.fontSize,
           fontFamily: 'Montserrat',
@@ -923,8 +996,6 @@ class _RegisterButton extends StatelessWidget {
   }
 }
 
-//TODO: show on the web landing page the terms of service 
-//and privacy policy, together with the link to the app
 // Terms and Conditions Widget
 class _TermsAndConditions extends StatelessWidget {
   const _TermsAndConditions();

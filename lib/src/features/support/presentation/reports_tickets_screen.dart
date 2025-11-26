@@ -11,7 +11,6 @@ import '../providers/reports_provider.dart';
 import '../providers/feedback_provider.dart';
 import 'submit_report_screen.dart';
 import 'report_detail_screen.dart';
-import 'admin_report_testing_screen.dart';
 
 class ReportsTicketsScreen extends ConsumerStatefulWidget {
   const ReportsTicketsScreen({super.key});
@@ -42,62 +41,6 @@ class _ReportsTicketsScreenState extends ConsumerState<ReportsTicketsScreen> wit
     ref.invalidate(tenantReportsProvider);
   }
 
-  void _showAdminMenu() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          'Admin Tools',
-          style: TextStyle(
-            fontFamily: 'Montserrat',
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: Icon(Iconsax.setting),
-              title: Text('Report Management'),
-              subtitle: Text('Manage all reports in the system'),
-              onTap: () {
-                Navigator.of(context).pop();
-                _navigateToAdminScreen();
-              },
-            ),
-            ListTile(
-              leading: Icon(Iconsax.refresh),
-              title: Text('Refresh Data'),
-              subtitle: Text('Reload reports from server'),
-              onTap: () {
-                Navigator.of(context).pop();
-                ref.invalidate(tenantReportsProvider);
-              },
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _navigateToAdminScreen() {
-    HapticFeedback.lightImpact();
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => const AdminReportTestingScreen(),
-      ),
-    ).then((_) {
-      // Refresh reports when returning from admin screen
-      ref.invalidate(tenantReportsProvider);
-    });
-  }
-
   @override
   void dispose() {
     _fadeController.dispose();
@@ -109,7 +52,7 @@ class _ReportsTicketsScreenState extends ConsumerState<ReportsTicketsScreen> wit
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Reports & Tickets',
+          'Submit an Issue',
           style: context.textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.bold,
             fontFamily: 'Montserrat',
@@ -128,14 +71,6 @@ class _ReportsTicketsScreenState extends ConsumerState<ReportsTicketsScreen> wit
         toolbarHeight: AppConstants.appBarHeight,
         elevation: 0,
         backgroundColor: context.colorScheme.surface,
-        actions: [
-          // Debug/Admin menu - only show in debug mode or for testing
-          IconButton(
-            onPressed: _showAdminMenu,
-            icon: Icon(Iconsax.setting_2),
-            tooltip: 'Admin Tools',
-          ),
-        ],
       ),
       body: FadeTransition(
         opacity: _fadeAnimation,
@@ -150,13 +85,24 @@ class _ReportsTicketsScreenState extends ConsumerState<ReportsTicketsScreen> wit
                   return reportsAsync.when(
                     data: (reports) {
                       if (reports.isEmpty) {
-                        return _EmptyState();
+                        return RefreshIndicator(
+                          onRefresh: _refreshReports,
+                          child: SingleChildScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            child: SizedBox(
+                              height: MediaQuery.of(context).size.height - 300,
+                              child: _EmptyState(),
+                            ),
+                          ),
+                        );
                       }
                       
                       return RefreshIndicator(
                         onRefresh: _refreshReports,
                         child: ListView.builder(
-                          physics: const BouncingScrollPhysics(),
+                          physics: const AlwaysScrollableScrollPhysics(
+                            parent: BouncingScrollPhysics(),
+                          ),
                           padding: EdgeInsets.all(AppConstants.spacingMD),
                           itemCount: reports.length,
                           itemBuilder: (context, index) {
@@ -176,8 +122,26 @@ class _ReportsTicketsScreenState extends ConsumerState<ReportsTicketsScreen> wit
                         ),
                       );
                     },
-                    loading: () => _LoadingState(),
-                    error: (error, _) => _ErrorState(error.toString()),
+                    loading: () => RefreshIndicator(
+                      onRefresh: _refreshReports,
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        child: SizedBox(
+                          height: MediaQuery.of(context).size.height - 300,
+                          child: _LoadingState(),
+                        ),
+                      ),
+                    ),
+                    error: (error, _) => RefreshIndicator(
+                      onRefresh: _refreshReports,
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        child: SizedBox(
+                          height: MediaQuery.of(context).size.height - 300,
+                          child: _ErrorState(error.toString()),
+                        ),
+                      ),
+                    ),
                   );
                 },
               ),
@@ -322,7 +286,7 @@ class _ReportsTicketsScreenState extends ConsumerState<ReportsTicketsScreen> wit
       child: Padding(
         padding: EdgeInsets.all(AppConstants.spacingLG),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               Iconsax.document_text,

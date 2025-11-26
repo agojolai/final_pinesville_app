@@ -1,9 +1,6 @@
 name: untitled
 description: "A new Flutter project."
-
-
-
-
+version: 1.0.5
 
 environment:
   sdk: ^3.5.4
@@ -21,6 +18,8 @@ dependencies:
   cloud_firestore: ^6.0.0
   firebase_storage: ^13.0.0
   firebase_app_check: ^0.4.0
+  firebase_messaging: 16.0.2
+  flutter_local_notifications: ^18.0.1
 
   #----------- ICONS --------#
   iconsax: ^0.0.8
@@ -35,11 +34,15 @@ dependencies:
   url_launcher: ^6.3.1
   intl: ^0.20.1
   flutter_native_splash: ^2.4.4
-  connectivity_plus: ^6.1.2
+  connectivity_plus: ^7.0.0
   smooth_page_indicator: ^1.2.0+3
-  image_cropper: ^9.1.0
+  image_cropper: ^11.0.0
   image_picker: ^1.1.2
   gal: ^2.3.0
+  csv: ^6.0.0
+  file_picker: ^8.1.6
+  screenshot: ^3.0.0
+  path_provider: ^2.1.5
 
   #----------- STATE MANAGEMENT --------#
   get_storage: ^2.1.1
@@ -47,6 +50,14 @@ dependencies:
   flutter_to_pdf: ^0.4.0
   flutter_screenutil: ^5.5.0
   flutter_riverpod: ^2.5.1
+  video_player: ^2.10.0
+  dio: ^5.9.0
+  upgrader: ^12.3.0
+  flutter_downloader: ^1.11.10
+  open_filex: ^4.5.0
+  permission_handler: ^11.3.1
+  xml: ^6.5.0
+  package_info_plus: ^8.1.2
 
 
 
@@ -58,13 +69,19 @@ dev_dependencies:
 
   flutter_launcher_icons: ^0.14.3
 
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/pinesville_logo.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/images/pinesville_logo.png"
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
   # activated in the `analysis_options.yaml` file located at the root of your
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
-  flutter_lints: ^5.0.0
+  flutter_lints: ^6.0.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

@@ -64,6 +64,87 @@
 			"isBackground": false,
 			"problemMatcher": [],
 			"group": "build"
+		},
+		{
+			"label": "Run All Tests",
+			"type": "shell",
+			"command": "flutter test",
+			"isBackground": false,
+			"group": "test",
+			"problemMatcher": []
+		},
+		{
+			"label": "Run Tests with Coverage",
+			"type": "shell",
+			"command": "flutter test --coverage",
+			"isBackground": false,
+			"group": "test",
+			"problemMatcher": []
+		},
+		{
+			"label": "Run Unit Tests Only",
+			"type": "shell",
+			"command": "flutter test test/unit/",
+			"isBackground": false,
+			"group": "test",
+			"problemMatcher": []
+		},
+		{
+			"label": "Run Widget Tests Only",
+			"type": "shell",
+			"command": "flutter test test/widget/",
+			"isBackground": false,
+			"group": "test",
+			"problemMatcher": []
+		},
+		{
+			"label": "Run Integration Tests",
+			"type": "shell",
+			"command": "flutter test integration_test/",
+			"isBackground": false,
+			"group": "test",
+			"problemMatcher": []
+		},
+		{
+			"label": "Test Billing Repository",
+			"type": "shell",
+			"command": "flutter test test/unit/billing_repository_test.dart",
+			"isBackground": false,
+			"group": "test",
+			"problemMatcher": []
+		},
+		{
+			"label": "Test Late Fee Calculation",
+			"type": "shell",
+			"command": "flutter test test/unit/late_fee_test.dart",
+			"isBackground": false,
+			"group": "test",
+			"problemMatcher": []
+		},
+		{
+			"label": "Analyze Code",
+			"type": "shell",
+			"command": "flutter analyze",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Analyze Code",
+			"type": "shell",
+			"command": "flutter analyze",
+			"group": "build"
+		},
+		{
+			"label": "Analyze Code",
+			"type": "shell",
+			"command": "flutter analyze",
+			"group": "build"
+		},
+		{
+			"label": "Analyze Code",
+			"type": "shell",
+			"command": "flutter analyze",
+			"group": "build"
 		}
 	]
 }

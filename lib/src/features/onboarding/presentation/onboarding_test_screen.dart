@@ -95,13 +95,13 @@ class _OnboardingTestScreenState extends State<OnboardingTestScreen> {
                 padding: EdgeInsets.all(AppConstants.spacingMD),
                 decoration: BoxDecoration(
                   color: _isCompleted
-                      ? context.colorScheme.primaryContainer.withOpacity(0.1)
-                      : context.colorScheme.errorContainer.withOpacity(0.1),
+                      ? context.colorScheme.primaryContainer.withValues(alpha: 0.1)
+                      : context.colorScheme.errorContainer.withValues(alpha: 0.1),
                   borderRadius: context.radiusLG,
                   border: Border.all(
                     color: _isCompleted
-                        ? context.colorScheme.primary.withOpacity(0.3)
-                        : context.colorScheme.error.withOpacity(0.3),
+                        ? context.colorScheme.primary.withValues(alpha: 0.3)
+                        : context.colorScheme.error.withValues(alpha: 0.3),
                   ),
                 ),
                 child: Column(
@@ -143,7 +143,7 @@ class _OnboardingTestScreenState extends State<OnboardingTestScreen> {
                           ? 'User has completed the onboarding walkthrough.'
                           : 'User will see onboarding screen on app launch.',
                       style: context.textTheme.bodyMedium?.copyWith(
-                        color: context.colorScheme.onSurface.withOpacity(0.7),
+                        color: context.colorScheme.onSurface.withValues(alpha: 0.7),
                         fontFamily: 'Montserrat',
                       ),
                     ),
@@ -224,7 +224,7 @@ class _ActionButton extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: context.radiusLG,
         border: Border.all(
-          color: color.withOpacity(0.3),
+          color: color.withValues(alpha: 0.3),
         ),
       ),
       child: Material(
@@ -239,7 +239,7 @@ class _ActionButton extends StatelessWidget {
                 Container(
                   padding: EdgeInsets.all(AppConstants.spacingSM),
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.1),
+                    color: color.withValues(alpha: 0.1),
                     borderRadius: context.radiusSM,
                   ),
                   child: Icon(
@@ -264,7 +264,7 @@ class _ActionButton extends StatelessWidget {
                       Text(
                         description,
                         style: context.textTheme.bodySmall?.copyWith(
-                          color: context.colorScheme.onSurface.withOpacity(0.6),
+                          color: context.colorScheme.onSurface.withValues(alpha: 0.6),
                           fontFamily: 'Montserrat',
                         ),
                       ),
@@ -273,7 +273,7 @@ class _ActionButton extends StatelessWidget {
                 ),
                 Icon(
                   Iconsax.arrow_right_3,
-                  color: context.colorScheme.onSurface.withOpacity(0.4),
+                  color: context.colorScheme.onSurface.withValues(alpha: 0.4),
                   size: 16,
                 ),
               ],

@@ -7,6 +7,7 @@ import '../../../theme/theme_extensions.dart';
 import '../../../core/constants/validators.dart';
 import '../controllers/login_controller.dart';
 import '../providers/auth_provider.dart';
+import '../../admin/auth/presentation/admin_login_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -97,6 +98,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     controller.navigateToForgotPassword(context);
   }
 
+  void _navigateToAdminLogin() {
+    HapticFeedback.lightImpact();
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => const AdminLoginScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // Watch controller state and auth state
@@ -161,6 +169,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                     
                     // Create Account Section
                     _CreateAccountSection(onTap: _navigateToRegister),
+                    
+                    SizedBox(height: AppConstants.spacingXXL),
+                    
+                    // Admin Login Button
+                    _AdminLoginButton(onTap: _navigateToAdminLogin),
                     
                     SizedBox(height: AppConstants.spacingXL),
                   ],
@@ -580,6 +593,35 @@ class _CreateAccountSection extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// Admin Login Button Widget
+class _AdminLoginButton extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _AdminLoginButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton(
+      onPressed: onTap,
+      style: TextButton.styleFrom(
+        foregroundColor: context.colorScheme.primary,
+        padding: EdgeInsets.symmetric(
+          horizontal: AppConstants.spacingMD,
+          vertical: AppConstants.spacingSM,
+        ),
+      ),
+      child: Text(
+        'Log in as Admin',
+        style: context.textTheme.bodySmall?.copyWith(
+          fontWeight: FontWeight.w600,
+          fontFamily: 'Montserrat',
+          color: context.colorScheme.primary,
+        ),
       ),
     );
   }

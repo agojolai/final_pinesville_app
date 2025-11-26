@@ -1,13 +1,26 @@
 #!/usr/bin/env dart
 
+import 'package:logger/logger.dart';
+
 // Simple verification script to check onboarding implementation
 // This script verifies the key logic without requiring Flutter environment
 
+final logger = Logger(
+  printer: PrettyPrinter(
+    methodCount: 0,
+    errorMethodCount: 5,
+    lineLength: 80,
+    colors: true,
+    printEmojis: true,
+    dateTimeFormat: DateTimeFormat.none,
+  ),
+);
+
 void main() {
-  print('🚀 Pinesville Onboarding Implementation Verification\n');
+  logger.i('🚀 Pinesville Onboarding Implementation Verification\n');
 
   // Check 1: Onboarding pages content
-  print('✅ Onboarding Pages Content:');
+  logger.i('✅ Onboarding Pages Content:');
   final pages = [
     {
       'title': 'Welcome to Pinesville',
@@ -32,18 +45,18 @@ void main() {
     {
       'title': 'Manage Your Profile',
       'icon': 'user',
-      'description': 'Keep your account information updated and manage multiple occupants for your unit.',
+      'description': 'Manage and keep your account information updated.',
     },
   ];
 
   for (int i = 0; i < pages.length; i++) {
     final page = pages[i];
-    print('   ${i + 1}. ${page['title']} (${page['icon']})');
-    print('      "${page['description']!.substring(0, 60)}..."');
+    logger.d('   ${i + 1}. ${page['title']} (${page['icon']})');
+    logger.d('      "${page['description']!.substring(0, 60)}..."');
   }
 
   // Check 2: Key features
-  print('\n✅ Key Features Implemented:');
+  logger.i('\n✅ Key Features Implemented:');
   final features = [
     'GetStorage persistence for onboarding completion',
     'Skip functionality on all pages',
@@ -58,21 +71,21 @@ void main() {
   ];
 
   for (final feature in features) {
-    print('   • $feature');
+    logger.d('   • $feature');
   }
 
   // Check 3: User flow
-  print('\n✅ User Flow:');
-  print('   1. App launches → Check onboarding status');
-  print('   2. If not completed → Show onboarding screen');
-  print('   3. User sees 5 walkthrough pages');
-  print('   4. User can skip or complete walkthrough');
-  print('   5. Status saved to local storage');
-  print('   6. Navigate to login screen');
-  print('   7. Future launches skip onboarding');
+  logger.i('\n✅ User Flow:');
+  logger.d('   1. App launches → Check onboarding status');
+  logger.d('   2. If not completed → Show onboarding screen');
+  logger.d('   3. User sees 5 walkthrough pages');
+  logger.d('   4. User can skip or complete walkthrough');
+  logger.d('   5. Status saved to local storage');
+  logger.d('   6. Navigate to login screen');
+  logger.d('   7. Future launches skip onboarding');
 
   // Check 4: Files created
-  print('\n✅ Files Created:');
+  logger.i('\n✅ Files Created:');
   final files = [
     'lib/src/features/onboarding/data/onboarding_repository.dart',
     'lib/src/features/onboarding/presentation/onboarding_screen.dart',
@@ -82,28 +95,28 @@ void main() {
   ];
 
   for (final file in files) {
-    print('   • $file');
+    logger.d('   • $file');
   }
 
   // Check 5: Modifications made
-  print('\n✅ Existing Files Modified:');
+  logger.i('\n✅ Existing Files Modified:');
   final modifications = [
     'lib/app.dart - Added onboarding check in routing logic',
     'lib/src/features/profile/presentation/profile_screen.dart - Added test screen access',
   ];
 
   for (final mod in modifications) {
-    print('   • $mod');
+    logger.d('   • $mod');
   }
 
-  print('\n🎉 Implementation Complete!');
-  print('   The onboarding screen has been successfully implemented with:');
-  print('   • 5 informative walkthrough pages');
-  print('   • Smooth animations and transitions');
-  print('   • Local storage persistence');
-  print('   • Developer testing tools');
-  print('   • Consistent design with existing app');
-  print('\n📱 Ready for testing on device/simulator!');
+  logger.w('\n🎉 Implementation Complete!');
+  logger.i('   The onboarding screen has been successfully implemented with:');
+  logger.d('   • 5 informative walkthrough pages');
+  logger.d('   • Smooth animations and transitions');
+  logger.d('   • Local storage persistence');
+  logger.d('   • Developer testing tools');
+  logger.d('   • Consistent design with existing app');
+  logger.w('\n📱 Ready for testing on device/simulator!');
 }
 
 // Mock onboarding repository logic verification
@@ -119,21 +132,21 @@ class MockOnboardingRepository {
 
 // Test the repository logic
 void testOnboardingLogic() {
-  print('\n🧪 Testing Onboarding Logic:');
+  logger.i('\n🧪 Testing Onboarding Logic:');
   
   // Initial state
   assert(!MockOnboardingRepository.isOnboardingCompleted);
-  print('   ✓ Initial state: not completed');
+  logger.d('   ✓ Initial state: not completed');
   
   // Mark as completed
   MockOnboardingRepository.markCompleted();
   assert(MockOnboardingRepository.isOnboardingCompleted);
-  print('   ✓ After completion: completed');
+  logger.d('   ✓ After completion: completed');
   
   // Reset
   MockOnboardingRepository.reset();
   assert(!MockOnboardingRepository.isOnboardingCompleted);
-  print('   ✓ After reset: not completed');
+  logger.d('   ✓ After reset: not completed');
   
-  print('   ✅ All logic tests passed!');
+  logger.w('   ✅ All logic tests passed!');
 }
