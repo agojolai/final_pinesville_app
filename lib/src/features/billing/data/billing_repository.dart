@@ -8,6 +8,7 @@ import '../domain/property_billing_model.dart';
 import '../domain/unit_billing_model.dart';
 import '../domain/eviction_status.dart';
 import '../../../core/utils/app_logger.dart';
+import '../../../core/services/notification_service.dart';
 
 final billingRepositoryProvider = Provider<BillingRepository>((ref) {
   return BillingRepository(
@@ -115,6 +116,20 @@ class BillingRepository {
   /// Create a new bill (Admin only)
   Future<void> createBill(BillModel bill) async {
     await firestore.collection('Bills').doc(bill.billId).set(bill.toMap());
+    
+    // Send notification to tenant about new bill
+    try {
+      await NotificationService.notifyNewBill(
+        userId: bill.userId,
+        billId: bill.billId,
+        totalAmount: bill.total,
+        dueDate: bill.billingPeriod.dueDate,
+      );
+      AppLogger.info('New bill notification sent to user ${bill.userId}');
+    } catch (e) {
+      AppLogger.error('Failed to send new bill notification: $e');
+      // Don't throw - bill creation should succeed even if notification fails
+    }
   }
 
   /// Update bill status
@@ -374,6 +389,17 @@ class BillingRepository {
     );
 
     await firestore.collection('Payments').doc(paymentId).set(payment.toMap());
+    
+    // Send notification to admins about new payment submission
+    try {
+      await NotificationService.notifyNewPayment(
+        tenantName: bill.userName,
+        amount: amount,
+        billId: billId,
+      );
+    } catch (e) {
+      AppLogger.error('Failed to send payment submission notification to admins: $e');
+    }
   }
 
   /// Get payment by ID
@@ -445,38 +471,54 @@ class BillingRepository {
 
       for (final category in payment.paidFor) {
         double categoryAmount = 0.0;
+        double currentBalance = 0.0;
         final categoryKey = category.toJson();
 
         switch (category) {
           case PaymentCategory.rent:
             categoryAmount = payment.rentAllocation.amount;
+            currentBalance = bill.rentBreakdown.balance;
             break;
           case PaymentCategory.electricity:
             categoryAmount = payment.electricityAllocation.amount;
+            currentBalance = bill.electricityBreakdown.balance;
             break;
           case PaymentCategory.water:
             categoryAmount = payment.waterAllocation.amount;
+            currentBalance = bill.waterBreakdown.balance;
             break;
           case PaymentCategory.trash:
             categoryAmount = payment.trashAllocation.amount;
+            currentBalance = bill.trashBreakdown.balance;
             break;
           case PaymentCategory.wifi:
             categoryAmount = payment.wifiAllocation.amount;
+            currentBalance = bill.wifiBreakdown.balance;
             break;
           case PaymentCategory.parking:
             categoryAmount = payment.parkingAllocation.amount;
+            currentBalance = bill.parkingBreakdown.balance;
             break;
           case PaymentCategory.additionalCharges:
             categoryAmount = payment.additionalChargesAllocation.amount;
+            currentBalance = bill.additionalChargesBreakdown.balance;
             break;
         }
+
+        // Calculate new balance after this payment
+        double newCategoryBalance = currentBalance - categoryAmount;
+        bool isCategoryFullyPaid = newCategoryBalance <= 0.01;
 
         updates['paymentBreakdown.$categoryKey.amountPaid'] =
             FieldValue.increment(categoryAmount);
         updates['paymentBreakdown.$categoryKey.balance'] =
             FieldValue.increment(-categoryAmount);
-        updates['paymentBreakdown.$categoryKey.isPaid'] = true;
-        updates['paymentBreakdown.$categoryKey.paidAt'] = now.toIso8601String();
+        
+        // Only mark as paid if balance reaches zero
+        if (isCategoryFullyPaid) {
+          updates['paymentBreakdown.$categoryKey.isPaid'] = true;
+          updates['paymentBreakdown.$categoryKey.paidAt'] = now.toIso8601String();
+        }
       }
 
       updates['summary.amountPaid'] = newTotalPaid;
@@ -497,6 +539,18 @@ class BillingRepository {
       updates['updatedAt'] = now.toIso8601String();
 
       await firestore.collection('Bills').doc(payment.billId).update(updates);
+      
+      // Send approval notification to tenant
+      try {
+        await NotificationService.notifyPaymentStatus(
+          userId: payment.userId,
+          billId: payment.billId,
+          isVerified: true,
+          rejectionReason: null,
+        );
+      } catch (e) {
+        AppLogger.error('Failed to send payment approval notification: $e');
+      }
     } else {
       // Reject payment
       await firestore.collection('Payments').doc(paymentId).update({
@@ -507,6 +561,18 @@ class BillingRepository {
         'updatedAt': now.toIso8601String(),
         'adminNotes': adminNotes,
       });
+      
+      // Send rejection notification to tenant
+      try {
+        await NotificationService.notifyPaymentStatus(
+          userId: payment.userId,
+          billId: payment.billId,
+          isVerified: false,
+          rejectionReason: adminNotes.isNotEmpty ? adminNotes : 'Payment verification failed',
+        );
+      } catch (e) {
+        AppLogger.error('Failed to send payment rejection notification: $e');
+      }
     }
   }
 
@@ -841,6 +907,26 @@ class BillingRepository {
     );
 
     await firestore.collection('Bills').doc(billId).set(bill.toMap());
+    
+    AppLogger.info('Bill created successfully. BillId: $billId, TenantId: ${unit.tenantId}');
+    
+    // Send notification to tenant about new bill
+    try {
+      AppLogger.info('Attempting to send notification for bill $billId to user ${unit.tenantId}');
+      
+      await NotificationService.notifyNewBill(
+        userId: unit.tenantId!,
+        billId: billId,
+        totalAmount: totalAfterDiscount,
+        dueDate: dueDate,
+      );
+      
+      AppLogger.info('✅ New bill notification sent successfully to user ${unit.tenantId}');
+    } catch (e, stackTrace) {
+      AppLogger.error('❌ Failed to send new bill notification: $e');
+      AppLogger.error('Stack trace: $stackTrace');
+      // Don't throw - bill creation should succeed even if notification fails
+    }
 
     // Update unit's last readings
     await firestore

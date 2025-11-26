@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'firebase_options.dart';
 import 'src/core/repositories/auth_repository.dart';
 import 'src/core/utils/app_logger.dart';
+import 'src/core/services/fcm_service.dart';
 
 //Entry point of the app
 
@@ -45,6 +46,11 @@ Future<void> main() async {
     ignoreSsl: false, // Set to true to ignore SSL cert verification (not recommended)
   );
   AppLogger.info('FlutterDownloader initialized successfully');
+  
+  // Initialize Firebase Cloud Messaging
+  AppLogger.info('Initializing Firebase Cloud Messaging...');
+  await FCMService.initialize();
+  AppLogger.info('FCM initialized successfully');
 
   // Initialize screen util for responsive design
   await ScreenUtil.ensureScreenSize();

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../repositories/auth_repository.dart';
 import '../../features/auth/data/models/user_model.dart';
+import '../services/notification_service.dart';
 
 enum TenantStatus { all, active, pending, suspended }
 
@@ -71,6 +72,21 @@ class TenantListNotifier extends StateNotifier<AsyncValue<List<UserModel>>> {
       // Perform backend update
       await AuthRepository.instance.approvePendingUser(email);
       
+      // Send approval notification to tenant
+      try {
+        final approvedTenant = updatedTenants.firstWhere((t) => t.email == email);
+        if (approvedTenant.id != null) {
+          await NotificationService.notifyApplicationStatus(
+            userId: approvedTenant.id!,
+            isApproved: true,
+            rejectionReason: null,
+          );
+        }
+      } catch (e) {
+        // Don't fail the approval if notification fails
+        print('Failed to send approval notification: $e');
+      }
+      
       // Refresh from backend to ensure consistency
       await fetchTenants();
     } catch (e) {
@@ -119,6 +135,23 @@ class TenantListNotifier extends StateNotifier<AsyncValue<List<UserModel>>> {
 
       // Perform backend update
       await AuthRepository.instance.updateUserStatus(email, newStatus, reason: reason);
+      
+      // Send notification to tenant about status change
+      if (newStatus == 'rejected') {
+        try {
+          final rejectedTenant = updatedTenants.firstWhere((t) => t.email == email);
+          if (rejectedTenant.id != null) {
+            await NotificationService.notifyApplicationStatus(
+              userId: rejectedTenant.id!,
+              isApproved: false,
+              rejectionReason: reason,
+            );
+          }
+        } catch (e) {
+          // Don't fail the status update if notification fails
+          print('Failed to send rejection notification: $e');
+        }
+      }
       
       // Refresh from backend to ensure consistency
       await fetchTenants();

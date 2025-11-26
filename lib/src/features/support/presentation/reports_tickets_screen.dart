@@ -52,7 +52,7 @@ class _ReportsTicketsScreenState extends ConsumerState<ReportsTicketsScreen> wit
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Reports & Tickets',
+          'Submit an Issue',
           style: context.textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.bold,
             fontFamily: 'Montserrat',

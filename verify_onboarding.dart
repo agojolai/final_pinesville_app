@@ -45,7 +45,7 @@ void main() {
     {
       'title': 'Manage Your Profile',
       'icon': 'user',
-      'description': 'Keep your account information updated and manage multiple occupants for your unit.',
+      'description': 'Manage and keep your account information updated.',
     },
   ];
 

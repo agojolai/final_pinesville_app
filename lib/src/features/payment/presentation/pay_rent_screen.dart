@@ -1164,7 +1164,8 @@ class _PaymentTypeSelector extends StatelessWidget {
                 ),
               ),
               SizedBox(width: AppConstants.spacingSM),
-             /* Expanded(
+
+        /*     Expanded(
                 child: _PaymentTypeOption(
                   label: 'Partial Payment',
                   subtitle: 'Pay specific items',
@@ -1174,7 +1175,7 @@ class _PaymentTypeSelector extends StatelessWidget {
                 ),
               ),*/
             ],
-          ),
+          )
         ],
       ),
     );

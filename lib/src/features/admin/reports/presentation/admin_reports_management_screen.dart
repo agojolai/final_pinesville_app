@@ -67,7 +67,7 @@ class _AdminReportsManagementScreenState extends State<AdminReportsManagementScr
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Reports & Ticketing',
+          'Tickets',
           style: context.textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.bold,
             fontFamily: 'Montserrat',

@@ -8,6 +8,7 @@ import '../exceptions/format_exceptions.dart' as custom_format;
 import '../exceptions/platform_exceptions.dart' as custom_platform;
 import '../../features/auth/data/models/user_model.dart';
 import '../utils/app_logger.dart';
+import '../services/fcm_service.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepository.instance;
@@ -239,6 +240,13 @@ class AuthRepository {
         throw 'Your application is still pending approval. Please wait for administrator confirmation.';
       }
       
+      if (userStatus == 'rejected') {
+        AppLogger.debug('🚫 LOGIN BLOCKED: Account rejected');
+        // User account was rejected - sign out and throw error
+        await _auth.signOut();
+        throw 'Your application was not approved. Please contact support for more information.';
+      }
+      
       if (userStatus == 'suspended' || userStatus == 'terminated') {
         AppLogger.debug('🚫 LOGIN BLOCKED: Account $userStatus');
         // User account is suspended or terminated - sign out and throw error
@@ -248,6 +256,14 @@ class AuthRepository {
       
       AppLogger.debug('✅ LOGIN SUCCESSFUL: User authenticated and authorized');
       AppLogger.debug('   └─ Auth state change will trigger provider updates');
+      
+      // Store FCM token in Firestore
+      try {
+        await FCMService.saveTokenToFirestore(userCredential.user!.uid);
+      } catch (e) {
+        AppLogger.warning('⚠️ Failed to save FCM token: $e');
+        // Don't throw - login should still succeed even if FCM token fails
+      }
       
       // User is active - return the credentials
       return userCredential;

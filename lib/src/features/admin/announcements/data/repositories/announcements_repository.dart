@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/template_model.dart';
 import '../models/property_model.dart';
+import '../../../../../core/services/notification_service.dart';
+import '../../../../../core/utils/app_logger.dart';
 
 class AnnouncementsRepository {
   final FirebaseFirestore _firestore;
@@ -87,6 +89,39 @@ class AnnouncementsRepository {
       'timestamp': FieldValue.serverTimestamp(),
       'status': 'sent',
     });
+    
+    // Send push notifications to recipients
+    try {
+      if (recipients.contains('all')) {
+        // Send to all tenants
+        await NotificationService.sendAnnouncement(
+          title: title,
+          message: message,
+        );
+      } else {
+        // Send to specific property or individual users
+        for (final recipient in recipients) {
+          if (recipient.startsWith('property_')) {
+            // Property-specific announcement
+            final propertyId = recipient.replaceFirst('property_', '');
+            await NotificationService.sendAnnouncement(
+              propertyId: propertyId,
+              title: title,
+              message: message,
+            );
+          } else {
+            // Individual user announcement
+            await NotificationService.sendAnnouncement(
+              userId: recipient,
+              title: title,
+              message: message,
+            );
+          }
+        }
+      }
+    } catch (e) {
+      AppLogger.error('Failed to send announcement notifications: $e');
+    }
   }
 
   /// Update an existing announcement

@@ -127,6 +127,24 @@
 			"command": "flutter analyze",
 			"isBackground": false,
 			"group": "build"
+		},
+		{
+			"label": "Analyze Code",
+			"type": "shell",
+			"command": "flutter analyze",
+			"group": "build"
+		},
+		{
+			"label": "Analyze Code",
+			"type": "shell",
+			"command": "flutter analyze",
+			"group": "build"
+		},
+		{
+			"label": "Analyze Code",
+			"type": "shell",
+			"command": "flutter analyze",
+			"group": "build"
 		}
 	]
 }

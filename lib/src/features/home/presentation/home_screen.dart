@@ -178,23 +178,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         toolbarHeight: AppConstants.appBarHeight,
         elevation: 0,
         backgroundColor: context.colorScheme.surface,
-        actions: [
-          Padding(
-            padding: EdgeInsets.only(right: AppConstants.spacingSM),
-            child: IconButton(
-              icon: Icon(Iconsax.notification_bing, color: context.colorScheme.primary),
-              tooltip: 'Notifications',
-              onPressed: () {
-          // TODO: Implement notification screen navigation
-          Loaders.infoSnackBar(
-            context,
-            title: 'Coming Soon',
-            message: 'Notifications feature is coming soon!',
-          );
-              },
-            ),
-          ),
-        ],
+  
       ),
       body: FadeTransition(
         opacity: _fadeAnimation,
