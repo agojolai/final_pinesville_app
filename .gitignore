@@ -2,7 +2,6 @@
 .build/
 .dart_tool/
 .packages
-pubspec.lock
 
 # Firebase Functions
 functions/node_modules/
