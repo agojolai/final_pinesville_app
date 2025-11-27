@@ -26,7 +26,7 @@ https://github.com/user-attachments/assets/9523f71b-73ef-4f7c-b919-8c148fc1aa73
 - Quick access to essential services
 
 ### 💳 **Payment Management**
-- Multiple payment methods (GCash, BDO, GoTyme Cash)
+- Multiple payment methods (GCash, BDO, GoTyme, Cash)
 - QR code payments with secure transaction processing
 - Upload proof of payment with image capture
 - View detailed billing statements with utility breakdown

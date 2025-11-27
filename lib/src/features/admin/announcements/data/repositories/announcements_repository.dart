@@ -78,49 +78,108 @@ class AnnouncementsRepository {
     required String message,
     required List<String> recipients,
   }) async {
-    await _firestore
-        .collection('announcements')
-        .doc('announcements_main')
-        .collection('messages')
-        .add({
-      'title': title,
-      'message': message,
-      'recipients': recipients,
-      'timestamp': FieldValue.serverTimestamp(),
-      'status': 'sent',
-    });
-    
-    // Send push notifications to recipients
     try {
+      // Create announcement document
+      final announcementRef = await _firestore
+          .collection('announcements')
+          .doc('announcements_main')
+          .collection('messages')
+          .add({
+        'title': title,
+        'message': message,
+        'recipients': recipients,
+        'timestamp': FieldValue.serverTimestamp(),
+        'status': 'sent',
+      });
+      
+      final announcementId = announcementRef.id;
+      
+      AppLogger.info('📢 Created announcement: $announcementId with recipients: $recipients');
+      
+      // Send push notifications to recipients
       if (recipients.contains('all')) {
         // Send to all tenants
-        await NotificationService.sendAnnouncement(
-          title: title,
-          message: message,
-        );
-      } else {
-        // Send to specific property or individual users
-        for (final recipient in recipients) {
-          if (recipient.startsWith('property_')) {
-            // Property-specific announcement
-            final propertyId = recipient.replaceFirst('property_', '');
-            await NotificationService.sendAnnouncement(
-              propertyId: propertyId,
+        final usersSnapshot = await _firestore.collection('Users').get();
+        
+        AppLogger.info('📢 Sending to all users: ${usersSnapshot.docs.length} users found');
+        
+        int notificationsSent = 0;
+        for (final userDoc in usersSnapshot.docs) {
+          try {
+            await NotificationService.notifyPropertyAnnouncement(
+              userId: userDoc.id,
+              announcementId: announcementId,
               title: title,
               message: message,
             );
-          } else {
-            // Individual user announcement
-            await NotificationService.sendAnnouncement(
-              userId: recipient,
-              title: title,
-              message: message,
-            );
+            notificationsSent++;
+          } catch (e) {
+            AppLogger.error('📢 Failed to send notification to user ${userDoc.id}: $e');
           }
         }
+        
+        AppLogger.info('📢 Sent announcement notifications to all tenants ($notificationsSent users)');
+      } else {
+        // Send to specific property or individual users
+        int notificationsSent = 0;
+        
+        for (final recipient in recipients) {
+          if (recipient != 'all' && !recipient.contains('@')) {
+            // Property-specific announcement - send to all tenants in that property
+            final propertyName = recipient;
+            
+            AppLogger.info('📢 Querying users for property: $propertyName');
+            
+            // Get all users and filter by propertyName in nested structure
+            final usersSnapshot = await _firestore.collection('Users').get();
+            
+            for (final userDoc in usersSnapshot.docs) {
+              try {
+                final userData = userDoc.data();
+                
+                // Check nested property.propertyName structure
+                final userPropertyName = userData['property']?['propertyName'];
+                
+                AppLogger.info('📢 User ${userDoc.id} has propertyName: $userPropertyName');
+                
+                if (userPropertyName == propertyName) {
+                  await NotificationService.notifyPropertyAnnouncement(
+                    userId: userDoc.id,
+                    announcementId: announcementId,
+                    title: title,
+                    message: message,
+                  );
+                  notificationsSent++;
+                  AppLogger.info('📢 Sent notification to user ${userDoc.id} in property $propertyName');
+                }
+              } catch (e) {
+                AppLogger.error('📢 Error processing user ${userDoc.id}: $e');
+              }
+            }
+            
+            AppLogger.info('📢 Sent announcement to property $propertyName ($notificationsSent users)');
+          } else {
+            // Individual user announcement
+            try {
+              await NotificationService.notifyPropertyAnnouncement(
+                userId: recipient,
+                announcementId: announcementId,
+                title: title,
+                message: message,
+              );
+              notificationsSent++;
+              AppLogger.info('📢 Sent notification to individual user $recipient');
+            } catch (e) {
+              AppLogger.error('📢 Failed to send notification to user $recipient: $e');
+            }
+          }
+        }
+        
+        AppLogger.info('📢 Total announcement notifications sent: $notificationsSent');
       }
     } catch (e) {
-      AppLogger.error('Failed to send announcement notifications: $e');
+      AppLogger.error('📢 Failed to create announcement: $e');
+      rethrow;
     }
   }
 

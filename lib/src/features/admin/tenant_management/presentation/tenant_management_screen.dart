@@ -7,6 +7,7 @@ import '../../../../theme/theme_extensions.dart';
 import '../../../../core/snackbars/loaders.dart';
 import '../../../../core/providers/tenant_provider.dart';
 import '../../../auth/data/models/user_model.dart';
+import '../../lease_management/presentation/update_lease_info_dialog.dart';
 
 class TenantManagementScreen extends ConsumerStatefulWidget {
   const TenantManagementScreen({
@@ -914,6 +915,23 @@ class _TenantManagementScreenState extends ConsumerState<TenantManagementScreen>
                     title: 'Coming Soon',
                     message: 'Message feature will be available soon.',
                   );
+                },
+              ),
+              _ActionTile(
+                icon: Iconsax.document_text,
+                title: 'Update Lease Information',
+                onTap: () async {
+                  Navigator.pop(context);
+                  final result = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => UpdateLeaseInfoDialog(
+                      tenant: tenant,
+                    ),
+                  );
+                  if (result == true) {
+                    // Refresh tenant list after successful update
+                    _refreshTenants();
+                  }
                 },
               ),
               if (tenant.status == 'active')

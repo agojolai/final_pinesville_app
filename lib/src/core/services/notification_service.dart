@@ -204,6 +204,76 @@ class NotificationService {
       AppLogger.error('Error sending admin chat notification: $e');
     }
   }
+
+  /// 9. Notify tenant about lease renewal (2 months before)
+  /// Use Case: First reminder to make lease decision
+  static Future<void> notifyLeaseRenewalTwoMonths({
+    required String userId,
+    required DateTime leaseEndDate,
+  }) async {
+    try {
+      final formattedDate = '${leaseEndDate.month}/${leaseEndDate.day}/${leaseEndDate.year}';
+      
+      await _createNotificationDocument(
+        userId: userId,
+        title: 'Lease Ending Soon 🏠',
+        body: 'Your lease ends on $formattedDate (2 months). Please submit your renewal or move-out decision.',
+        screen: '/profile/lease-decision',
+        type: 'lease_renewal_reminder',
+      );
+      
+      AppLogger.info('Sent 2-month lease renewal reminder to user $userId');
+    } catch (e) {
+      AppLogger.error('Error sending 2-month lease reminder: $e');
+    }
+  }
+
+  /// 10. Notify tenant about lease renewal (1 month before)
+  /// Use Case: Final reminder to make lease decision
+  static Future<void> notifyLeaseRenewalOneMonth({
+    required String userId,
+    required DateTime leaseEndDate,
+  }) async {
+    try {
+      final formattedDate = '${leaseEndDate.month}/${leaseEndDate.day}/${leaseEndDate.year}';
+      
+      await _createNotificationDocument(
+        userId: userId,
+        title: 'Urgent: Lease Ending ⚠️',
+        body: 'Your lease ends on $formattedDate (1 month). Submit your decision now to avoid issues.',
+        screen: '/profile/lease-decision',
+        type: 'lease_renewal_urgent',
+      );
+      
+      AppLogger.info('Sent 1-month lease renewal reminder to user $userId');
+    } catch (e) {
+      AppLogger.error('Error sending 1-month lease reminder: $e');
+    }
+  }
+
+  /// 11. Notify tenant about new property announcement
+  /// Use Case: Admin creates announcement for tenant's property
+  static Future<void> notifyPropertyAnnouncement({
+    required String userId,
+    required String announcementId,
+    required String title,
+    required String message,
+  }) async {
+    try {
+      await _createNotificationDocument(
+        userId: userId,
+        title: '📢 Announcement: $title',
+        body: message,
+        screen: '/home',
+        type: 'property_announcement',
+        data: {'announcementId': announcementId},
+      );
+      
+      AppLogger.info('Sent announcement notification to user $userId');
+    } catch (e) {
+      AppLogger.error('Error sending announcement notification: $e');
+    }
+  }
   
   // ============ ADMIN NOTIFICATIONS ============
   
@@ -305,6 +375,7 @@ class NotificationService {
     required String body,
     required String screen,
     required String type,
+    Map<String, dynamic>? data,
   }) async {
     AppLogger.info('📝 _createNotificationDocument called for userId: $userId, type: $type');
     
@@ -317,6 +388,7 @@ class NotificationService {
         'type': type,
         'read': false,
         'createdAt': FieldValue.serverTimestamp(),
+        if (data != null) 'data': data,
       };
       
       AppLogger.info('📝 Writing to Firestore Notifications collection...');

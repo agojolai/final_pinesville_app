@@ -156,10 +156,10 @@ class _ReportsTicketsScreenState extends ConsumerState<ReportsTicketsScreen> wit
         icon: Icon(Iconsax.add),
         label: Text(
           'Submit Report',
-          style: TextStyle(
-            fontFamily: 'Montserrat',
-            fontWeight: FontWeight.w600,
-          ),
+                    style: context.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      fontFamily: 'Montserrat',
+                    ),
         ),
       ),
     );

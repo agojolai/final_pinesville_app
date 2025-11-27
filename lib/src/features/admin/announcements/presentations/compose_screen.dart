@@ -226,7 +226,7 @@ Future<void> showComposeAnnouncementDialog(
                       ),
                       data: (properties) {
                         // Build recipients list
-                        final recipients = <String>['Everyone'];
+                        final recipients = <String>['all'];
                         for (var property in properties) {
                           recipients.add(property.name);
                         }
