@@ -4,6 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:dio/dio.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:open_filex/open_filex.dart';
+import 'dart:io';
 import '../../../theme/app_constants.dart';
 import '../../../theme/theme_extensions.dart';
 import 'package:iconsax/iconsax.dart';
@@ -11,6 +15,7 @@ import '../../../core/snackbars/loaders.dart';
 import '../../../core/widgets/eviction_warning_dialog.dart';
 import 'account_settings_screen.dart';
 import 'change_password_screen.dart';
+import 'lease_decision_screen.dart';
 import '../../support/presentation/reports_tickets_screen.dart';
 import '../../auth/presentation/login_screen.dart';
 import '../../onboarding/presentation/onboarding_test_screen.dart';
@@ -457,6 +462,136 @@ class _QuickInfoRow extends StatelessWidget {
 class _ProfileSections extends StatelessWidget {
   const _ProfileSections();
 
+
+//TODO: NEED TO BE IN THE PROVIDER LATER  BECAUSE FETCHED IN REPOSITORY DIRECTLY (?)
+
+  Future<void> _downloadContract(BuildContext context) async {
+    try {
+      // Show loading dialog
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => Center(
+            child: CircularProgressIndicator(),
+          ),
+        );
+      }
+
+      // Fetch lease document from repository
+      final leaseData = await UserRepository.instance.fetchUserContract();
+
+      if (leaseData == null) {
+        if (context.mounted) {
+          Navigator.of(context).pop(); // Close loading
+          Loaders.warningSnackBar(
+            context,
+            title: 'No Contract Found',
+            message: 'You don\'t have a contract document yet. Please contact admin.',
+          );
+        }
+        return;
+      }
+
+      final pdfUrl = leaseData['pdfDocumentUrl'] as String?;
+      final pdfName = leaseData['pdfDocumentName'] as String? ?? 'contract.pdf';
+
+      if (pdfUrl == null || pdfUrl.isEmpty) {
+        if (context.mounted) {
+          Navigator.of(context).pop(); // Close loading
+          Loaders.warningSnackBar(
+            context,
+            title: 'Contract Not Available',
+            message: 'Contract document URL is not available.',
+          );
+        }
+        return;
+      }
+
+      // Get downloads directory
+      Directory? directory;
+      if (Platform.isAndroid) {
+        directory = Directory('/storage/emulated/0/Download');
+        if (!await directory.exists()) {
+          directory = await getExternalStorageDirectory();
+        }
+      } else {
+        directory = await getApplicationDocumentsDirectory();
+      }
+
+      if (directory == null) {
+        throw Exception('Could not access storage directory');
+      }
+
+      // Create unique filename to avoid overwriting
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final fileName = pdfName.replaceAll('.pdf', '') + '_$timestamp.pdf';
+      final savePath = '${directory.path}/$fileName';
+
+      // Download file using Dio
+      final dio = Dio();
+      await dio.download(pdfUrl, savePath);
+
+      if (context.mounted) {
+        Navigator.of(context).pop(); // Close loading
+
+        // Show success with option to open
+        final shouldOpen = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Row(
+              children: [
+                Text(
+                  'Download Completed',
+                  style: TextStyle(fontFamily: 'Montserrat', 
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold),
+                ),
+      
+              ],
+            ),
+            content: Text(
+              'Contract saved to Downloads folder.\n\nWould you like to open it now?',
+              style: TextStyle(fontFamily: 'Montserrat'),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: Text('Later'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: Text('Open'),
+              ),
+            ],
+          ),
+        );
+
+        if (shouldOpen == true) {
+          final result = await OpenFilex.open(savePath);
+          if (result.type != ResultType.done && context.mounted) {
+            Loaders.errorSnackBar(
+              context,
+              title: 'Cannot Open File',
+              message: 'Please open the file manually from your Downloads folder.',
+            );
+          }
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        // Close loading dialog if still open
+        Navigator.of(context).pop();
+        
+        Loaders.errorSnackBar(
+          context,
+          title: 'Download Failed',
+          message: e.toString(),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -502,13 +637,20 @@ class _ProfileSections extends StatelessWidget {
                 icon: Iconsax.document_text,
                 title: 'My Contract',
                 subtitle: 'Download your contract',
-                onTap: () => _showComingSoon(context), // TODO: download dapat to
+                onTap: () => _downloadContract(context),
               ),
               _ProfileMenuItem(
                 icon: Iconsax.refresh,
                 title: 'Renew / Move-out',
                 subtitle: 'Contract renewal options',
-                onTap: () => _showComingSoon(context),
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const LeaseDecisionScreen(),
+                    ),
+                  );
+                },
               ),
             ],
           ),
@@ -552,21 +694,10 @@ class _ProfileSections extends StatelessWidget {
     );
   }
 
-  void _showComingSoon(BuildContext context) {
-    HapticFeedback.lightImpact();
-    Loaders.infoSnackBar(
-      context,
-      title: 'Coming Soon',
-      message: 'This feature will be available in a future update.',
-    );
-  }
-
-  void _showAboutDialog(BuildContext context) async {
+  Future<void> _showAboutDialog(BuildContext context) async {
     // Get package info
     final packageInfo = await PackageInfo.fromPlatform();
-    
     if (!context.mounted) return;
-    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -585,9 +716,9 @@ class _ProfileSections extends StatelessWidget {
             SizedBox(height: AppConstants.spacingSM),
             Text('Build Number: ${packageInfo.buildNumber}'),
             SizedBox(height: AppConstants.spacingSM),
-            Text('Developer: Pinesville Management'),
+            Text('Developer: Agojo Lai'),
             SizedBox(height: AppConstants.spacingSM),
-            Text('© 2025 SilcoTech. All rights reserved.'),
+            Text('© 2025 Pinesville Management. All rights reserved.'),
           ],
         ),
         actions: [

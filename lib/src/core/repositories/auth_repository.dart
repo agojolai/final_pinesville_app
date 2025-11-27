@@ -42,56 +42,132 @@ class AuthRepository {
   }
 
   /*-----------------------APPROVE PENDING USER------------------------*/
-  /// Changes a user's account status from pending to active
+  //CHANGES ACCOUNT STATUS FROM PENDING TO ACTIVE
   Future<void> approvePendingUser(String email) async {
-    try {
-      // Validate email format first to avoid unnecessary Firebase calls
-      if (email.isEmpty || !email.contains('@')) {
-        throw 'Invalid email address provided.';
-      }
-
-      // Find the user in the Users collection by email
-      final userSnapshot = await firebaseStore
-          .collection('Users')
-          .where('profile.email', isEqualTo: email)
-          .limit(1)
-          .get();
-
-      if (userSnapshot.docs.isEmpty) {
-        throw 'User not found with the provided email address.';
-      }
-
-      final userDoc = userSnapshot.docs.first;
-      final userData = userDoc.data();
-      final currentStatus = userData['account']?['status'];
-
-      // Check current status
-      if (currentStatus != 'pending') {
-        throw 'User account is not in pending status. Current status: $currentStatus';
-      }
-
-      // Update the user's account status to active with timestamp
-      await firebaseStore.collection('Users').doc(userDoc.id).update({
-        'account.status': 'active',
-        'account.approvedAt': DateTime.now().toIso8601String(),
-        'account.updatedAt': DateTime.now().toIso8601String(),
-      });
-      
-    } on custom_format.FormatException catch (_) {
-      throw const custom_format.FormatException();
-    } on custom_platform.PlatformException catch (e) {
-      throw custom_platform.PlatformException(e.code).message;
-    } on FirebaseException catch (e) {
-      throw custom_firebase.FirebaseException(e.code.toString()).message;
-    } catch (e) {
-      if (e.toString().contains('User not found') ||
-          e.toString().contains('not in pending status') ||
-          e.toString().contains('Invalid email')) {
-        rethrow; // Re-throw our custom messages
-      }
-      throw 'Failed to approve user. Please try again.';
+  try {
+    // 1. Validation
+    if (email.isEmpty || !email.contains('@')) {
+      throw 'Invalid email address provided.';
     }
+
+    // 2. Find User
+    final userSnapshot = await firebaseStore
+        .collection('Users')
+        .where('profile.email', isEqualTo: email)
+        .limit(1)
+        .get();
+
+    if (userSnapshot.docs.isEmpty) {
+      throw 'User not found with the provided email address.';
+    }
+
+    final userDoc = userSnapshot.docs.first;
+    final userData = userDoc.data();
+    final currentStatus = userData['account']?['status'];
+
+    if (currentStatus != 'pending') {
+      throw 'User account is not in pending status. Current status: $currentStatus';
+    }
+
+    // --- START OF NEW LOGIC ---
+
+    // 3. Start a Batch (Allows updating User and Unit together)
+    final batch = firebaseStore.batch();
+
+    // 4. Queue the User Account Update
+    batch.update(userDoc.reference, {
+      'account.status': 'active',
+      'account.approvedAt': DateTime.now().toIso8601String(),
+      'account.updatedAt': DateTime.now().toIso8601String(),
+    });
+
+    // 5. Find and Queue the Unit Update (The "Silent" Try/Catch)
+    try {
+      final propertyMap = (userData['property'] as Map<String, dynamic>?) ?? {};
+      final propertyId = (propertyMap['propertyId'] ?? '').toString();
+      final propertyName = (propertyMap['propertyName'] ?? '').toString();
+      final unitId = (propertyMap['unitId'] ?? propertyMap['unitNumber'] ?? '').toString();
+
+      DocumentReference? unitRef;
+
+      // Logic A: Search by Property ID
+      if (propertyId.isNotEmpty) {
+        final unitsCol = firebaseStore.collection('Property').doc(propertyId).collection('Units');
+        final unitQuery = await unitsCol.where('unitNumber', isEqualTo: unitId).limit(1).get();
+        if (unitQuery.docs.isNotEmpty) unitRef = unitQuery.docs.first.reference;
+      } 
+      // Logic B: Search by Property Name (Fallback)
+      else if (propertyName.isNotEmpty) {
+        var propQuery = await firebaseStore
+            .collection('Property')
+            .where('propertyName', isEqualTo: propertyName)
+            .limit(1)
+            .get();
+        
+        // Handle inconsistent schema (propertyName inside details)
+        if (propQuery.docs.isEmpty) {
+          propQuery = await firebaseStore
+              .collection('Property')
+              .where('details.propertyName', isEqualTo: propertyName)
+              .limit(1)
+              .get();
+        }
+
+        if (propQuery.docs.isNotEmpty) {
+          final propDoc = propQuery.docs.first;
+          final unitQuery = await propDoc.reference
+              .collection('Units')
+              .where('unitNumber', isEqualTo: unitId)
+              .limit(1)
+              .get();
+          if (unitQuery.docs.isNotEmpty) {
+            unitRef = unitQuery.docs.first.reference;
+          }
+        }
+      }
+
+      // If we found the unit, queue the update in the batch
+      if (unitRef != null) {
+        // Construct Tenant Name
+        final profile = (userData['profile'] as Map<String, dynamic>?) ?? {};
+        final firstName = (profile['firstName'] ?? '').toString();
+        final lastName = (profile['lastName'] ?? '').toString();
+        final tenantName = '$firstName $lastName'.trim();
+
+        // Queue Unit Update
+        batch.update(unitRef, {
+          'rental.status': 'occupied',
+          'rental.tenantId': userDoc.id, // The ID of the user we found
+          'rental.tenantName': tenantName,
+          'updatedAt': DateTime.now().toIso8601String(),
+          // Add lease info if needed, similar to your previous code:
+          // 'lease.currentTenantId': userDoc.id, 
+        });
+      }
+    } catch (e) {
+      // If finding/updating the unit fails (e.g. unit doesn't exist),
+      // we catch it here so the function continues and at least approves the User.
+      print('Unit association failed: $e');
+    }
+
+    // 6. Commit all changes (User + Unit)
+    await batch.commit();
+
+  } on custom_format.FormatException catch (_) {
+    throw const custom_format.FormatException();
+  } on custom_platform.PlatformException catch (e) {
+    throw custom_platform.PlatformException(e.code).message;
+  } on FirebaseException catch (e) {
+    throw custom_firebase.FirebaseException(e.code.toString()).message;
+  } catch (e) {
+    if (e.toString().contains('User not found') ||
+        e.toString().contains('not in pending status') ||
+        e.toString().contains('Invalid email')) {
+      rethrow;
+    }
+    throw 'Failed to approve user. Please try again.';
   }
+}
 
 
   Future<List<UserModel>> getAllUsers() async {

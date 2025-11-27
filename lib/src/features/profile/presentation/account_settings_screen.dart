@@ -167,16 +167,21 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> w
             label: 'Email Address',
             value: userModel.email,
             controller: _emailController,
-            isEditing: _isEditingEmail,
+            isEditing: false, // _isEditingEmail, pag gusto maedit
             validator: Validators.validateEmail,
-            onEdit: () => setState(() => _isEditingEmail = true),
+
+            /*            onEdit: () => setState(() => _isEditingEmail = true),
             onSave: () => _saveEmail(userModel),
             onCancel: () {
               setState(() {
                 _isEditingEmail = false;
                 _emailController.text = userModel.email;
               });
-            },
+            }, */
+            // remove this and ipalit yung nasa taas to edit email
+            onEdit: null,
+            onSave: null,
+            onCancel: null,
           ),
           
           SizedBox(height: AppConstants.spacingLG),
@@ -1138,9 +1143,9 @@ class _ContactField extends StatelessWidget {
   final bool isEditing;
   final String? Function(String?)? validator;
   final TextInputType? keyboardType;
-  final VoidCallback onEdit;
-  final VoidCallback onSave;
-  final VoidCallback onCancel;
+  final VoidCallback? onEdit;
+  final VoidCallback? onSave;
+  final VoidCallback? onCancel;
 
   const _ContactField({
     required this.icon,
@@ -1149,9 +1154,9 @@ class _ContactField extends StatelessWidget {
     required this.controller,
     required this.isEditing,
     required this.validator,
-    required this.onEdit,
-    required this.onSave,
-    required this.onCancel,
+    this.onEdit,
+    this.onSave,
+    this.onCancel,
     this.keyboardType,
   });
 
@@ -1243,15 +1248,16 @@ class _ContactField extends StatelessWidget {
                     ),
                   ),
                 ),
-                IconButton(
-                  onPressed: onEdit,
-                  icon: Icon(
-                    Iconsax.edit,
-                    color: context.colorScheme.primary,
-                    size: 20,
+                if (onEdit != null)
+                  IconButton(
+                    onPressed: onEdit,
+                    icon: Icon(
+                      Iconsax.edit,
+                      color: context.colorScheme.primary,
+                      size: 20,
+                    ),
+                    tooltip: 'Edit $label',
                   ),
-                  tooltip: 'Edit $label',
-                ),
               ],
             ),
           ],

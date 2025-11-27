@@ -276,6 +276,7 @@ class _AdminWelcomeSection extends StatelessWidget {
             fontWeight: FontWeight.bold,
             fontFamily: 'Montserrat',
           ),
+          textAlign: TextAlign.center,
         ),
         
         SizedBox(height: AppConstants.spacingSM),

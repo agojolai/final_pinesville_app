@@ -13,6 +13,7 @@ exports.send_notification_to_user = onDocumentCreated('Notifications/{notificati
     const body = notification.body;
     const screen = notification.screen || '/home';
     const type = notification.type || 'general';
+    const notificationData = notification.data || {}; // Get optional data field
 
     console.log('Processing notification for user: ' + userId);
 
@@ -32,18 +33,27 @@ exports.send_notification_to_user = onDocumentCreated('Notifications/{notificati
       return null;
     }
 
-    // Create FCM message
+    // Create FCM message with merged data
+    const fcmData = {
+      screen: screen,
+      type: type,
+      userId: userId,
+      ...notificationData, // Merge additional data (e.g., announcementId)
+    };
+    
+    // Convert all data values to strings (FCM requirement)
+    const stringifiedData = {};
+    for (const [key, value] of Object.entries(fcmData)) {
+      stringifiedData[key] = String(value);
+    }
+
     const message = {
       token: fcmToken,
       notification: {
         title: title,
         body: body,
       },
-      data: {
-        screen: screen,
-        type: type,
-        userId: userId,
-      },
+      data: stringifiedData,
       android: {
         priority: 'high',
         notification: {
@@ -355,3 +365,201 @@ exports.send_daily_late_fee_notifications = onSchedule({
     return null;
   }
 });
+
+// Scheduled function: Daily lease renewal reminders (8:00 AM Manila time)
+exports.send_lease_renewal_reminders = onSchedule({
+  schedule: '0 8 * * *',
+  timeZone: 'Asia/Manila',
+}, async (event) => {
+  try {
+    console.log('========================================');
+    console.log('Starting lease renewal reminder check...');
+    console.log('========================================');
+    
+    const now = new Date();
+    
+    // Send 2-month reminders
+    const twoMonthCount = await sendTwoMonthLeaseReminders(now);
+    
+    // Send 1-month reminders
+    const oneMonthCount = await sendOneMonthLeaseReminders(now);
+    
+    console.log('========================================');
+    console.log('Lease renewal reminder check complete.');
+    console.log('2-month reminders: ' + twoMonthCount);
+    console.log('1-month reminders: ' + oneMonthCount);
+    console.log('Total: ' + (twoMonthCount + oneMonthCount));
+    console.log('========================================');
+    
+    return null;
+  } catch (error) {
+    console.error('Error in scheduled lease renewal reminders: ' + error);
+    return null;
+  }
+});
+
+// Helper function: Send 2-month lease reminders
+async function sendTwoMonthLeaseReminders(now) {
+  let remindersSent = 0;
+  
+  try {
+    console.log('Checking for leases ending in 2 months...');
+    
+    // Get all users
+    const usersSnapshot = await admin.firestore().collection('Users').get();
+    
+    for (const userDoc of usersSnapshot.docs) {
+      try {
+        const userId = userDoc.id;
+        
+        // Get latest lease from subcollection
+        const leaseSnapshot = await admin.firestore()
+          .collection('Users')
+          .doc(userId)
+          .collection('leases')
+          .orderBy('createdAt', 'desc')
+          .limit(1)
+          .get();
+        
+        if (leaseSnapshot.empty) continue;
+        
+        const leaseData = leaseSnapshot.docs[0].data();
+        const renewalOptions = leaseData.renewalOptions;
+        
+        // Skip if tenant already submitted decision
+        if (renewalOptions !== null && renewalOptions !== undefined) {
+          continue;
+        }
+        
+        // Parse lease end date (supports both String and Timestamp)
+        let leaseEndDate;
+        const endDate = leaseData.leaseEndDate;
+        
+        if (typeof endDate === 'string' && endDate.length > 0) {
+          leaseEndDate = new Date(endDate);
+        } else if (endDate && endDate.toDate) {
+          leaseEndDate = endDate.toDate();
+        }
+        
+        if (!leaseEndDate || isNaN(leaseEndDate.getTime())) {
+          continue;
+        }
+        
+        // Calculate days until expiry
+        const daysUntilExpiry = Math.floor((leaseEndDate - now) / (1000 * 60 * 60 * 24));
+        
+        // Send reminder if 59-61 days (approximately 2 months)
+        if (daysUntilExpiry >= 59 && daysUntilExpiry <= 61) {
+          const month = String(leaseEndDate.getMonth() + 1).padStart(2, '0');
+          const day = String(leaseEndDate.getDate()).padStart(2, '0');
+          const year = leaseEndDate.getFullYear();
+          const formattedDate = month + '/' + day + '/' + year;
+          
+          await admin.firestore().collection('Notifications').add({
+            userId: userId,
+            title: 'Lease Ending Soon 🏠',
+            body: 'Your lease ends on ' + formattedDate + ' (2 months). Please submit your renewal or move-out decision.',
+            screen: '/profile/lease-decision',
+            type: 'lease_renewal_reminder',
+            read: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          
+          remindersSent++;
+          console.log('Sent 2-month reminder to user ' + userId + ' (lease ends ' + formattedDate + ')');
+        }
+      } catch (error) {
+        console.error('Error processing user ' + userDoc.id + ': ' + error);
+      }
+    }
+    
+    console.log('2-month reminder check complete. Sent ' + remindersSent + ' reminders.');
+  } catch (error) {
+    console.error('Error in 2-month lease reminders: ' + error);
+  }
+  
+  return remindersSent;
+}
+
+// Helper function: Send 1-month lease reminders
+async function sendOneMonthLeaseReminders(now) {
+  let remindersSent = 0;
+  
+  try {
+    console.log('Checking for leases ending in 1 month...');
+    
+    // Get all users
+    const usersSnapshot = await admin.firestore().collection('Users').get();
+    
+    for (const userDoc of usersSnapshot.docs) {
+      try {
+        const userId = userDoc.id;
+        
+        // Get latest lease from subcollection
+        const leaseSnapshot = await admin.firestore()
+          .collection('Users')
+          .doc(userId)
+          .collection('leases')
+          .orderBy('createdAt', 'desc')
+          .limit(1)
+          .get();
+        
+        if (leaseSnapshot.empty) continue;
+        
+        const leaseData = leaseSnapshot.docs[0].data();
+        const renewalOptions = leaseData.renewalOptions;
+        
+        // Skip if tenant already submitted decision
+        if (renewalOptions !== null && renewalOptions !== undefined) {
+          continue;
+        }
+        
+        // Parse lease end date (supports both String and Timestamp)
+        let leaseEndDate;
+        const endDate = leaseData.leaseEndDate;
+        
+        if (typeof endDate === 'string' && endDate.length > 0) {
+          leaseEndDate = new Date(endDate);
+        } else if (endDate && endDate.toDate) {
+          leaseEndDate = endDate.toDate();
+        }
+        
+        if (!leaseEndDate || isNaN(leaseEndDate.getTime())) {
+          continue;
+        }
+        
+        // Calculate days until expiry
+        const daysUntilExpiry = Math.floor((leaseEndDate - now) / (1000 * 60 * 60 * 24));
+        
+        // Send reminder if 29-31 days (approximately 1 month)
+        if (daysUntilExpiry >= 29 && daysUntilExpiry <= 31) {
+          const month = String(leaseEndDate.getMonth() + 1).padStart(2, '0');
+          const day = String(leaseEndDate.getDate()).padStart(2, '0');
+          const year = leaseEndDate.getFullYear();
+          const formattedDate = month + '/' + day + '/' + year;
+          
+          await admin.firestore().collection('Notifications').add({
+            userId: userId,
+            title: 'Urgent: Lease Ending ⚠️',
+            body: 'Your lease ends on ' + formattedDate + ' (1 month). Submit your decision now to avoid issues.',
+            screen: '/profile/lease-decision',
+            type: 'lease_renewal_urgent',
+            read: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          
+          remindersSent++;
+          console.log('Sent 1-month reminder to user ' + userId + ' (lease ends ' + formattedDate + ')');
+        }
+      } catch (error) {
+        console.error('Error processing user ' + userDoc.id + ': ' + error);
+      }
+    }
+    
+    console.log('1-month reminder check complete. Sent ' + remindersSent + ' reminders.');
+  } catch (error) {
+    console.error('Error in 1-month lease reminders: ' + error);
+  }
+  
+  return remindersSent;
+}

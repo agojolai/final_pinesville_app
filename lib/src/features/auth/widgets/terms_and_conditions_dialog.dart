@@ -396,9 +396,9 @@ class _TermsAndConditionsDialogState extends State<TermsAndConditionsDialog> {
                     SizedBox(width: AppConstants.spacingXS),
                     Text(
                       'Please scroll to the bottom to continue',
-                      style: context.textTheme.bodySmall?.copyWith(
+                      style: context.textTheme.labelSmall?.copyWith(
                         color: context.colorScheme.onSecondaryContainer,
-                        fontWeight: FontWeight.w600,
+                        //fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
