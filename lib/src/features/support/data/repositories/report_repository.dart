@@ -29,6 +29,7 @@ class ReportRepository {
   /// Submit a new report
   Future<ReportModel> submitReport({
     required String unitNumber,
+    required String propertyName,
     required String category,
     required String subCategory,
     required String description,
@@ -57,6 +58,7 @@ class ReportRepository {
       final report = ReportModel(
         id: reportId,
         unitNumber: unitNumber,
+        propertyName: propertyName,
         category: category,
         subCategory: subCategory,
         description: description,
@@ -370,99 +372,6 @@ class ReportRepository {
       await ref.delete();
     } catch (e) {
       throw Exception('Error deleting attachment: $e');
-    }
-  }
-
-  /// Admin utility: Create sample reports for testing
-  Future<void> createSampleReports() async {
-    try {
-      final currentUser = AuthRepository.instance.authUser;
-      if (currentUser == null) {
-        throw 'User not authenticated';
-      }
-
-      final sampleReports = [
-        ReportModel(
-          id: 'R001',
-          unitNumber: '204-B',
-          category: 'Maintenance / Repairs',
-          subCategory: 'Plumbing (leaks, clogs, water issues)',
-          description: 'Kitchen sink is clogged and water is backing up',
-          status: ReportStatus.inProgress,
-          submittedAt: DateTime.now().subtract(const Duration(days: 2)),
-          tenant: TenantInfo(
-            userId: currentUser.uid,
-            name: currentUser.displayName ?? 'Test User',
-          ),
-          updates: [
-            ReportUpdate(
-              message: 'Report received. Maintenance team has been notified.',
-              timestamp: DateTime.now().subtract(const Duration(days: 2)),
-              isAdmin: true,
-            ),
-            ReportUpdate(
-              message: 'Plumber scheduled for tomorrow morning.',
-              timestamp: DateTime.now().subtract(const Duration(days: 1)),
-              isAdmin: true,
-            ),
-          ],
-        ),
-        ReportModel(
-          id: 'R002',
-          unitNumber: '204-B',
-          category: 'Billing & Payment',
-          subCategory: 'Incorrect billing amount',
-          description: 'Monthly rent charged includes utilities but I handle my own utilities',
-          status: ReportStatus.resolved,
-          submittedAt: DateTime.now().subtract(const Duration(days: 7)),
-          resolvedAt: DateTime.now().subtract(const Duration(days: 3)),
-          tenant: TenantInfo(
-            userId: currentUser.uid,
-            name: currentUser.displayName ?? 'Test User',
-          ),
-          updates: [
-            ReportUpdate(
-              message: 'Report received. Checking billing records.',
-              timestamp: DateTime.now().subtract(const Duration(days: 7)),
-              isAdmin: true,
-            ),
-            ReportUpdate(
-              message: 'Billing has been corrected. Refund of ₱500 will be applied to next month.',
-              timestamp: DateTime.now().subtract(const Duration(days: 3)),
-              isAdmin: true,
-            ),
-          ],
-          feedback: ReportFeedback(
-            rating: 5,
-            comment: 'Quick and professional service!',
-          ),
-        ),
-        ReportModel(
-          id: 'R003',
-          unitNumber: '204-B',
-          category: 'Complaints / Concerns',
-          subCategory: 'Noise disturbance',
-          description: 'Upstairs neighbor playing loud music past midnight on weekdays',
-          status: ReportStatus.pending,
-          submittedAt: DateTime.now().subtract(const Duration(hours: 3)),
-          tenant: TenantInfo(
-            userId: currentUser.uid,
-            name: currentUser.displayName ?? 'Test User',
-          ),
-          updates: [],
-        ),
-      ];
-
-      // Save sample reports to Firestore
-      for (final report in sampleReports) {
-        await _db.collection(_collection)
-            .doc(report.id)
-            .set(report.toJson());
-      }
-
-      AppLogger.info('Sample reports created successfully');
-    } catch (e) {
-      throw Exception('Error creating sample reports: $e');
     }
   }
 
