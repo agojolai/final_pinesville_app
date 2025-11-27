@@ -176,6 +176,7 @@ class _ReceiptCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('MMM dd, yyyy');
+    final monthFormat = DateFormat('MMMM');
     final currencyFormat = NumberFormat.currency(symbol: '₱', decimalDigits: 2);
 
     return Card(
@@ -235,7 +236,7 @@ class _ReceiptCard extends StatelessWidget {
             _InfoRow(label: 'Bill ID', value: bill.billId),
             _InfoRow(
               label: 'Billing Period',
-              value: '${dateFormat.format(bill.billingPeriod.startDate)} - ${dateFormat.format(bill.billingPeriod.endDate)}',
+              value: '${monthFormat.format(bill.billingPeriod.startDate)}',
             ),
             _InfoRow(
               label: 'Paid Date',

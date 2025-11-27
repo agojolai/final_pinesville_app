@@ -720,6 +720,12 @@ class BillingRepository {
     if (unit == null) throw Exception('Unit not found');
     if (unit.tenantId == null) throw Exception('Unit has no tenant');
 
+    // Get property details to fetch property name
+    final propertyDoc = await firestore.collection('Property').doc(propertyId).get();
+    if (!propertyDoc.exists) throw Exception('Property not found');
+    final propertyData = propertyDoc.data()!;
+    final propertyName = propertyData['name'] as String? ?? 'Unknown Property';
+
     // Get property rates
     final rates = await getPropertyRates(propertyId);
     if (rates == null) throw Exception('Property rates not configured');
@@ -818,8 +824,8 @@ class BillingRepository {
       userId: unit.tenantId!,
       userEmail: profile['email'] as String,
       userName: '${profile['firstName'] ?? ''} ${profile['lastName'] ?? ''}'.trim(),
-      unitId: unitId,
-      propertyId: propertyId,
+      unitId: unit.unitNumber, // Use unit number instead of unit ID
+      propertyId: propertyName, // Use property name instead of property ID
       billingPeriod: billingPeriod,
       baseRent: rentAmount,
       rentDescription: 'Monthly rent for Unit ${unit.unitNumber}',
