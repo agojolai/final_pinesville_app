@@ -2,17 +2,19 @@
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
     <channel>
         <title>Pinesville App - Updates</title>
-        <description>Update feed for all Pinesville users</description>
+        <description>Welcome to out app, to continue, please update our app</description>
         <language>en</language>
         <item>
-            <title>Version 1.0.5</title>
+            <title>Version 1.0.7</title>
             <description>
-Users can now receive notifications!!!
+Tenants can now see notification announcements
+Tenants can now download their contract when admin uploads it
+Tenants can now access contract renewal options
             </description>
-            <pubDate>Thu, 21 Nov 2025 12:00:00 +0000</pubDate>
+            <pubDate>Thu, 27 Nov 2025 12:00:00 +0000</pubDate>
             <enclosure 
-                url="https://github.com/agojolai/final_pinesville_app/releases/download/1.0.5/Pinesvillerelease_v1.0.5.apk"
-                sparkle:version="1.0.5"
+                url="https://github.com/agojolai/final_pinesville_app/releases/download/1.0.7/Pinesvillerelease_v1.0.7.apk"
+                sparkle:version="1.0.7"
                 sparkle:os="android" />
         </item>
     </channel>
