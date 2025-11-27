@@ -166,6 +166,7 @@ class ReportSubmissionNotifier extends StateNotifier<ReportSubmissionState> {
       // Submit report
       final report = await _reportRepository.submitReport(
         unitNumber: userModel.unitId,
+        propertyName: userModel.propertyName,
         category: category,
         subCategory: subCategory,
         description: description,

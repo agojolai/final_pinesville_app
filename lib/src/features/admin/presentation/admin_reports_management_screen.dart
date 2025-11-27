@@ -216,21 +216,6 @@ class _AdminReportsManagementScreenState extends State<AdminReportsManagementScr
           SizedBox(height: AppConstants.spacingMD),
           Row(
             children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: _createSampleReports,
-                  icon: Icon(Iconsax.add_circle, size: 18),
-                  label: Text('Create Samples'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: context.colorScheme.primary,
-                    foregroundColor: Colors.white,
-                    padding: EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-              ),
               SizedBox(width: AppConstants.spacingSM),
               Expanded(
                 child: ElevatedButton.icon(
@@ -442,27 +427,6 @@ class _AdminReportsManagementScreenState extends State<AdminReportsManagementScr
     }
   }
 
-  Future<void> _createSampleReports() async {
-    try {
-      await ReportRepository.instance.createSampleReports();
-      if (mounted) {
-        Loaders.successSnackBar(
-          context,
-          title: 'Success',
-          message: 'Sample reports created successfully',
-        );
-      }
-      _loadAllReports();
-    } catch (e) {
-      if (mounted) {
-        Loaders.errorSnackBar(
-          context,
-          title: 'Error',
-          message: 'Failed to create sample reports: ${e.toString()}',
-        );
-      }
-    }
-  }
 
   Future<void> _deleteAllReports() async {
     // Show confirmation dialog

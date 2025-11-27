@@ -26,6 +26,7 @@ enum ReportStatus { pending, inProgress, resolved, closed }
 class ReportModel {
   final String id;
   final String unitNumber;
+  final String propertyName;
   final String category;
   final String subCategory;
   final String description;
@@ -41,6 +42,7 @@ class ReportModel {
   ReportModel({
     required this.id,
     required this.unitNumber,
+    required this.propertyName,
     required this.category,
     required this.subCategory,
     required this.description,
@@ -59,6 +61,7 @@ class ReportModel {
     return {
       'id': id,
       'unitNumber': unitNumber,
+      'propertyName': propertyName,
       'category': category,
       'subCategory': subCategory,
       'description': description,
@@ -84,6 +87,7 @@ class ReportModel {
     return ReportModel(
       id: json['id'] ?? '',
       unitNumber: json['unitNumber'] ?? '',
+      propertyName: json['propertyName'] ?? '' ,
       category: json['category'] ?? '',
       subCategory: json['subCategory'] ?? '',
       description: json['description'] ?? '',
@@ -122,6 +126,7 @@ class ReportModel {
   static ReportModel empty() => ReportModel(
         id: '',
         unitNumber: '',
+        propertyName: '',
         category: '',
         subCategory: '',
         description: '',
@@ -134,6 +139,7 @@ class ReportModel {
   ReportModel copyWith({
     String? id,
     String? unitNumber,
+    String? propertyName,
     String? category,
     String? subCategory,
     String? description,
@@ -149,6 +155,7 @@ class ReportModel {
     return ReportModel(
       id: id ?? this.id,
       unitNumber: unitNumber ?? this.unitNumber,
+      propertyName: propertyName ?? this.propertyName,
       category: category ?? this.category,
       subCategory: subCategory ?? this.subCategory,
       description: description ?? this.description,
